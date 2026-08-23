@@ -26,4 +26,4 @@ server/.env
 server/SERVER_REPORT.html
 
 # Client jar tro sang EC2 (sinh boi ClientRepointPatcher)
-client/jar/HSOSKY_EC2.jar
+client/jar/*_EC2.jar
