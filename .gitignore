@@ -1,0 +1,19 @@
+# Build artifacts
+target/
+*.class
+.ghostmod-build/
+
+# Runtime output
+log/
+*.log
+*.mdmp
+
+# Temp
+*.jar.tmp
+_verify_out.jar
+
+# Decompiled sources - sinh lai bang: java -jar cfr-0.152.jar <jar> --outputdir <dir>
+client/jar/src-hsosky-cfr/
+client/jar/src-decompiled/
+client/jar/src-jadx-deobf/
+client/jar/jadx/

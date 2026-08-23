@@ -1,0 +1,853 @@
+package map;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import client.Party;
+import client.Pet;
+import client.Player;
+import core.Manager;
+import core.MenuController;
+import core.Service;
+import core.Util;
+import io.Message;
+import io.Session;
+import template.EffTemplate;
+import template.Item3;
+import template.Item47;
+import template.ItemTemplate3;
+import template.ItemTemplate4;
+import template.ItemTemplate7;
+import template.Option_pet;
+
+public class Map implements Runnable {
+	public static final List<Map[]> entrys = new ArrayList<>();
+	public final List<Player> players;
+	public final byte map_id;
+	public final byte zone_id;
+	public final ItemMap[] item_map;
+	private final Thread mapthread;
+	public Mob_in_map[] mobs;
+	public final String[] npc_name_data;
+	public final String name;
+	public final List<Vgo> vgos;
+	public final byte typemap;
+	public final boolean ismaplang;
+	public final boolean showhs;
+	public final byte maxplayer;
+	public final byte maxzone;
+	private final byte[] map_data;
+	private boolean running;
+	public int num_mob_super;
+
+	public Map(int id, int zone, String[] npc_name, String name, byte typemap, boolean ismaplang, boolean showhs,
+	      int maxplayer, int maxzone, List<Vgo> vgo) throws IOException {
+		this.map_id = (byte) id;
+		this.zone_id = (byte) zone;
+		this.npc_name_data = npc_name;
+		this.name = name;
+		this.typemap = typemap;
+		this.ismaplang = ismaplang;
+		this.showhs = showhs;
+		this.maxplayer = (byte) maxplayer;
+		this.maxzone = (byte) maxzone;
+		this.item_map = new ItemMap[100];
+		this.mapthread = new Thread(this);
+		this.players = new ArrayList<>();
+		this.vgos = vgo;
+		this.running = false;
+		this.num_mob_super = 0;
+		this.map_data = Util.loadfile("data/mapnew/" + this.map_id);
+	}
+
+	@Override
+	public void run() {
+		this.running = true;
+		long time1 = 0;
+		long time2 = 0;
+		long time3 = 0;
+		while (this.running) {
+			try {
+				time1 = System.currentTimeMillis();
+				update();
+				time2 = System.currentTimeMillis();
+				time3 = (1_000L - (time2 - time1));
+				if (time3 > 0) {
+					if (time3 < 20) {
+						System.err.println("map_id " + this.map_id + " - zone " + (this.zone_id + 1) + " overload...");
+					}
+					Thread.sleep(time3);
+				}
+			} catch (InterruptedException e) {
+			}
+		}
+	}
+
+	private synchronized void update() {
+		try {
+			for (int i1 = 0; i1 < players.size(); i1++) {
+				Player p = players.get(i1);
+				if (this.map_id == 50) { // pet_manager
+					long now_time = System.currentTimeMillis();
+					for (Pet temp : p.mypet) {
+						if (temp.is_hatch && temp.time_born < now_time) {
+							temp.is_hatch = false;
+							//
+							Message m = new Message(44);
+							//
+							m.writer().writeByte(28);
+							m.writer().writeByte(0);
+							m.writer().writeByte(3);
+							m.writer().writeByte(3);
+							int dem = 0;
+							for (Pet temp2 : p.mypet) {
+								if (temp.is_hatch && temp2.time_born > now_time) {
+									dem++;
+								}
+							}
+							m.writer().writeByte(dem);
+							for (Pet temp2 : p.mypet) {
+								if (temp.is_hatch && temp2.time_born > now_time) {
+									int id_ = Pet.get_id(temp2.type);
+									m.writer().writeUTF(ItemTemplate3.item.get(id_).getName());
+									m.writer().writeByte(4); // clazz
+									m.writer().writeShort(id_);
+									m.writer().writeByte(14); // type
+									m.writer().writeShort(ItemTemplate3.item.get(id_).getIcon());
+									m.writer().writeByte(0); // tier
+									m.writer().writeShort(10); // level
+									m.writer().writeByte(0); // color
+									m.writer().writeByte(1);
+									m.writer().writeByte(1);
+									m.writer().writeByte(0); // op size
+									long time2 = ((temp2.time_born - now_time) / 60000) + 1;
+									m.writer().writeInt((int) time2);
+									m.writer().writeByte(0);
+								}
+							}
+							p.conn.addmsg(m);
+							m.cleanup();
+							//
+							m = new Message(44);
+							m.writer().writeByte(28);
+							m.writer().writeByte(1);
+							m.writer().writeByte(9);
+							m.writer().writeByte(9);
+							m.writer().writeUTF(temp.name);
+							m.writer().writeByte(temp.type);
+							m.writer().writeShort(p.mypet.indexOf(temp)); // id
+							m.writer().writeShort(temp.level);
+							m.writer().writeShort(temp.getlevelpercent()); // exp
+							m.writer().writeByte(temp.type);
+							m.writer().writeByte(temp.icon);
+							m.writer().writeByte(temp.nframe);
+							m.writer().writeByte(temp.color);
+							m.writer().writeInt(temp.get_age());
+							m.writer().writeShort(temp.grown);
+							m.writer().writeShort(temp.maxgrown);
+							m.writer().writeShort(temp.point1);
+							m.writer().writeShort(temp.point2);
+							m.writer().writeShort(temp.point3);
+							m.writer().writeShort(temp.point4);
+							m.writer().writeShort(temp.maxpoint);
+							m.writer().writeByte(temp.op.size());
+							for (int i2 = 0; i2 < temp.op.size(); i2++) {
+								Option_pet temp2 = temp.op.get(i2);
+								m.writer().writeByte(temp2.id);
+								m.writer().writeInt(temp2.param);
+								m.writer().writeInt(temp2.maxdam);
+							}
+							p.conn.addmsg(m);
+							m.cleanup();
+						}
+					}
+				}
+				p.update_wings_time();
+				for (Pet pet : p.mypet) {
+					if (pet.grown > 0 && pet.time_eat < System.currentTimeMillis()) {
+						pet.time_eat = System.currentTimeMillis() + 180_000L;
+						pet.grown -= 1;
+						if (pet.is_follow) {
+							Service.send_wear(p);
+						}
+					}
+				}
+				if (!p.isdie) {
+					// auto +hp,mp
+					int percent = p.body.total_skill_param(29) + p.body.total_item_param(29);
+					if (p.time_buff_hp < System.currentTimeMillis()) {
+						p.time_buff_hp = System.currentTimeMillis() + 5000L;
+						if (percent > 0 && p.hp < p.body.get_max_hp()) {
+							int param = (p.body.get_max_hp() * (percent / 100)) / 100;
+							Service.usepotion(p, 0, param);
+						}
+					}
+					percent = p.body.total_skill_param(30) + p.body.total_item_param(30);
+					if (p.time_buff_mp < System.currentTimeMillis()) {
+						p.time_buff_mp = System.currentTimeMillis() + 5000L;
+						if (percent > 0 && p.mp < p.body.get_max_mp()) {
+							int param = (p.body.get_max_mp() * (percent / 100)) / 100;
+							Service.usepotion(p, 1, param);
+						}
+					}
+					// eff medal
+					Item3 it = p.item.wear[12];
+					if (it != null && p.time_eff_medal < System.currentTimeMillis()) {
+						p.time_eff_medal = System.currentTimeMillis() + 5_000L;
+						Message m = new Message(-49);
+						m.writer().writeByte(2);
+						m.writer().writeShort(0);
+						m.writer().writeByte(0);
+						m.writer().writeByte(0);
+						switch (it.id) {
+							case 4588: {
+								m.writer().writeByte(26);
+								break;
+							}
+							case 4589: {
+								m.writer().writeByte(28);
+								break;
+							}
+							case 4590: {
+								m.writer().writeByte(32);
+								break;
+							}
+							default: { // 4587
+								m.writer().writeByte(29);
+								break;
+							}
+						}
+						m.writer().writeShort(p.id);
+						m.writer().writeByte(0);
+						m.writer().writeByte(0);
+						m.writer().writeInt(1000);
+						MapService.send_msg_player_inside(this, p, m, true);
+						m.cleanup();
+					}
+				}
+				
+				// process eff
+				for (int i = 0; i < p.list_eff.size(); i++) {
+					EffTemplate temp = p.list_eff.get(i);
+					// remove
+					if (temp.time <= System.currentTimeMillis()) {
+						synchronized (p.list_eff) {
+							p.list_eff.remove(temp);
+							i--;
+						}
+						if (temp.id == -125) {
+							p.set_x2_xp(0);
+						}
+						if (temp.id == 24 || temp.id == 23 || temp.id == 0 || temp.id == 2 || temp.id == 3 || temp.id == 4) {
+							if (temp.id == 2) {
+								p.hp += p.hp_restore;
+							}
+							Service.send_char_main_in4(p);
+							for (int j = 0; j < players.size(); j++) {
+								Player p2 = players.get(j);
+								if (p2 != null && p2.id != p.id) {
+									MapService.send_in4_other_char(this, p2, p);
+								}
+							}
+						}
+					}
+					//
+					if (temp.id == 1 && !p.isdie) {
+						if (p.time_affect_special_sk < System.currentTimeMillis() && p.dame_affect_special_sk > 0) {
+							p.time_affect_special_sk = System.currentTimeMillis() + 1000L;
+							p.hp -= p.dame_affect_special_sk;
+							Service.usepotion(p, 0, -p.dame_affect_special_sk);
+							if (p.hp < 0) {
+								MapService.die_by_player(this, p, p);
+								MapService.change_flag(this, p, -1);
+							}
+						}
+					}
+					// System.out.println(temp.id + " : " + (temp.time - System.currentTimeMillis()));
+				}
+			}
+			// mob
+			for (Mob_in_map mob : this.mobs) {
+				if (mob.isdie && ((mob.is_boss && mob.is_boss_active) || !mob.is_boss)
+				      && mob.time_back < System.currentTimeMillis()) {
+					if (mob.is_boss) {
+						Manager.gI().chatKTGprocess("@Server : " + mob.template.name + " xuất hiện.");
+						System.out.println("refresh boss : " + mob.template.name + " : map : " + this.name + " : khu : "
+						      + (this.zone_id + 1));
+					}
+					mob.isdie = false;
+					mob.list_fight.clear();
+					mob.hp = mob.hpmax;
+					if (mob.is_boss) {
+						mob.color_name = 3;
+					} else if (5 > Util.random(100)&& num_mob_super < 3 && mob.level > 50) {
+						mob.color_name = (new byte[] {1, 2, 4, 5})[Util.random(4)];
+						num_mob_super++;
+					} else {
+						mob.color_name = 0;
+					}
+					for (int j = 0; j < players.size(); j++) {
+						Player pp = players.get(j);
+						if ((Math.abs(pp.x - mob.x) < 200) && (Math.abs(pp.y - mob.y) < 200)) {
+							if (!pp.other_mob_inside.containsKey(mob.index)) {
+								pp.other_mob_inside.put(mob.index, true);
+							}
+							if (pp.other_mob_inside.get(mob.index)) {
+								Message mm = new Message(4);
+								mm.writer().writeByte(1);
+								mm.writer().writeShort(mob.template.mob_id);
+								mm.writer().writeShort(mob.index);
+								mm.writer().writeShort(mob.x);
+								mm.writer().writeShort(mob.y);
+								mm.writer().writeByte(-1);
+								pp.conn.addmsg(mm);
+								mm.cleanup();
+								pp.other_mob_inside.replace(mob.index, true, false);
+							} else {
+								Service.mob_in4(pp, mob.index);
+							}
+						}
+					}
+				}
+				// mob fire
+				if (!mob.isdie && mob.list_fight.size() > 0) {
+					Player p0 = mob.list_fight.get(Util.random(mob.list_fight.size()));
+					if (p0 != null && !p0.isdie && p0.map.map_id == this.map_id && p0.map.zone_id == this.zone_id) {
+						if (Math.abs(mob.x - p0.x) < 200 && Math.abs(mob.y - p0.y) < 200) {
+							if (mob.time_fight < System.currentTimeMillis()) {
+								mob.time_fight = System.currentTimeMillis() + 1200L;
+								// if (mob.is_boss) {
+								// mob.time_fight -= 600L;
+								// }
+								MapService.mob_fire(this, mob, p0);
+							}
+						} else {
+							mob.list_fight.remove(p0);
+							//
+							Message m = new Message(10);
+							m.writer().writeByte(0);
+							m.writer().writeShort(mob.index);
+							MapService.send_msg_player_inside(this, p0, m, true);
+							m.cleanup();
+						}
+					}
+					if (p0.isdie) {
+						mob.list_fight.remove(p0);
+						//
+						Message m = new Message(10);
+						m.writer().writeByte(0);
+						m.writer().writeShort(mob.index);
+						MapService.send_msg_player_inside(this, p0, m, true);
+						m.cleanup();
+					}
+					if (mob.list_fight.contains(p0) && !(p0.map.map_id == this.map_id && p0.map.zone_id == this.zone_id)) {
+						mob.list_fight.remove(p0);
+					}
+				}
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		// update item map
+		for (int i = 0; i < this.item_map.length; i++) {
+			if (this.item_map[i] != null && this.item_map[i].idmaster != -1
+			      && ((this.item_map[i].time_exist - System.currentTimeMillis()) < 15000L)) {
+				this.item_map[i].idmaster = -1;
+			}
+			if (this.item_map[i] != null && this.item_map[i].time_exist < System.currentTimeMillis()) {
+				this.item_map[i] = null;
+			}
+		}
+	}
+
+	public void start_map() {
+		this.mapthread.start();
+	}
+
+	public void stop_map() {
+		this.running = false;
+		this.mapthread.interrupt();
+	}
+
+	public static Player get_player_by_name(String name) {
+		for (Map[] maps : entrys) {
+			for (Map map : maps) {
+				synchronized (map) {
+					for (Player p0 : map.players) {
+						if (p0.name.equals(name)) {
+							return p0;
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+
+	public static Map[] get_map_by_id(int id) {
+		for (Map[] temp : entrys) {
+			if (temp[0].map_id == id) {
+				return temp;
+			}
+		}
+		return null;
+	}
+
+	public void send_map_data(Player p) throws IOException {
+		Message m = new Message(12);
+		m.writer().writeShort(this.map_id);
+		m.writer().writeShort((short) (p.x / 24));
+		m.writer().writeShort((short) (p.y / 24));
+		m.writer().write(this.map_data);
+		m.writer().writeByte(this.zone_id); // zone
+		m.writer().writeByte(this.typemap);
+		m.writer().writeBoolean(this.ismaplang);
+		m.writer().writeBoolean(this.showhs);
+		p.conn.addmsg(m);
+		m.cleanup();
+		// send npc;
+		String path = "data/npc/";
+		if (Manager.gI().event != 0 && this.map_id == 1) {
+			path = "data/npc/event" + Manager.gI().event + "/";
+			Service.send_msg_data(p.conn, -49, "event1_1");
+		}
+		for (int i = 0; i < this.npc_name_data.length; i++) {
+			m = new Message(-50);
+			m.writer().write(Util.loadfile(path + this.npc_name_data[i]));
+			p.conn.addmsg(m);
+			m.cleanup();
+		}
+		// monument
+		if (this.map_id == 1) {
+			m = new Message(-96);
+			m.writer().writeShort(288);
+			m.writer().writeShort(312);
+			m.writer().writeShort(264);
+			m.writer().writeShort(288);
+			m.writer().writeByte(3);
+			m.writer().writeByte(1);
+			m.writer().writeByte(-1);
+			m.writer().writeByte(-25);
+			m.writer().writeByte(1);
+			m.writer().writeUTF("Đại Gia Sever");
+			m.writer().writeUTF("hutaoxiao");
+			m.writer().writeByte(-49);
+			m.writer().writeByte(15);
+			//
+			m.writer().writeShort(21); // weapon
+			m.writer().writeShort(115); // body
+			m.writer().writeShort(-1);
+			m.writer().writeShort(-1);
+			m.writer().writeShort(-1);
+			m.writer().writeShort(3); // pet
+			m.writer().writeShort(112); // hat
+			m.writer().writeShort(115); // leg
+			m.writer().writeShort(-1);
+			m.writer().writeShort(-1);
+			m.writer().writeShort(4); // wing
+			m.writer().writeShort(-1);
+			m.writer().writeShort(0); // head
+			m.writer().writeShort(11); // eye
+			m.writer().writeShort(-1); // hair
+			//
+			m.writer().write(Util.loadfile("data/msg/msg_-96_x" + p.conn.zoomlv));
+			p.conn.addmsg(m);
+			m.cleanup();
+		} else if (this.map_id == 50) { // map pet
+			m = new Message(44);
+			m.writer().writeByte(28);
+			m.writer().writeByte(0);
+			m.writer().writeByte(3);
+			m.writer().writeByte(3);
+			int dem = 0;
+			long now_time = System.currentTimeMillis();
+			for (Pet temp2 : p.mypet) {
+				if (temp2.is_hatch && temp2.time_born > now_time) {
+					dem++;
+				}
+			}
+			m.writer().writeByte(dem);
+			for (Pet temp2 : p.mypet) {
+				if (temp2.is_hatch && temp2.time_born > now_time) {
+					int id_ = Pet.get_id(temp2.type);
+					m.writer().writeUTF(ItemTemplate3.item.get(id_).getName());
+					m.writer().writeByte(4); // clazz
+					m.writer().writeShort(id_);
+					m.writer().writeByte(14); // type
+					m.writer().writeShort(ItemTemplate3.item.get(id_).getIcon());
+					m.writer().writeByte(0); // tier
+					m.writer().writeShort(10); // level
+					m.writer().writeByte(0); // color
+					m.writer().writeByte(1);
+					m.writer().writeByte(1);
+					m.writer().writeByte(0); // op size
+					long time2 = ((temp2.time_born - now_time) / 60000) + 1;
+					m.writer().writeInt((int) time2);
+					m.writer().writeByte(0);
+				}
+			}
+			p.conn.addmsg(m);
+			m.cleanup();
+			//
+			m = new Message(44);
+			m.writer().writeByte(28);
+			m.writer().writeByte(0);
+			m.writer().writeByte(9);
+			m.writer().writeByte(9);
+			m.writer().writeByte(0);
+			p.conn.addmsg(m);
+			m.cleanup();
+			//
+			m = new Message(44);
+			m.writer().writeByte(28);
+			m.writer().writeByte(0);
+			m.writer().writeByte(9);
+			m.writer().writeByte(9);
+			dem = 0;
+			for (Pet temp : p.mypet) {
+				if (!temp.is_follow && !temp.is_hatch) {
+					dem++;
+				}
+			}
+			m.writer().writeByte(dem); // size pet
+			//
+			for (int i = 0; i < p.mypet.size(); i++) {
+				if (!p.mypet.get(i).is_follow && !p.mypet.get(i).is_hatch) {
+					m.writer().writeUTF(p.mypet.get(i).name);
+					m.writer().writeByte(p.mypet.get(i).type);
+					m.writer().writeShort(i); // id
+					m.writer().writeShort(p.mypet.get(i).level);
+					m.writer().writeShort(p.mypet.get(i).getlevelpercent()); // exp
+					m.writer().writeByte(p.mypet.get(i).type);
+					m.writer().writeByte(p.mypet.get(i).icon);
+					m.writer().writeByte(p.mypet.get(i).nframe);
+					m.writer().writeByte(p.mypet.get(i).color);
+					m.writer().writeInt(p.mypet.get(i).get_age());
+					m.writer().writeShort(p.mypet.get(i).grown);
+					m.writer().writeShort(p.mypet.get(i).maxgrown);
+					m.writer().writeShort(p.mypet.get(i).point1);
+					m.writer().writeShort(p.mypet.get(i).point2);
+					m.writer().writeShort(p.mypet.get(i).point3);
+					m.writer().writeShort(p.mypet.get(i).point4);
+					m.writer().writeShort(p.mypet.get(i).maxpoint);
+					m.writer().writeByte(p.mypet.get(i).op.size());
+					for (int i2 = 0; i2 < p.mypet.get(i).op.size(); i2++) {
+						Option_pet temp = p.mypet.get(i).op.get(i2);
+						m.writer().writeByte(temp.id);
+						m.writer().writeInt(temp.param);
+						m.writer().writeInt(temp.maxdam);
+					}
+				}
+			}
+			p.conn.addmsg(m);
+			m.cleanup();
+		}
+	}
+
+	
+
+	public static Map get_map_dungeon(int id) {
+		for (Map[] temp : entrys) {
+			if (temp[0].map_id == id) {
+				return temp[0];
+			}
+		}
+		return null;
+	}
+
+	public synchronized void drop_item(Player p, byte type, short id) throws IOException {
+		switch (type) {
+			case 3: {
+				Item3 temp = p.item.bag3[id];
+				if (temp != null) {
+					if (temp.islock) {
+						Service.send_notice_box(p.conn, "Vật phẩm đã khóa");
+						return;
+					}
+					p.item.bag3[id] = null;
+				}
+				break;
+			}
+			case 4: {
+			}
+			case 7: {
+				p.item.remove(type, id, p.item.total_item_by_id(type, id));
+				break;
+			}
+		}
+		p.item.char_inventory(4);
+		p.item.char_inventory(7);
+		p.item.char_inventory(3);
+	}
+
+	public void send_mount(Player p) throws IOException {
+		Message m = new Message(-97);
+		m.writer().writeByte(0);
+		m.writer().writeByte(p.type_use_mount);
+		m.writer().writeShort(p.id);
+		MapService.send_msg_player_inside(this, p, m, true);
+		m.cleanup();
+		Service.send_char_main_in4(p);
+	}
+
+	public synchronized void pick_item(Session conn, Message m2) throws IOException {
+		short id = m2.reader().readShort();
+		byte type = m2.reader().readByte();
+		if (item_map[id] == null) {
+			Message m = new Message(20);
+			m.writer().writeByte(type);
+			m.writer().writeShort(id);
+			m.writer().writeShort(conn.p.id);
+			MapService.send_msg_player_inside(this, conn.p, m, true);
+			m.cleanup();
+			item_map[id] = null;
+			return;
+		}
+		type = item_map[id].category;
+		if (conn.p.isdie || conn.p.in4_auto[3] == 0
+		      || (conn.p.in4_auto[4] == -1 && conn.p.in4_auto[5] == 1 && conn.p.in4_auto[6] == 3)) {
+			return;
+		}
+		if (item_map[id].idmaster != -1 && conn.p.id != item_map[id].idmaster) {
+			Service.send_notice_nobox_white(conn, "Vật phẩm của người khác");
+			return;
+		}
+		if (item_map[id] != null && (item_map[id].idmaster == -1 || conn.p.id == item_map[id].idmaster)
+		      && (item_map[id].time_pick < System.currentTimeMillis())) {
+			if (type == 4 && item_map[id].id_item == -1) { // vang
+				if (conn.p.in4_auto[5] == 0) {
+					conn.p.update_vang(item_map[id].quantity);
+					conn.p.item.char_inventory(5);
+					Message m = new Message(20);
+					m.writer().writeByte(type);
+					m.writer().writeShort(id);
+					m.writer().writeShort(conn.p.id);
+					MapService.send_msg_player_inside(this, conn.p, m, true);
+					m.cleanup();
+					item_map[id] = null;
+				}
+			} else if (item_map[id].id_item != -1) {
+				if (conn.p.item.get_bag_able() > 0
+				      || ((type == 4 || type == 7) && (conn.p.item.total_item_by_id(type, item_map[id].id_item) > 0))) {
+					switch (type) {
+						case 3: {
+							if (item_map[id].id_item < ItemTemplate3.item.size()) {
+								Short idadd = item_map[id].id_item;
+								Item3 itbag = new Item3();
+								itbag.id = idadd;
+								itbag.name = ItemTemplate3.item.get(idadd).getName();
+								itbag.clazz = ItemTemplate3.item.get(idadd).getClazz();
+								itbag.type = ItemTemplate3.item.get(idadd).getType();
+								itbag.level = ItemTemplate3.item.get(idadd).getLevel();
+								itbag.icon = ItemTemplate3.item.get(idadd).getIcon();
+								itbag.op = new ArrayList<>();
+								itbag.op.addAll(item_map[id].op);
+								itbag.color = ItemTemplate3.item.get(idadd).getColor();
+								itbag.part = ItemTemplate3.item.get(idadd).getPart();
+								itbag.tier = 0;
+								itbag.islock = false;
+								itbag.time_use = 0;
+								if (conn.p.in4_auto[4] > itbag.color) {
+									return;
+								}
+								conn.p.item.add_item_bag3(itbag);
+								conn.p.item.char_inventory(3);
+							}
+							break;
+						}
+						case 4: {
+							if (item_map[id].id_item < ItemTemplate4.item.size()) {
+								Short idadd = item_map[id].id_item;
+								if (ItemTemplate4.item.get(idadd).getType() == 1 && conn.p.in4_auto[6] == 1) {
+									return;
+								} else if (ItemTemplate4.item.get(idadd).getType() == 0 && conn.p.in4_auto[6] == 2) {
+									return;
+								}
+								Item47 itbag = new Item47();
+								itbag.id = idadd;
+								itbag.quantity = (short) item_map[id].quantity;
+								itbag.category = 4;
+								conn.p.item.add_item_bag47(4, itbag);
+								conn.p.item.char_inventory(4);
+							}
+							break;
+						}
+						case 7: {
+							if (item_map[id].id_item < ItemTemplate7.item.size()) {
+								Short idadd = item_map[id].id_item;
+								Item47 itbag = new Item47();
+								itbag.id = idadd;
+								itbag.quantity = (short) item_map[id].quantity;
+								itbag.category = 7;
+								conn.p.item.add_item_bag47(7, itbag);
+								conn.p.item.char_inventory(7);
+							}
+							break;
+						}
+					}
+					Message m = new Message(20);
+					m.writer().writeByte(type);
+					m.writer().writeShort(id);
+					m.writer().writeShort(conn.p.id);
+					MapService.send_msg_player_inside(this, conn.p, m, true);
+					m.cleanup();
+					item_map[id] = null;
+				}
+			}
+		}
+	}
+
+	public int get_item_map_index_able() {
+		for (int i = 0; i < item_map.length; i++) {
+			if (item_map[i] == null) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	public void create_party(Session conn, Message m2) throws IOException {
+		byte type = m2.reader().readByte();
+		String name = "";
+		Player p0 = null;
+		if (type != 0 && type != 5 && type != 4) {
+			name = m2.reader().readUTF();
+			p0 = Map.get_player_by_name(name);
+		}
+		switch (type) {
+			case 1: { // request party other
+				if (p0 == null) {
+					Service.send_notice_box(conn, "Có lỗi xảy ra, hãy thử lại");
+					return;
+				}
+				if (p0.party != null) {
+					if (conn.p.party != null && conn.p.party.get_mems().contains(p0)) {
+						Service.send_notice_box(conn, "Đối phương đã ở trong đội");
+					} else {
+						Service.send_notice_box(conn, "Đối phương đang trong đội khác");
+					}
+					return;
+				}
+				if (conn.p.party != null) {
+					if (conn.p.party.get_mems().get(0).id != conn.p.id) {
+						Service.send_notice_box(conn, "Bạn éo phải đội trưởng, đừng có ra dẻ!!!");
+						return;
+					}
+					if (conn.p.party.get_mems().size() > 4) {
+						Service.send_notice_box(conn, "không thể rủ rê thêm thành viên");
+						return;
+					}
+				}
+				if (conn.p.party == null) {
+					conn.p.party = new Party();
+					conn.p.party.add_mems(conn.p);
+					conn.p.party.sendin4();
+				}
+				//
+				Message m = new Message(48);
+				m.writer().writeByte(type);
+				m.writer().writeUTF(conn.p.name);
+				p0.conn.addmsg(m);
+				m.cleanup();
+				break;
+			}
+			case 2: { // accept
+				if (conn.p.party != null) {
+					Service.send_notice_box(conn, "Bạn đã ở trong nhóm");
+					return;
+				}
+				if (p0 == null || (p0 != null && p0.party == null)) {
+					Service.send_notice_box(conn, "Nhóm không còn tồn tại");
+					return;
+				}
+				if (p0.party.get_mems().size() > 4) {
+					Service.send_notice_box(conn, "Nhóm đầy");
+					return;
+				} else {
+					conn.p.party = p0.party;
+					p0.party.add_mems(conn.p);
+					p0.party.sendin4();
+					p0.party.send_txt_notice(conn.p.name + " vào nhóm");
+				}
+				break;
+			}
+			case 3: { // kick
+				if (conn.p.party == null) {
+					Service.send_notice_box(conn, "Nhóm không tồn tại");
+					return;
+				}
+				Player p01 = null;
+				for (int i = 0; i < conn.p.party.get_mems().size(); i++) {
+					if (conn.p.party.get_mems().get(i).name.equals(name)) {
+						p01 = conn.p.party.get_mems().get(i);
+						break;
+					}
+				}
+				if (p01 == null || name.equals("")) {
+					Service.send_notice_box(conn, "Có lỗi xảy ra, hãy thử lại");
+				}
+				p01.party.remove_mems(p01);
+				p01.party.sendin4();
+				p01.party = null;
+				conn.p.party.send_txt_notice(p01.name + " đã bị đá khỏi đội");
+				Service.send_notice_nobox_white(p01.conn, "Bạn đã bị đá khỏi đội ehehe");
+				Message m22 = new Message(48);
+				m22.writer().writeByte(5);
+				p01.conn.addmsg(m22);
+				m22.cleanup();
+				break;
+			}
+			case 4: { // giai tan
+				Message m = new Message(48);
+				m.writer().writeByte(4);
+				for (int i = 1; i < conn.p.party.get_mems().size(); i++) {
+					Player p02 = conn.p.party.get_mems().get(i);
+					p02.conn.addmsg(m);
+					p02.party = null;
+				}
+				conn.addmsg(m);
+				conn.p.party.get_mems().clear();
+				conn.p.party = null;
+				m.cleanup();
+				break;
+			}
+			case 5: { // leave
+				if (conn.p.party.get_mems().get(0).id == conn.p.id) {
+					Service.send_notice_box(conn, "Là đội trưởng thì phải ra dáng, không đc bỏ nhóm!");
+					return;
+				}
+				conn.p.party.remove_mems(conn.p);
+				conn.p.party.sendin4();
+				conn.p.party.send_txt_notice(conn.p.name + " rời nhóm");
+				conn.p.party = null;
+				//
+				Message m = new Message(48);
+				m.writer().writeByte(5);
+				conn.addmsg(m);
+				m.cleanup();
+				break;
+			}
+			default: {
+				Service.send_notice_box(conn, "Chưa có chức năng");
+				break;
+			}
+		}
+	}
+        public static Player get_player_by_id(int id_player_login) {
+		for (Map[] maps : entrys) {
+			for (Map map : maps) {
+				synchronized (map) {
+					for (Player p0 : map.players) {
+						if (p0.id == id_player_login) {
+							return p0;
+						}
+					}
+				}
+			}
+		}
+		return null;
+	}
+        public static boolean is_map_cant_save_site(byte id) {
+		return id == 48 || id == 88 || id == 89 || id == 90 || id == 91;
+	}
+}
