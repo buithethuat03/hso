@@ -21,3 +21,6 @@ client/jar/jadx/
 # Docker env (chua secret) - khong commit
 .env
 server/.env
+
+# Bao cao (giu ban local, khong track)
+server/SERVER_REPORT.html
