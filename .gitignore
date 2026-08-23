@@ -17,3 +17,7 @@ client/jar/src-hsosky-cfr/
 client/jar/src-decompiled/
 client/jar/src-jadx-deobf/
 client/jar/jadx/
+
+# Docker env (chua secret) - khong commit
+.env
+server/.env

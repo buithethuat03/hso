@@ -38,6 +38,10 @@ public class GameSrc {
         byte type = m2.reader().readByte();
         short id = m2.reader().readShort();
         byte tem = m2.reader().readByte(); // type item insert
+        // id là chỉ số ô túi do client gửi -> chặn index ngoài biên (tránh crash + thao tác sai ô).
+        if (!Util.validIndex(id, conn.p.item.bag3.length)) {
+            return;
+        }
         // System.out.println(type);
         // System.out.println(id);
         // System.out.println(tem);
@@ -574,6 +578,28 @@ public class GameSrc {
                 }
                 Service.send_notice_nobox_white(p0.conn, (conn.p.name + " xác nhận giao dịch!"));
                 if (conn.p.accept_trade && p0.accept_trade) {
+                    // Chống mất đồ: kiểm tra CẢ HAI bên đủ ô trống TRƯỚC khi chuyển bất cứ thứ gì.
+                    // Trước đây nếu túi người nhận đầy, vòng tìm slot trống lặng lẽ bỏ qua nhưng đồ vẫn
+                    // bị xóa khỏi người gửi -> mất đồ vĩnh viễn.
+                    int give_by_conn = 0;
+                    for (short it : conn.p.list_item_trade) {
+                        if (it > -1) {
+                            give_by_conn++;
+                        }
+                    }
+                    int give_by_p0 = 0;
+                    for (short it : p0.list_item_trade) {
+                        if (it > -1) {
+                            give_by_p0++;
+                        }
+                    }
+                    if (p0.item.get_bag_able() < give_by_conn || conn.p.item.get_bag_able() < give_by_p0) {
+                        Service.send_notice_box(conn, "Giao dịch thất bại: túi đồ không đủ chỗ trống!");
+                        Service.send_notice_box(p0.conn, "Giao dịch thất bại: túi đồ không đủ chỗ trống!");
+                        conn.p.accept_trade = false;
+                        p0.accept_trade = false;
+                        return;
+                    }
                     //
                     if (conn.p.money_trade > 0) {
                         conn.p.update_vang(-conn.p.money_trade);
@@ -735,6 +761,9 @@ public class GameSrc {
     public static void replace_item_process(Player p, Message m2) throws IOException {
         byte type = m2.reader().readByte();
         short id = m2.reader().readShort();
+        if (!Util.validIndex(id, p.item.bag3.length)) {
+            return;
+        }
         if (type == 0) {
             if (p.item.bag3[id] != null && !check_item_can_rebuild(p.item.bag3[id].type)) {
                 Service.send_notice_box(p.conn, "Không hợp lệ!");
@@ -815,6 +844,9 @@ public class GameSrc {
 		// System.out.println(id);
 		// System.out.println(tem);
 		if (id != -1 && tem == 7) {
+			if (!Util.validIndex(id, ItemTemplate7.item.size())) {
+				return;
+			}
 			byte type_item = ItemTemplate7.item.get(id).getType();
 			if (type_item != 54) {
 				Service.send_notice_box(conn, "Vật phẩm không hợp lệ!");
@@ -840,6 +872,9 @@ public class GameSrc {
 						m.cleanup();
 					}
 				} else if (tem == 3) {
+					if (!Util.validIndex(id, conn.p.item.bag3.length)) {
+						return;
+					}
 					Item3 it_temp = conn.p.item.bag3[id];
 					if (it_temp != null
 					      && (it_temp.id == 4587 || it_temp.id == 4588 || it_temp.id == 4589 || it_temp.id == 4590)
@@ -1503,6 +1538,9 @@ public class GameSrc {
             conn.p.item.remove(7, 3, 20);
             conn.p.item.char_inventory(7);
            
+            if (!Util.validIndex(wing, ItemTemplate3.item.size())) {
+                return;
+            }
             ItemTemplate3 temp = ItemTemplate3.item.get(wing);
             Item3 itbag = new Item3();
             itbag.id = (short) wing;
@@ -1923,6 +1961,10 @@ public class GameSrc {
 								Service.send_notice_box(conn, "Không đủ " + vang_trade + " vàng!");
 								return;
 							}
+							if (conn.p.item.get_bag_able() < 1) {
+								Service.send_notice_box(conn, "Túi đồ đầy, không thể mua!");
+								return;
+							}
 							conn.p.update_vang(-vang_trade);
 							vang_trade = (vang_trade / 100) * 95;
 							p0.update_vang(vang_trade);
@@ -1949,6 +1991,11 @@ public class GameSrc {
 									int vang_trade = p0.my_store.get(i).it_price;
 									if (conn.p.get_vang() < vang_trade) {
 										Service.send_notice_box(conn, "Không đủ " + vang_trade + " vàng!");
+										return;
+									}
+									if (conn.p.item.get_bag_able() < 1
+											&& conn.p.item.total_item_by_id(idType, iditem) < 1) {
+										Service.send_notice_box(conn, "Túi đồ đầy, không thể mua!");
 										return;
 									}
 									conn.p.update_vang(-vang_trade);
@@ -2116,6 +2163,9 @@ public class GameSrc {
                 }
                 if (id_g1 == -1 || p.item.total_item_by_id(7, id_g1) < 1) {
                     Service.send_notice_box(p.conn, "Lỗi hãy thử lại!");
+                    return;
+                }
+                if (!Util.validIndex(id_item, p.item.bag3.length)) {
                     return;
                 }
                 Item3 it3 = p.item.bag3[id_item];

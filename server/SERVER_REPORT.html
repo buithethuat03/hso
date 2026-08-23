@@ -413,9 +413,9 @@ footer {
 <main>
 
 <header class="mast">
-  <div class="eyebrow">Khảo sát mã nguồn · 23/08/2026</div>
+  <div class="eyebrow">Khảo sát mã nguồn · 23/08/2026 · đã vá đợt 1</div>
   <h1>Hồ sơ server HSO_Re_2</h1>
-  <p class="standfirst">Mã nguồn server game <em>Hiệp Sĩ Ong Đất Online</em> — đánh giá toàn diện trước khi nâng cấp và mở cho người chơi thật. Mọi phát hiện đều dẫn <span class="mono">file:line</span> để phiên làm việc sau vá được ngay.</p>
+  <p class="standfirst">Mã nguồn server game <em>Hiệp Sĩ Free Online</em> (đổi tên từ "Hiệp Sĩ Ong Đất Online") — đánh giá toàn diện, và ghi lại đợt vá lỗi + tối ưu + thêm công cụ admin đầu tiên. Mọi phát hiện dẫn <span class="mono">file:line</span> để phiên sau tiếp tục được ngay.</p>
   <div class="meta-row">
     <span><b>Phạm vi</b> server/src/main/java · 89 file · 31.174 dòng</span>
     <span><b>Nền tảng</b> Java 17 · Maven · MySQL 8 + HikariCP</span>
@@ -425,29 +425,29 @@ footer {
 
 <div class="verdicts">
   <div class="vcard">
-    <div class="k">Lỗi chặn phát hành</div>
-    <div class="v is-crit">4</div>
-    <div class="sub">đã đọc xác nhận tận dòng</div>
+    <div class="k">Lỗi P0 đã vá (đợt 1)</div>
+    <div class="v is-ok">8</div>
+    <div class="sub">gồm 3 P0 mới phát hiện</div>
   </div>
   <div class="vcard">
-    <div class="k">Nền tảng gameplay</div>
-    <div class="v is-ok">Đầy đủ</div>
-    <div class="sub">clan, dungeon, pet, trade, event</div>
+    <div class="k">Cố ý giữ nguyên</div>
+    <div class="v is-warn">2</div>
+    <div class="sub">mật khẩu thô · chống teleport</div>
+  </div>
+  <div class="vcard">
+    <div class="k">Công cụ admin</div>
+    <div class="v is-ok">Đã bật</div>
+    <div class="sub">7 mục menu + chốt quyền</div>
   </div>
   <div class="vcard">
     <div class="k">Chuyển sang Linux</div>
-    <div class="v is-ok">Nhẹ</div>
-    <div class="sub">không phải port code</div>
-  </div>
-  <div class="vcard">
-    <div class="k">Thread nền thường trú</div>
-    <div class="v is-warn">≈770</div>
-    <div class="sub">+2 thread mỗi người chơi</div>
+    <div class="v is-ok">Container sẵn</div>
+    <div class="sub">Dockerfile + compose</div>
   </div>
   <div class="vcard">
     <div class="k">Kiểm thử tự động</div>
     <div class="v is-crit">0</div>
-    <div class="sub">không có file test nào</div>
+    <div class="sub">chưa có file test nào</div>
   </div>
 </div>
 
@@ -456,9 +456,15 @@ footer {
   <h2><span class="num">1</span> Tóm tắt điều hành</h2>
   <p class="lede">Đọc mục này là đủ để quyết định làm gì tiếp.</p>
 
+  <div class="callout">
+    <span class="tag">Trạng thái sau đợt vá 1 (23/08/2026)</span>
+    <p><strong>Đã vá 8 lỗi P0</strong> (gồm 3 lỗi mới phát hiện khi rà kỹ: chiếm nhân vật qua ID login, SQL injection lúc tạo bang, và menu admin ai cũng tắt được server), <strong>các lỗi P1 chính</strong> (kiểm tra biên index từ client, nuốt lỗi đường tiền/tick bản đồ, rò rỉ thread lưu dữ liệu), <strong>làm cứng &amp; tối ưu ở mức vừa phải</strong> (pool DB, cổng MySQL cấu hình được, nâng HikariCP/Connector-J, lưu dữ liệu khi tắt), <strong>bật + bảo mật toàn bộ công cụ admin</strong>, đổi tên game thành "Hiệp Sĩ Free Online", và tạo sẵn <strong>Dockerfile + docker-compose</strong> để deploy EC2. Chi tiết từng mục ở phần 7, 8, 10. Build đã xác minh chạy được.</p>
+    <p><strong>Cố ý giữ nguyên</strong> theo yêu cầu chủ server: mật khẩu lưu dạng thô, và cơ chế toạ độ/chống-teleport ở <code>MapService.java:141-147</code>. Phiên sau <em>không</em> được "vá" hai mục này.</p>
+  </div>
+
   <p><strong>Đây không phải một bộ khung dở dang.</strong> Phần lớn hệ thống gameplay là code thật đang chạy: bang hội có kho và cấp bậc, dungeon, thú cưỡi, pet, giao dịch giữa người chơi, chiến trường phe phái, lôi đài, tài xỉu, vòng xoay may mắn, nhiệm vụ ngày, kết hôn. Công thức sát thương phân biệt theo nghề, có buff và trang bị. Điều đó có nghĩa: <em>công việc phía trước là sửa và làm cứng, không phải viết lại từ đầu.</em></p>
 
-  <p><strong>Nhưng chưa mở được cho người chơi thật.</strong> Có bốn lỗi chặn, cả bốn tôi đã mở file đọc tận dòng để xác nhận chứ không suy diễn:</p>
+  <p><strong>Trước đợt vá, có bốn lỗi chặn phát hành</strong> (nay đã vá — xem phần 7). Cả bốn đều được mở file đọc tận dòng để xác nhận chứ không suy diễn:</p>
 
   <ol class="body-list">
     <li><strong>Lỗ SQL injection bỏ qua được đăng nhập</strong> — một điều kiện <code>&amp;&amp;</code> bị đoản mạch làm vô hiệu toàn bộ việc kiểm tra ký tự, rồi chuỗi người dùng gửi lên được nối thẳng vào câu truy vấn. Mất cả bảng tài khoản là hệ quả khả thi. Xem <a href="#f-sqli">7.1</a>.</li>
@@ -494,7 +500,7 @@ footer {
   <div class="tw">
     <table>
       <tbody>
-        <tr><th>Tên game</th><td>Hiệp Sĩ Ong Đất Online — server tự đặt tên trong lời chào tự động <span class="ref">core/ServerManager.java:110</span></td></tr>
+        <tr><th>Tên game</th><td><strong>Hiệp Sĩ Free Online</strong> — đổi tên từ "Hiệp Sĩ Ong Đất Online" (đợt vá 1). Chuỗi hiển thị ở lời chào <span class="ref">core/ServerManager.java:115</span> và bảng xếp hạng <span class="ref">map/Npc.java:26</span>. Tên hiển thị màn login do <em>client</em> vẽ, không nằm trong repo này.</td></tr>
         <tr><th>Maven</th><td class="mono">com.PhongVu : HSO_Re_2 : 1.0</td></tr>
         <tr><th>Lớp khởi động</th><td class="mono">core.Start</td></tr>
         <tr><th>Cổng mặc định</th><td class="mono">19129</td></tr>
@@ -846,13 +852,13 @@ footer {
           <td class="mono">map/MapService:1438+</td>
         </tr>
         <tr>
-          <td>Vật phẩm</td><td><span class="chip p1">xong nhưng có lỗi</span></td>
-          <td class="wrap">Túi đồ, trang bị, cường hoá có tỷ lệ theo bậc và vật liệu, mua bán. <strong>Giao dịch giữa người chơi có lỗi mất đồ</strong> (7.4) và cường hoá không kiểm tra chỉ số (7.5).</td>
+          <td>Vật phẩm</td><td><span class="chip ok">xong</span></td>
+          <td class="wrap">Túi đồ, trang bị, cường hoá có tỷ lệ theo bậc và vật liệu, mua bán, giao dịch, gian hàng người chơi. Lỗi mất đồ khi trade (7.4), mất tiền+đồ ở gian hàng (7.6) và thiếu kiểm tra chỉ số (7.5) đã vá trong đợt 1.</td>
           <td class="mono">client/Item · core/GameSrc</td>
         </tr>
         <tr>
-          <td>Bản đồ</td><td><span class="chip p1">xong nhưng có lỗi</span></td>
-          <td class="wrap">Di chuyển, đổi khu vực, dungeon riêng, spawn và respawn mob. <strong>Không còn chống dịch chuyển tức thời</strong> (7.3).</td>
+          <td>Bản đồ</td><td><span class="chip ok">xong</span></td>
+          <td class="wrap">Di chuyển, đổi khu vực, dungeon riêng, spawn và respawn mob. Không có chống dịch chuyển tức thời — <strong>cố ý giữ</strong> (7.3).</td>
           <td class="mono">map/Map · map/Dungeon</td>
         </tr>
         <tr>
@@ -909,9 +915,34 @@ footer {
 <!-- ============ 7 ============ -->
 <section id="s7">
   <h2><span class="num">7</span> Lỗi &amp; lỗ hổng</h2>
-  <p class="lede">Xếp theo mức chặn. Bốn mục P0 đầu tiên tôi đã tự mở file đọc tận dòng để xác nhận, không dựa vào suy luận.</p>
+  <p class="lede">Xếp theo mức chặn. Bảng dưới là trạng thái sau đợt vá 1; các thẻ chi tiết bên dưới vẫn mô tả lỗi + cách vá để tham chiếu.</p>
 
-  <h4>Mức P0 — phải vá trước khi có người chơi thật</h4>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Lỗi</th><th>Mức</th><th class="mono">Vị trí</th><th>Trạng thái</th></tr></thead>
+      <tbody>
+        <tr><td>Chiếm nhân vật qua ID login (mới)</td><td class="mono">P0</td><td class="mono">MessageHandler.java:530</td><td><span class="chip ok">đã vá</span> kiểm tra id thuộc list_char</td></tr>
+        <tr><td>SQL injection đăng nhập</td><td class="mono">P0</td><td class="mono">Session.java:375,417</td><td><span class="chip ok">đã vá</span> PreparedStatement + bỏ bypass</td></tr>
+        <tr><td>SQL injection tạo bang (mới)</td><td class="mono">P0</td><td class="mono">Clan.java:530</td><td><span class="chip ok">đã vá</span> PreparedStatement</td></tr>
+        <tr><td>Menu admin ai cũng tắt được server (mới)</td><td class="mono">P0</td><td class="mono">MenuController.java Menu_Admin</td><td><span class="chip ok">đã vá</span> chốt isAdmin()</td></tr>
+        <tr><td>Rò rỉ connection khi save lỗi</td><td class="mono">P0</td><td class="mono">SaveData.java:37</td><td><span class="chip ok">đã vá</span> try-with-resources + leak detection</td></tr>
+        <tr><td>Mất đồ khi trade túi đầy</td><td class="mono">P0</td><td class="mono">GameSrc.java:598</td><td><span class="chip ok">đã vá</span> kiểm tra chỗ trống trước</td></tr>
+        <tr><td>Mất tiền+đồ ở gian hàng người chơi (mới)</td><td class="mono">P0/P1</td><td class="mono">GameSrc.java:1912</td><td><span class="chip ok">đã vá</span> kiểm tra get_bag_able</td></tr>
+        <tr><td>process_msg chỉ bắt IOException</td><td class="mono">P0</td><td class="mono">Session.java:209</td><td><span class="chip ok">đã vá</span> bắt Throwable + log</td></tr>
+        <tr><td>Index từ client không kiểm biên</td><td class="mono">P1</td><td class="mono">nhiều (mục 7.5)</td><td><span class="chip ok">đã vá</span> Util.validIndex ở các điểm chính</td></tr>
+        <tr><td>Nuốt lỗi thanh toán Tài Xỉu (mới)</td><td class="mono">P1</td><td class="mono">Player.java update_coin</td><td><span class="chip ok">đã vá</span> thêm log</td></tr>
+        <tr><td>Vòng tick bản đồ nuốt lỗi</td><td class="mono">P1</td><td class="mono">Map.java:97-134</td><td><span class="chip ok">đã vá</span> thêm log</td></tr>
+        <tr><td>Thread mỗi phút cho SaveData</td><td class="mono">P1</td><td class="mono">ServerManager.java:116</td><td><span class="chip ok">đã vá</span> executor dùng lại</td></tr>
+        <tr><td>Tắt tiến trình không lưu dữ liệu</td><td class="mono">P1</td><td class="mono">Start.java:5</td><td><span class="chip ok">đã vá</span> shutdown hook lưu</td></tr>
+        <tr><td><strong>Mật khẩu lưu dạng thô</strong></td><td class="mono">—</td><td class="mono">Session.java:417</td><td><span class="chip p1">cố ý giữ</span> không hash</td></tr>
+        <tr><td><strong>Chống teleport bị comment</strong></td><td class="mono">—</td><td class="mono">MapService.java:141-147</td><td><span class="chip p1">cố ý giữ</span> tin toạ độ client</td></tr>
+        <tr><td>Khoá toàn cục ở trade</td><td class="mono">P1</td><td class="mono">GameSrc.java:383</td><td><span class="chip p2">chưa</span> để lần sau</td></tr>
+        <tr><td>Chưa có test tự động</td><td class="mono">P2</td><td class="mono">src/test rỗng</td><td><span class="chip p2">chưa</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>Mức P0 — đã vá trong đợt 1 (chi tiết + cách vá)</h4>
 
   <div class="finding p0" id="f-sqli">
     <div class="f-head"><span class="chip p0">P0</span><span class="f-title">7.1 &nbsp;SQL injection bỏ qua được đăng nhập</span></div>
@@ -951,9 +982,10 @@ footer {
     <div>Đổi thành <code>try (Connection conn = SQL.gI().getConnection()) { ... }</code>. Đồng thời bật <code>setLeakDetectionThreshold</code> ở <span class="ref">core/SQL.java:35</span> để lỗi cùng loại tự tố giác. Trong lúc chưa vá: coi dòng <code>save data fail!</code> lặp lại trong log là <strong>lệnh phải restart server</strong> — xem <a href="#monitor">8.7</a>.</div>
   </div>
 
-  <div class="finding p0" id="f-tp">
-    <div class="f-head"><span class="chip p0">P0</span><span class="f-title">7.3 &nbsp;Chống dịch chuyển tức thời đã bị vô hiệu hoá</span></div>
+  <div class="finding p1" id="f-tp">
+    <div class="f-head"><span class="chip p1">CỐ Ý GIỮ</span><span class="f-title">7.3 &nbsp;Chống dịch chuyển tức thời bị vô hiệu hoá — GIỮ NGUYÊN theo yêu cầu</span></div>
     <div class="f-loc">map/MapService.java:141-147</div>
+    <div class="callout caution"><p><strong>Chủ server chủ ý giữ cơ chế này.</strong> Không vá. Phần mô tả dưới đây chỉ để hiểu hệ quả, không phải việc cần làm.</p></div>
     <p>Giới hạn tốc độ vẫn được tính, nhưng thân lệnh <code>if</code> rỗng vì hai dòng chặn bị comment:</p>
     <pre><code>int speed_ = Player.SPEED + ((p.conn.zoomlv &gt; 2) ? 12 : 0);
 speed_ += (p.type_use_mount != -1 ? ((p.conn.zoomlv &gt; 2) ? 9 : 7) * 2 : 0);
@@ -1012,11 +1044,10 @@ for (short itbuffer : conn.p.list_item_trade) {
   </div>
 
   <div class="finding p1">
-    <div class="f-head"><span class="chip p1">P1</span><span class="f-title">7.7 &nbsp;Mật khẩu lưu dạng thô</span></div>
-    <div class="f-loc">hsoodtest.sql:33 (cột) · io/Session.java:417 (so sánh) · client/TextFromClient.java:434 (đổi mật khẩu)</div>
-    <p>Cột <code>account.pass</code> là <code>varchar(255)</code> chứa mật khẩu nguyên văn — dữ liệu mẫu trong dump xác nhận điều đó. Việc so sánh làm ngay trong câu SQL, không có bước hash nào ở tầng ứng dụng. Không tìm thấy MD5, SHA hay BCrypt ở đâu trong mã nguồn.</p>
-    <div class="f-k">Cách vá</div>
-    <div>Thêm cột hash mới, dùng BCrypt hoặc Argon2. Chuyển dần: khi người chơi đăng nhập thành công bằng mật khẩu thô, hash lại rồi ghi vào cột mới và xoá cột cũ của họ. Việc này nên làm <em>cùng lúc</em> với 7.1 — vá injection mà vẫn để mật khẩu thô thì rủi ro chỉ giảm một nửa.</div>
+    <div class="f-head"><span class="chip p1">CỐ Ý GIỮ</span><span class="f-title">7.7 &nbsp;Mật khẩu lưu dạng thô — GIỮ NGUYÊN theo yêu cầu</span></div>
+    <div class="f-loc">hsoodtest.sql:33 (cột) · io/Session.java:417 (so sánh)</div>
+    <div class="callout caution"><p><strong>Chủ server chủ ý không hash mật khẩu.</strong> Không vá. Lưu ý riêng: SQL injection ở đường login (7.1) <em>đã</em> được vá, nên rủi ro "một câu injection lấy cả bảng mật khẩu" đã đóng; nhưng vì mật khẩu vẫn là thô, ai có quyền đọc DB vẫn thấy mật khẩu trực tiếp — chấp nhận theo quyết định vận hành.</p></div>
+    <p>Cột <code>account.pass</code> là <code>varchar(255)</code> chứa mật khẩu nguyên văn. So sánh ngay trong câu SQL (nay là PreparedStatement). Không có hash ở tầng ứng dụng.</p>
   </div>
 
   <div class="finding p1">
@@ -1100,23 +1131,25 @@ mysql -u root -p hsoodtest &lt; hsoodtest.sql</code></pre>
   <p>Định dạng <code>khoá: giá trị</code>, một dòng một khoá, <code>#</code> là comment. Parse tại <code>core/Manager.java:739-838</code>. Thiếu file thì server in <code>Config file not found!</code> rồi thoát.</p>
   <div class="tw">
     <table>
-      <thead><tr><th>Khoá</th><th>Ý nghĩa</th><th class="mono">Mặc định</th><th>Kiểu</th></tr></thead>
+      <thead><tr><th>Khoá</th><th>Ý nghĩa</th><th class="mono">Mặc định</th><th class="mono">hso.conf hiện tại</th></tr></thead>
       <tbody>
-        <tr><td class="mono">port</td><td>Cổng TCP server lắng nghe</td><td class="mono">19129</td><td class="mono">int</td></tr>
-        <tr><td class="mono">mysql-host</td><td>Host MySQL — <strong>cổng luôn là 3306</strong>, không cấu hình được</td><td class="mono">127.0.0.1</td><td class="mono">string</td></tr>
-        <tr><td class="mono">mysql-user</td><td>Tài khoản MySQL</td><td class="mono">root</td><td class="mono">string</td></tr>
-        <tr><td class="mono">mysql-password</td><td>Mật khẩu MySQL</td><td class="mono">12345678</td><td class="mono">string</td></tr>
-        <tr><td class="mono">mysql-database</td><td>Tên database</td><td class="mono">hso</td><td class="mono">string</td></tr>
-        <tr><td class="mono">debug</td><td>Bật log console chi tiết</td><td class="mono">false</td><td class="mono">boolean</td></tr>
-        <tr><td class="mono">indexRes</td><td>Phiên bản gói tài nguyên client</td><td class="mono">60</td><td class="mono">byte</td></tr>
-        <tr><td class="mono">indexCharPar</td><td>Phiên bản bộ ảnh nhân vật</td><td class="mono">-22031</td><td class="mono">short</td></tr>
-        <tr><td class="mono">exp</td><td>Hệ số nhân kinh nghiệm</td><td class="mono">1</td><td class="mono">int</td></tr>
-        <tr><td class="mono">lvmax</td><td>Cấp tối đa</td><td class="mono">150</td><td class="mono">short</td></tr>
-        <tr><td class="mono">allow_ip_client</td><td>Số kết nối đồng thời tối đa từ cùng một IP</td><td class="mono">3</td><td class="mono">int</td></tr>
-        <tr><td class="mono">time_login</td><td>Thời gian chờ giữa hai lần đăng nhập cùng tên (ms)</td><td class="mono">3000</td><td class="mono">int</td></tr>
-        <tr><td class="mono">event</td><td>Id sự kiện đang bật</td><td class="mono">0</td><td class="mono">int</td></tr>
+        <tr><td class="mono">port</td><td>Cổng TCP server lắng nghe</td><td class="mono">19129</td><td class="mono">19129</td></tr>
+        <tr><td class="mono">mysql-host</td><td>Host MySQL</td><td class="mono">127.0.0.1</td><td class="mono">localhost</td></tr>
+        <tr><td class="mono">mysql-port</td><td><strong>MỚI</strong> — cổng MySQL (trước đây hardcode 3306)</td><td class="mono">3306</td><td class="mono">(thêm khi cần)</td></tr>
+        <tr><td class="mono">mysql-user</td><td>Tài khoản MySQL</td><td class="mono">root</td><td class="mono">root</td></tr>
+        <tr><td class="mono">mysql-password</td><td>Mật khẩu MySQL</td><td class="mono">12345678</td><td class="mono">(trống)</td></tr>
+        <tr><td class="mono">mysql-database</td><td>Tên database</td><td class="mono">hso</td><td class="mono">hsoodtest</td></tr>
+        <tr><td class="mono">admin_user</td><td><strong>MỚI</strong> — tên tài khoản admin (trước đây hardcode "admin")</td><td class="mono">admin</td><td class="mono">(thêm khi cần)</td></tr>
+        <tr><td class="mono">debug</td><td>Bật log console chi tiết</td><td class="mono">false</td><td class="mono">fale → false</td></tr>
+        <tr><td class="mono">indexRes</td><td>Phiên bản gói tài nguyên client</td><td class="mono">60</td><td class="mono">8</td></tr>
+        <tr><td class="mono">indexCharPar</td><td>Phiên bản bộ ảnh nhân vật</td><td class="mono">-22031</td><td class="mono">1129</td></tr>
+        <tr><td class="mono">exp</td><td>Hệ số nhân kinh nghiệm</td><td class="mono">1</td><td class="mono">1</td></tr>
+        <tr><td class="mono">lvmax</td><td>Cấp tối đa</td><td class="mono">150</td><td class="mono">10000</td></tr>
+        <tr><td class="mono">allow_ip_client</td><td>Số kết nối đồng thời tối đa từ cùng một IP</td><td class="mono">3</td><td class="mono">5000</td></tr>
+        <tr><td class="mono">time_login</td><td>Thời gian chờ giữa hai lần đăng nhập cùng tên (ms)</td><td class="mono">3000</td><td class="mono">10000</td></tr>
+        <tr><td class="mono">event</td><td>Id sự kiện đang bật</td><td class="mono">0</td><td class="mono">2</td></tr>
       </tbody>
-      <caption>Cột "mặc định" là giá trị dùng khi <em>thiếu hẳn khoá</em> trong file.</caption>
+      <caption>Cột "mặc định" là giá trị khi <em>thiếu hẳn khoá</em>. Cột cuối là giá trị thực trong <code>hso.conf</code> đi kèm. Lưu ý <code>debug: fale</code> (gõ sai) thành <code>false</code> — nay có log cảnh báo khi giá trị boolean không hợp lệ.</caption>
     </table>
   </div>
 
@@ -1335,6 +1368,76 @@ sleep 15</code></pre>
       </tbody>
     </table>
   </div>
+
+  <h3 id="admin">8.10 Admin &amp; thao tác vận hành trong game</h3>
+  <p>Quyền admin xác định bằng <strong>tên tài khoản</strong> khớp cấu hình <code>admin_user</code> (mặc định <code>admin</code>), kiểm bằng <code>Session.isAdmin()</code> <span class="ref">io/Session.java</span>. <strong>Không có cột quyền nào trong DB</strong> — bảng <code>account</code> và <code>player</code> đều không có cờ admin/GM.</p>
+
+  <h4>Tạo tài khoản admin</h4>
+  <p>Chỉ cần một dòng trong bảng <code>account</code> có <code>user</code> đúng bằng <code>admin_user</code>:</p>
+  <pre><code>INSERT INTO `account` (`user`, `pass`, `char`, `status`, `lock`, `coin`, `ip`, `tongnap`, `pass2`)
+VALUES ('admin', '&lt;mật_khẩu&gt;', '[]', 0, 0, 0, '0', 0, '0');</code></pre>
+  <p><code>status=0</code> để không vướng kiểm tra kích hoạt, <code>lock=0</code> để không bị coi là khoá. Muốn đổi tên admin thì đặt khoá <code>admin_user</code> trong <code>hso.conf</code> rồi tạo tài khoản trùng tên đó. Mật khẩu lưu thô (cố ý) nên điền thẳng.</p>
+
+  <h4>Lệnh chat (gõ vào khung chat trong game)</h4>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Lệnh</th><th>Tác dụng</th><th>Quyền</th><th class="mono">Vị trí</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">admin</td><td>Mở Menu Admin (7 mục, xem dưới)</td><td><span class="chip p1">admin</span></td><td class="mono">MapService.java:1148</td></tr>
+        <tr><td class="mono">xem</td><td>Xem vị trí, map/zone, số kết nối, số người online, boss đang active</td><td><span class="chip p1">admin</span></td><td class="mono">MapService.java:1151</td></tr>
+        <tr><td class="mono">ok</td><td>Spawn Mị Nương (mob event) + bật cờ boss event</td><td><span class="chip p1">admin</span></td><td class="mono">MapService.java:1200</td></tr>
+        <tr><td class="mono">bosstg</td><td>Hồi sinh / reset Boss chiến trường full máu, broadcast</td><td><span class="chip p1">admin</span></td><td class="mono">MapService.java:1248</td></tr>
+        <tr><td class="mono">thoatket</td><td>Về map 1 khi kẹt map (chặn nếu đang lôi đài)</td><td><span class="chip ok">mọi người</span></td><td class="mono">MapService.java:1168</td></tr>
+        <tr><td class="mono">pk</td><td>Xem điểm PK của bản thân</td><td><span class="chip ok">mọi người</span></td><td class="mono">MapService.java:1245</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h4>Menu Admin (gõ <code>admin</code>) — trạng thái sau đợt vá</h4>
+  <p>Toàn bộ menu nay đã chốt quyền admin ngay tại <code>Menu_Admin</code> <span class="ref">core/MenuController.java</span> — <strong>vá lỗ hổng ai cũng tắt được server</strong> (mục 7). Năm mục trước đây chết đã được triển khai:</p>
+  <div class="tw">
+    <table>
+      <thead><tr><th class="mono">#</th><th>Mục</th><th>Tác dụng</th><th>Trạng thái</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">0</td><td>Bảo trì</td><td>Lưu dữ liệu, ngắt hết người chơi, tắt server</td><td><span class="chip ok">có sẵn</span></td></tr>
+        <tr><td class="mono">1</td><td>Cộng vàng x1.000.000.000</td><td>Cộng 1 tỷ vàng cho chính admin</td><td><span class="chip ok">mới triển khai</span></td></tr>
+        <tr><td class="mono">2</td><td>Cộng ngọc x1.000.000</td><td>Cộng 1 triệu ngọc</td><td><span class="chip ok">mới triển khai</span></td></tr>
+        <tr><td class="mono">3</td><td>Update data</td><td>Lưu toàn bộ dữ liệu xuống DB</td><td><span class="chip ok">có sẵn</span></td></tr>
+        <tr><td class="mono">4</td><td>Lấy item</td><td>Nhập loại (3/4/7) + id + số lượng → nhận vật phẩm (có kiểm tra biên)</td><td><span class="chip ok">bật lại</span></td></tr>
+        <tr><td class="mono">5</td><td>Up level</td><td>Nhập N → lên N level (cộng điểm tiềm năng/kỹ năng như game), chốt ở <code>lvmax</code></td><td><span class="chip ok">mới triển khai</span></td></tr>
+        <tr><td class="mono">6</td><td>Set Xp</td><td>Nhập x → đặt <strong>hệ số nhân exp toàn server</strong> tại runtime (1–1000)</td><td><span class="chip ok">mới triển khai</span></td></tr>
+      </tbody>
+      <caption>Xử lý ô nhập (Get Item / Up level / Set Xp) ở <code>client/TextFromClient.java</code> case 1/2/4, đều chốt quyền admin.</caption>
+    </table>
+  </div>
+
+  <h4>Việc phải làm ngoài game (không có công cụ trong game)</h4>
+  <ul>
+    <li><strong>Giftcode</strong>: thêm/sửa thẳng trong bảng <code>giftcode</code> (không có UI). Lưu ý cột <code>limit</code> hiện <em>không</em> tự giảm khi có người dùng — nếu cần giới hạn lượt thì phải xử lý thêm.</li>
+    <li><strong>Bật/tắt event</strong>: sửa khoá <code>event</code> trong <code>hso.conf</code> rồi khởi động lại (không có lệnh runtime).</li>
+    <li><strong>Sửa vàng/ngọc/level/đồ của người chơi khác</strong>: sửa trực tiếp bảng <code>player</code>. Menu admin chỉ tác động lên chính admin.</li>
+    <li><strong>Broadcast toàn server</strong>: hàm <code>Manager.chatKTGprocess</code> có sẵn nhưng chưa gắn lệnh admin riêng; chat toàn server của người chơi thường tốn 5 ngọc.</li>
+  </ul>
+
+  <h3 id="container">8.11 Triển khai bằng container (Docker)</h3>
+  <p>Đã tạo sẵn trong <code>server/</code>: <code>Dockerfile</code> (multi-stage), <code>docker-compose.yml</code> (server + MySQL), <code>.dockerignore</code>, <code>.env.example</code>, <code>stop.sh</code>.</p>
+  <pre><code><span class="c"># 1. Chuẩn bị cấu hình</span>
+cp .env.example .env            <span class="c"># đặt MYSQL_ROOT_PASSWORD</span>
+<span class="c"># Sửa hso.conf: mysql-host: db | mysql-port: 3306 | mysql-password khớp .env</span>
+
+<span class="c"># 2. Chạy (build image + MySQL + nạp schema lần đầu)</span>
+docker compose up -d --build
+
+<span class="c"># 3. Theo dõi / tắt an toàn</span>
+docker compose logs -f server
+docker compose stop             <span class="c"># shutdown hook tự lưu dữ liệu (stop_grace_period 120s)</span></code></pre>
+  <ul>
+    <li>Chỉ cổng game <code>19129</code> expose ra ngoài; MySQL chỉ trong mạng nội bộ compose.</li>
+    <li><code>data/</code> mount read-only, <code>hso.conf</code> mount read-only, <code>log/</code> mount ghi ra host — sửa cấu hình/xem log không cần build lại.</li>
+    <li><strong>hsoodtest.sql chỉ nạp lần đầu</strong> (khi volume DB còn trống) — nhớ làm sạch PII trước (xem 8.2).</li>
+    <li>Mật khẩu MySQL nằm ở <em>hai</em> nơi phải trùng: <code>.env</code> (khởi tạo container) và <code>hso.conf</code> (server đọc). Muốn hết trùng lặp cần cho server đọc creds từ biến môi trường — thuộc nâng cấp sau.</li>
+  </ul>
+
 </section>
 
 <hr class="rule">
@@ -1381,8 +1484,8 @@ sleep 15</code></pre>
   <h2><span class="num">10</span> Lộ trình nâng cấp đề xuất</h2>
   <p class="lede">Thứ tự này chọn theo nguyên tắc: việc nào mà làm sau sẽ tốn hơn nhiều thì làm trước.</p>
 
-  <h3>Giai đoạn 1 — Đủ điều kiện mở cửa</h3>
-  <p>Không có gì trong giai đoạn này là tuỳ chọn. Đây là ngưỡng để có người chơi thật mà không mất tài khoản, mất đồ, hay mất server.</p>
+  <h3>Giai đoạn 1 — Đủ điều kiện mở cửa <span class="chip ok">phần lớn đã xong (đợt 1)</span></h3>
+  <p><strong>Đã hoàn thành trong đợt vá 1:</strong> vá SQL injection (login + tạo bang), vá chiếm nhân vật, vá menu admin, sửa rò rỉ connection, sửa mất đồ khi trade + gian hàng, bắt Throwable ở vòng packet, lưu dữ liệu khi tắt. <strong>Còn lại của giai đoạn 1</strong> (làm khi vận hành thật): làm sạch <code>hsoodtest.sql</code> (PII), thay thương hiệu chủ cũ (link web/zalo trong lời chào — cố ý chưa đụng vì gắn với phần nạp). Hash mật khẩu: <em>bỏ qua theo yêu cầu</em>.</p>
   <div class="tw">
     <table>
       <thead><tr><th>Việc</th><th>Mục</th><th>Vì sao trước</th></tr></thead>

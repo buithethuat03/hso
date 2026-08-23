@@ -1,0 +1,51 @@
+# HSO server + MySQL. Deploy: `docker compose up -d --build`
+#
+# Trước khi chạy, chỉnh hso.conf cho khớp môi trường container:
+#   mysql-host: db          (tên service MySQL dưới đây, KHÔNG phải localhost)
+#   mysql-port: 3306
+#   mysql-user: root
+#   mysql-password: <đúng bằng MYSQL_ROOT_PASSWORD trong .env>
+#   mysql-database: hsoodtest
+# hso.conf là nguồn cấu hình DB của server; .env chỉ dùng để khởi tạo container MySQL.
+# Hai chỗ mật khẩu phải TRÙNG nhau.
+
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-hsoodtest}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    volumes:
+      - db_data:/var/lib/mysql
+      # Nạp schema lần đầu (chỉ chạy khi volume db_data còn trống).
+      # LƯU Ý: hsoodtest.sql chứa dữ liệu người chơi cũ + PII — làm sạch trước khi go-live.
+      - ./hsoodtest.sql:/docker-entrypoint-initdb.d/hsoodtest.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-changeme}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    # KHÔNG mở 3306 ra ngoài: chỉ truy cập nội bộ trong mạng compose.
+
+  server:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "19129:19129"    # cổng game, đây là cổng duy nhất phơi ra ngoài
+    volumes:
+      - ./data:/app/data:ro       # tài nguyên game (icon, part_char, npc, map...)
+      - ./hso.conf:/app/hso.conf:ro
+      - ./log:/app/log            # log ghi ra host để theo dõi/xoay vòng
+    environment:
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+    # Cho shutdown hook đủ thời gian lưu dữ liệu trước khi bị SIGKILL.
+    stop_grace_period: 120s
+
+volumes:
+  db_data:

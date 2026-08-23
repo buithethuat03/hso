@@ -131,6 +131,9 @@ public class Map implements Runnable {
 				}
 			} catch (InterruptedException e) {
 			} catch (Exception e) {
+				// Trước đây nuốt mọi lỗi ở vòng tick -> bug game-logic tái diễn im lặng trên 760 thread.
+				System.err.println("[map tick] loi map_id=" + this.map_id + " zone=" + (this.zone_id + 1));
+				e.printStackTrace();
 			}
 		}
 	}
@@ -1096,6 +1099,9 @@ private void auto_chat_npc() {
     public synchronized void drop_item(Player p, byte type, short id) throws IOException {
         switch (type) {
             case 3: {
+                if (!Util.validIndex(id, p.item.bag3.length)) {
+                    return;
+                }
                 Item3 temp = p.item.bag3[id];
                 if (temp != null) {
                     if (temp.islock) {
@@ -1131,6 +1137,9 @@ private void auto_chat_npc() {
     public synchronized void pick_item(Session conn, Message m2) throws IOException {
         short id = m2.reader().readShort();
         byte type = m2.reader().readByte();
+        if (!Util.validIndex(id, item_map.length)) { // id ô đồ rơi do client gửi -> chặn ngoài biên
+            return;
+        }
         if (item_map[id] == null) {
             Message m = new Message(20);
             m.writer().writeByte(type);

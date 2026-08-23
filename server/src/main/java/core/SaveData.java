@@ -33,9 +33,10 @@ public class SaveData {
     public synchronized static void process() {
 //        synchronized (SQL.) {
         long time_check = System.currentTimeMillis();
-        try {
-            Connection conn = SQL.gI().getConnection();
-//Connection conn = DriverManager.getConnection(SQL.gI().url, Manager.gI().mysql_user, Manager.gI().mysql_pass);
+        // try-with-resources: connection LUÔN được trả về pool, kể cả khi có SQLException giữa chừng.
+        // Trước đây conn chỉ đóng ở nhánh thành công (dòng cuối) nên mỗi lần save lỗi là rò rỉ 1 connection;
+        // save chạy mỗi 60s, pool 10 -> ~10 lần lỗi là cạn pool, server treo mọi truy vấn.
+        try ( Connection conn = SQL.gI().getConnection()) {
             // clan
             BXH.BXH_clan.clear();
             for (Clan clan : Clan.get_all_clan()) {
@@ -575,7 +576,6 @@ public class SaveData {
             conn.commit();
             rs.close();
             ps.close();
-            conn.close();
         } catch (SQLException e) {
             e.printStackTrace();
             System.err.println("[" + Util.get_now_by_time() + "] save data fail!");

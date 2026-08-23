@@ -76,6 +76,13 @@ public class Session implements Runnable {
     public void init() {
         try {
             this.ip = this.socket.getInetAddress().getHostAddress();
+            // Giảm độ trễ gói nhỏ (game gửi nhiều gói ngắn). KHÔNG đặt setSoTimeout ở đây:
+            // read() sẽ blocking chờ input người chơi, timeout naive sẽ đá nhầm người đứng yên (AFK).
+            // Muốn dọn kết nối chết cần heartbeat tầng ứng dụng, không phải SO_TIMEOUT.
+            try {
+                this.socket.setTcpNoDelay(true);
+            } catch (Exception ignore) {
+            }
             this.dis = new DataInputStream(socket.getInputStream());
             this.dos = new DataOutputStream(socket.getOutputStream());
             this.connected = true;
@@ -208,7 +215,12 @@ public class Session implements Runnable {
                             && (this.p != null || m.cmd == 61 || m.cmd == 1 || m.cmd == 14 || m.cmd == 13)) {
                         try {
                             controller.process_msg(m);
-                        } catch (IOException e) {
+                        } catch (Throwable e) {
+                            // Bắt Throwable (không chỉ IOException): mọi RuntimeException như
+                            // ArrayIndexOutOfBounds/NullPointer từ gói tin lỗi sẽ bị chặn tại đây,
+                            // KHÔNG giết thread đọc của người chơi. Log kèm opcode + tên để chẩn đoán.
+                            System.err.println("[process_msg] loi opcode=" + m.cmd
+                                    + " user=" + (this.p != null ? this.p.name : this.user));
                             e.printStackTrace();
                         }
                     }
@@ -372,7 +384,7 @@ public class Session implements Runnable {
         m.reader().readUTF(); // stringPackageName
         //
         Pattern p = Pattern.compile("^[a-zA-Z0-9@.]{1,15}$");
-        if ((!user_.contains("knightauto_hod_")) && (!p.matcher(user_).matches() || !p.matcher(pass_).matches())) {
+        if (!p.matcher(user_).matches() || !p.matcher(pass_).matches()) {
             noticelogin("ký tự nhập vào không hợp lệ!!");
             return;
         }
@@ -399,10 +411,13 @@ public class Session implements Runnable {
             user = "knightauto_hsod_" + String.valueOf(System.nanoTime());
             pass = "hsr_132";
 
-            try ( Connection connnect = SQL.gI().getConnection();  Statement ps = connnect.createStatement()) {
-                if (!ps.execute("INSERT INTO `account` (`user`, `pass`, `char`,  `lock`, `coin`, `ip`, `tongnap`) VALUES ('" + user + "', '" + pass + "', '[]', '0', '0','0', 0)")) {
-                    connnect.commit();
-                }
+            try ( Connection connnect = SQL.gI().getConnection();
+                    PreparedStatement ps = connnect.prepareStatement(
+                            "INSERT INTO `account` (`user`, `pass`, `char`, `lock`, `coin`, `ip`, `tongnap`) VALUES (?, ?, '[]', '0', '0', '0', 0)")) {
+                ps.setString(1, user);
+                ps.setString(2, pass);
+                ps.executeUpdate();
+                connnect.commit();
             } catch (SQLException e) {
                 e.printStackTrace();
                 noticelogin("Có lỗi xảy ra, hãy thử lại!");
@@ -413,9 +428,12 @@ public class Session implements Runnable {
                 this.list_char[i] = "";
             }
         } else {
-            //
-            String query = "SELECT * FROM `account` WHERE `user` = '" + user_ + "' AND `pass` = '" + pass_ + "' LIMIT 1;";
-            try ( Connection conn = SQL.gI().getConnection();  Statement ps = conn.createStatement();  ResultSet rs = ps.executeQuery(query)) {
+            try ( Connection conn = SQL.gI().getConnection();
+                    PreparedStatement ps = conn.prepareStatement(
+                            "SELECT * FROM `account` WHERE `user` = ? AND `pass` = ? LIMIT 1;")) {
+                ps.setString(1, user_);
+                ps.setString(2, pass_);
+                ResultSet rs = ps.executeQuery();
                 if (!rs.next()) {
                     noticelogin("Sai cmn pass rồi");
                     return;
@@ -740,9 +758,12 @@ public class Session implements Runnable {
             }
             query = query.substring(0, query.length() - 1);
             query += "]";
-            try ( Connection conn = SQL.gI().getConnection();  Statement statement = conn.createStatement()) {
-                if (statement.executeUpdate(
-                        "UPDATE `account` SET `char` = '" + query + "' WHERE `user` = '" + this.user + "';") > 0) {
+            try ( Connection conn = SQL.gI().getConnection();
+                    PreparedStatement statement = conn.prepareStatement(
+                            "UPDATE `account` SET `char` = ? WHERE `user` = ?;")) {
+                statement.setString(1, query);
+                statement.setString(2, this.user);
+                if (statement.executeUpdate() > 0) {
                     conn.commit();
                 }
             } catch (SQLException e) {
@@ -764,14 +785,26 @@ public class Session implements Runnable {
         this.disconnect();
     }
 
+    /**
+     * Quyền admin xác định bằng tên tài khoản khớp cấu hình admin_user (mặc định "admin").
+     * Dùng cho MỌI thao tác admin (menu, lệnh chat, box-input) — trước đây kiểm tra rải rác,
+     * và Menu_Admin còn KHÔNG kiểm tra gì nên ai cũng tắt được server.
+     */
+    public boolean isAdmin() {
+        return this.user != null && this.user.equals(Manager.gI().admin_user);
+    }
+
     public void save_moc_nap() {
         JSONArray js = new JSONArray();
         moc_nap.forEach(s -> {
             js.add(s);
         });
-        try ( Connection conn = SQL.gI().getConnection();  Statement statement = conn.createStatement()) {
-            if (statement.executeUpdate(
-                    "UPDATE `account` SET `checkmocnap` = '" + js.toJSONString() + "' WHERE `user` = '" + this.user + "';") > 0) {
+        try ( Connection conn = SQL.gI().getConnection();
+                PreparedStatement statement = conn.prepareStatement(
+                        "UPDATE `account` SET `checkmocnap` = ? WHERE `user` = ?;")) {
+            statement.setString(1, js.toJSONString());
+            statement.setString(2, this.user);
+            if (statement.executeUpdate() > 0) {
                 conn.commit();
             }
         } catch (SQLException e) {

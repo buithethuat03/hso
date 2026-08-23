@@ -27,6 +27,16 @@ public class Util {
         }
     }
 
+    /**
+     * Kiểm tra một chỉ số nhận từ client có nằm trong [0, len) hay không.
+     * Client sửa đổi có thể gửi index âm hoặc quá lớn để làm server ném
+     * ArrayIndexOutOfBounds. Mọi handler đọc index từ gói tin nên gọi hàm này
+     * trước khi truy cập mảng/List.
+     */
+    public static boolean validIndex(int idx, int len) {
+        return idx >= 0 && idx < len;
+    }
+
     public static int log_2(int a) {
         int i;
         for (i = 0; i < a; i++) {

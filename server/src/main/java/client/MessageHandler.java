@@ -28,6 +28,22 @@ public class MessageHandler {
         this.conn = conn;
     }
 
+    /**
+     * Chống spam dùng vật phẩm (item loại 3/4/7): tối đa 1 lần / 500ms; quá 2 lần liên tiếp thì ngắt.
+     * Trả về true nếu được phép xử lý gói này. Gộp từ 3 khối lặp y hệt trước đây (case 11/-107/32).
+     */
+    private boolean itemSpamOk() throws IOException {
+        if (conn.p.time_speed_rebuild > System.currentTimeMillis()) {
+            if (++conn.p.enough_time_disconnect > 2) {
+                conn.close();
+            }
+            return false;
+        }
+        conn.p.time_speed_rebuild = System.currentTimeMillis() + 500L;
+        conn.p.enough_time_disconnect = 0;
+        return true;
+    }
+
     public void process_msg(Message m) throws IOException {
         switch (m.cmd) {
             case -103: {
@@ -152,38 +168,23 @@ public class MessageHandler {
                 break;
             }
             case 11: {
-                if (conn.p.time_speed_rebuild > System.currentTimeMillis()) {
-                    if (++conn.p.enough_time_disconnect > 2) {
-                        conn.close();
-                    }
+                if (!itemSpamOk()) {
                     return;
                 }
-                conn.p.time_speed_rebuild = System.currentTimeMillis() + 500L;
-                conn.p.enough_time_disconnect = 0;
                 UseItem.ProcessItem3(conn, m);
                 break;
             }
             case -107: {
-                if (conn.p.time_speed_rebuild > System.currentTimeMillis()) {
-                    if (++conn.p.enough_time_disconnect > 2) {
-                        conn.close();
-                    }
+                if (!itemSpamOk()) {
                     return;
                 }
-                conn.p.time_speed_rebuild = System.currentTimeMillis() + 500L;
-                conn.p.enough_time_disconnect = 0;
                 UseItem.ProcessItem7(conn, m);
                 break;
             }
             case 32: {
-                if (conn.p.time_speed_rebuild > System.currentTimeMillis()) {
-                    if (++conn.p.enough_time_disconnect > 2) {
-                        conn.close();
-                    }
+                if (!itemSpamOk()) {
                     return;
                 }
-                conn.p.time_speed_rebuild = System.currentTimeMillis() + 500L;
-                conn.p.enough_time_disconnect = 0;
                 UseItem.ProcessItem4(conn, m);
                 break;
             }
@@ -529,6 +530,21 @@ public class MessageHandler {
                 int id_player_login = m.reader().readInt();
                 Player p0 = new Player(conn, id_player_login);
                 if (p0.setup()) {
+                    // Chống chiếm nhân vật: id gửi lên phải thuộc danh sách nhân vật của chính tài khoản này.
+                    // Nếu không kiểm tra, client sửa đổi gửi id bất kỳ (khóa chính tự tăng, dễ dò) sẽ điều
+                    // khiển được nhân vật của người khác.
+                    boolean owns = false;
+                    if (conn.list_char != null) {
+                        for (String cn : conn.list_char) {
+                            if (cn != null && !cn.isEmpty() && cn.equals(p0.name)) {
+                                owns = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (!owns) {
+                        return;
+                    }
                     if (!Session.players.containsKey(conn.user)) {
                         Session.players.put(conn.user, conn);
                     } else {

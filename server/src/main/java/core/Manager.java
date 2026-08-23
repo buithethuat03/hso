@@ -61,9 +61,11 @@ public class Manager {
     public final byte[] msg_26;
     public boolean debug;
     public String mysql_host;
+    public int mysql_port = 3306;
     public String mysql_database;
     public String mysql_user;
     public String mysql_pass;
+    public String admin_user = "admin";
     public int event;
     public int server_port;
     public byte indexRes;
@@ -776,7 +778,12 @@ public class Manager {
             this.server_port = 19129;
         }
         if (configMap.containsKey("debug")) {
-            this.debug = Boolean.parseBoolean(configMap.get("debug"));
+            String dbg = configMap.get("debug").trim();
+            if (!dbg.equalsIgnoreCase("true") && !dbg.equalsIgnoreCase("false")) {
+                // Trước đây "debug: fale" (gõ sai) bị Boolean.parseBoolean biến thành false âm thầm.
+                System.err.println("[config] gia tri debug khong hop le: \"" + dbg + "\" -> dung false");
+            }
+            this.debug = Boolean.parseBoolean(dbg);
         } else {
             this.debug = false;
         }
@@ -834,6 +841,16 @@ public class Manager {
             this.event = Integer.parseInt(configMap.get("event"));
         } else {
             this.event = 0;
+        }
+        if (configMap.containsKey("mysql-port")) {
+            this.mysql_port = Integer.parseInt(configMap.get("mysql-port"));
+        } else {
+            this.mysql_port = 3306;
+        }
+        if (configMap.containsKey("admin_user")) {
+            this.admin_user = configMap.get("admin_user");
+        } else {
+            this.admin_user = "admin";
         }
     }
 

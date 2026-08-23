@@ -2369,6 +2369,9 @@ public class Player {
                 connection.commit();
             }
         } catch (SQLException e) {
+            // Trước đây nuốt lỗi hoàn toàn -> tiền thắng Tài Xỉu biến mất không dấu vết. Log lại để lần theo.
+            System.err.println("[update_coin] loi cong coin cho user=" + name + " so=" + coin_exchange);
+            e.printStackTrace();
         }
     }
 

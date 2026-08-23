@@ -2593,6 +2593,11 @@ public class MenuController {
     }
 
     private static void Menu_Admin(Session conn, byte index) throws IOException {
+        // BẢO MẬT: menu này KHÔNG được kiểm tra quyền ở lớp dispatch -> trước đây bất kỳ ai gửi
+        // gói -30 idnpc=126 index=0 là tắt được cả server. Chốt quyền admin ngay tại đây.
+        if (!conn.isAdmin()) {
+            return;
+        }
         switch (index) {
             case 0: {
                 ServerManager.gI().close();
@@ -2623,6 +2628,18 @@ public class MenuController {
                 break;
             }
             
+            case 1: { // Cộng vàng x1.000.000.000
+                conn.p.update_vang(1_000_000_000L);
+                Service.send_char_main_in4(conn.p);
+                Service.send_notice_box(conn, "Đã cộng 1.000.000.000 vàng");
+                break;
+            }
+            case 2: { // Cộng ngọc x1.000.000
+                conn.p.update_ngoc(1_000_000L);
+                Service.send_char_main_in4(conn.p);
+                Service.send_notice_box(conn, "Đã cộng 1.000.000 ngọc");
+                break;
+            }
             case 3: {
                 SaveData.process();
                 Service.send_notice_nobox_white(conn, "data đã đc cập nhật");

@@ -23,7 +23,7 @@ public class Npc {
     public static String CHAT_DOUBA = "Biết ông Thương không? Thương nào?";
     public static String CHAT_ANNA = "Hoa chỉ nở khi có người tưới nước.\n"
             + " Em chỉ cười khi đứng trước người em yêu";
-    public static String CHAT_BXH = "Hiệp Sĩ Ong Đất Chúc các chú Ong online vui vẻ";
+    public static String CHAT_BXH = "Hiệp Sĩ Free Chúc các chú Ong online vui vẻ";
 
     public static void chat(Map map, String txt, int id) throws IOException {
         Message m = new Message(23);

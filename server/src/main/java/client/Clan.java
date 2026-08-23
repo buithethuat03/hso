@@ -4,7 +4,6 @@ import core.BXH;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import org.json.simple.JSONArray;
@@ -527,14 +526,24 @@ public class Clan {
         //
         entrys.add(temp);
         conn.p.myclan = temp;
-        String query
-                = "INSERT INTO `clan` (`name`, `name_short`, `mems`, `item`, `level`, `exp`, `slogan`, `rule`, `notice`, `vang`, `kimcuong`, `max_mem`, `icon`) VALUES ('"
-                + name + "', '" + name_shorted + "', '" + Clan.flush_mem_json(temp.mems) + "', '"
-                + Clan.flush_item_json(temp.item_clan) + "', " + temp.level + ", " + temp.exp + ", '" + temp.slogan
-                + "', '" + temp.rule + "', '" + temp.notice + "', " + temp.vang + ", " + temp.kimcuong + ", "
-                + temp.max_mem + ", " + temp.icon + ")";
-        try ( Connection connection = SQL.gI().getConnection();  Statement statement = connection.createStatement();) {
-            if (statement.executeUpdate(query) > 0) {
+        try ( Connection connection = SQL.gI().getConnection();
+                PreparedStatement statement = connection.prepareStatement(
+                        "INSERT INTO `clan` (`name`, `name_short`, `mems`, `item`, `level`, `exp`, `slogan`, `rule`, `notice`, `vang`, `kimcuong`, `max_mem`, `icon`) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")) {
+            statement.setString(1, name);
+            statement.setString(2, name_shorted);
+            statement.setString(3, Clan.flush_mem_json(temp.mems));
+            statement.setString(4, Clan.flush_item_json(temp.item_clan));
+            statement.setShort(5, temp.level);
+            statement.setLong(6, temp.exp);
+            statement.setString(7, temp.slogan);
+            statement.setString(8, temp.rule);
+            statement.setString(9, temp.notice);
+            statement.setLong(10, temp.vang);
+            statement.setInt(11, temp.kimcuong);
+            statement.setInt(12, temp.max_mem);
+            statement.setShort(13, temp.icon);
+            if (statement.executeUpdate() > 0) {
                 connection.commit();
             }
         } catch (SQLException e) {

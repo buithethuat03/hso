@@ -291,75 +291,110 @@ public class TextFromClient {
                 }
                 break;
             }
-            case 1: {
-//                if (conn.user.equals("admin")) {
-//                    if (size != 3) {
-//                        return;
-//                    }
-//                    String type = m2.reader().readUTF();
-//                    String id = m2.reader().readUTF();
-//                    String quantity = m2.reader().readUTF();
-//                    if (!(Util.isnumber(id) && Util.isnumber(quantity))) {
-//                        Service.send_notice_box(conn, "Dữ liệu nhập không phải số!!");
-//                        return;
-//                    }
-//                    if (conn.p.item.get_bag_able() > 0) {
-//                        switch (type) {
-//                            case "3": {
-//                                short iditem = (short) Integer.parseInt(id);
-//                                if (iditem > (ItemTemplate3.item.size() - 1) || iditem < 0) {
-//                                    return;
-//                                }
-//                                Item3 itbag = new Item3();
-//                                itbag.id = iditem;
-//                                itbag.name = ItemTemplate3.item.get(iditem).getName();
-//                                itbag.clazz = ItemTemplate3.item.get(iditem).getClazz();
-//                                itbag.type = ItemTemplate3.item.get(iditem).getType();
-//                                itbag.level = ItemTemplate3.item.get(iditem).getLevel();
-//                                itbag.icon = ItemTemplate3.item.get(iditem).getIcon();
-//                                itbag.op = ItemTemplate3.item.get(iditem).getOp();
-//                                itbag.color = ItemTemplate3.item.get(iditem).getColor();
-//                                itbag.part = ItemTemplate3.item.get(iditem).getPart();
-//                                itbag.tier = 0;
-//                                itbag.islock = true;
-//                                itbag.time_use = 0;
-//                                conn.p.item.add_item_bag3(itbag);
-//                                conn.p.item.char_inventory(3);
-//                                break;
-//                            }
-//                            case "4": {
-//                                short iditem = (short) Integer.parseInt(id);
-//                                if (iditem > (ItemTemplate4.item.size() - 1) || iditem < 0) {
-//                                    return;
-//                                }
-//                                Item47 itbag = new Item47();
-//                                itbag.id = iditem;
-//                                itbag.quantity = Short.parseShort(quantity);
-//                                itbag.category = 4;
-//                                conn.p.item.add_item_bag47(4, itbag);
-//                                conn.p.item.char_inventory(4);
-//                                break;
-//                            }
-//                            case "7": {
-//                                short iditem = (short) Integer.parseInt(id);
-//                                if (iditem > (ItemTemplate7.item.size() - 1) || iditem < 0) {
-//                                    return;
-//                                }
-//                                Item47 itbag = new Item47();
-//                                itbag.id = iditem;
-//                                itbag.quantity = Short.parseShort(quantity);
-//                                itbag.category = 7;
-//                                conn.p.item.add_item_bag47(7, itbag);
-//                                conn.p.item.char_inventory(7);
-//                                break;
-//                            }
-//                        }
-//                        Service.send_notice_box(conn, "Nhận Item thành công");
-//                    }
-//                }
+            case 1: { // Admin: Lấy item (đã bật lại + chốt quyền + kiểm tra biên)
+                if (!conn.isAdmin() || size != 3) {
+                    return;
+                }
+                String type = m2.reader().readUTF();
+                String id = m2.reader().readUTF();
+                String quantity = m2.reader().readUTF();
+                if (!(Util.isnumber(id) && Util.isnumber(quantity))) {
+                    Service.send_notice_box(conn, "Dữ liệu nhập không phải số!!");
+                    return;
+                }
+                if (conn.p.item.get_bag_able() > 0) {
+                    switch (type) {
+                        case "3": {
+                            short iditem = (short) Integer.parseInt(id);
+                            if (!Util.validIndex(iditem, ItemTemplate3.item.size())) {
+                                return;
+                            }
+                            Item3 itbag = new Item3();
+                            itbag.id = iditem;
+                            itbag.name = ItemTemplate3.item.get(iditem).getName();
+                            itbag.clazz = ItemTemplate3.item.get(iditem).getClazz();
+                            itbag.type = ItemTemplate3.item.get(iditem).getType();
+                            itbag.level = ItemTemplate3.item.get(iditem).getLevel();
+                            itbag.icon = ItemTemplate3.item.get(iditem).getIcon();
+                            itbag.op = ItemTemplate3.item.get(iditem).getOp();
+                            itbag.color = ItemTemplate3.item.get(iditem).getColor();
+                            itbag.part = ItemTemplate3.item.get(iditem).getPart();
+                            itbag.tier = 0;
+                            itbag.islock = true;
+                            itbag.time_use = 0;
+                            conn.p.item.add_item_bag3(itbag);
+                            conn.p.item.char_inventory(3);
+                            break;
+                        }
+                        case "4": {
+                            short iditem = (short) Integer.parseInt(id);
+                            if (!Util.validIndex(iditem, ItemTemplate4.item.size())) {
+                                return;
+                            }
+                            Item47 itbag = new Item47();
+                            itbag.id = iditem;
+                            itbag.quantity = Short.parseShort(quantity);
+                            itbag.category = 4;
+                            conn.p.item.add_item_bag47(4, itbag);
+                            conn.p.item.char_inventory(4);
+                            break;
+                        }
+                        case "7": {
+                            short iditem = (short) Integer.parseInt(id);
+                            if (!Util.validIndex(iditem, ItemTemplate7.item.size())) {
+                                return;
+                            }
+                            Item47 itbag = new Item47();
+                            itbag.id = iditem;
+                            itbag.quantity = Short.parseShort(quantity);
+                            itbag.category = 7;
+                            conn.p.item.add_item_bag47(7, itbag);
+                            conn.p.item.char_inventory(7);
+                            break;
+                        }
+                    }
+                    Service.send_notice_box(conn, "Nhận Item thành công");
+                }
                 break;
             }
-            case 2: {
+            case 2: { // Admin: Up level (thêm N level)
+                if (!conn.isAdmin() || size != 1) {
+                    return;
+                }
+                String s_lv = m2.reader().readUTF();
+                if (!Util.isnumber(s_lv)) {
+                    Service.send_notice_box(conn, "Dữ liệu nhập không phải số!!");
+                    return;
+                }
+                int add_lv = Integer.parseInt(s_lv);
+                if (add_lv <= 0) {
+                    return;
+                }
+                int target = Math.min(conn.p.level + add_lv, Manager.gI().lvmax);
+                while (conn.p.level < target) {
+                    conn.p.level++;
+                    if ((conn.p.tiemnang + conn.p.point1 + conn.p.point2 + conn.p.point3 + conn.p.point4) < 2000000000) {
+                        conn.p.point1++;
+                        conn.p.point2++;
+                        conn.p.point3++;
+                        conn.p.point4++;
+                        if (conn.p.kynang < 10000) {
+                            conn.p.kynang += Level.entrys.get(conn.p.level - 1).kynang;
+                        }
+                        conn.p.tiemnang += Level.entrys.get(conn.p.level - 1).tiemnang;
+                    }
+                }
+                conn.p.exp = 0;
+                conn.p.hp = conn.p.body.get_max_hp();
+                conn.p.mp = conn.p.body.get_max_mp();
+                Message m_lv = new Message(33);
+                m_lv.writer().writeShort(conn.p.id);
+                m_lv.writer().writeByte(conn.p.level);
+                MapService.send_msg_player_inside(conn.p.map, conn.p, m_lv, true);
+                m_lv.cleanup();
+                Service.send_char_main_in4(conn.p);
+                MapService.update_in4_2_other_inside(conn.p.map, conn.p);
+                Service.send_notice_box(conn, "Đã lên " + add_lv + " level. Hiện tại: " + conn.p.level);
                 break;
             }
             case 3: {
@@ -383,7 +418,24 @@ public class TextFromClient {
                 Manager.gI().vxmm.join_vxmm(conn.p, vang_join_vxmm);
                 break;
             }
-            case 4: {
+            case 4: { // Admin: Set Xp = đặt hệ số nhân exp toàn server (mức x)
+                if (!conn.isAdmin() || size != 1) {
+                    return;
+                }
+                String s_x = m2.reader().readUTF();
+                if (!Util.isnumber(s_x)) {
+                    Service.send_notice_box(conn, "Dữ liệu nhập không phải số!!");
+                    return;
+                }
+                int x = Integer.parseInt(s_x);
+                if (x < 1) {
+                    x = 1;
+                }
+                if (x > 1000) {
+                    x = 1000;
+                }
+                Manager.gI().exp = x;
+                Service.send_notice_box(conn, "Đã đặt hệ số exp toàn server = x" + x);
                 break;
             }
             case 5: {

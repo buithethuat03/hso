@@ -779,7 +779,7 @@ public class Service {
         @SuppressWarnings("unused")
         byte invenid = m2.reader().readByte();
         byte id = m2.reader().readByte();
-        if (id >= conn.p.item.bag3.length) {
+        if (!Util.validIndex(id, conn.p.item.bag3.length)) { // id là byte -> có thể âm, phải chặn cả cận dưới
             return;
         }
         Item3 temp = conn.p.item.bag3[id];
@@ -1272,7 +1272,7 @@ public class Service {
             }
         }
         if (cat == 4) {
-            if (index_pet > -1) {
+            if (Util.validIndex(index_pet, conn.p.mypet.size())) {
                 if (conn.p.mypet.get(index_pet).grown >= conn.p.mypet.get(index_pet).maxgrown) {
                     send_notice_box(conn, "bụng tui to thế rồi mà bạn cứ nhét vào nữa à? - pet của bạn nói!");
                     return;
@@ -1405,6 +1405,9 @@ public class Service {
             }
             if (duplicated) {
                 send_notice_box(conn, "trong chuồng đã có trứng đang ấp, hãy thử lại sau");
+                return;
+            }
+            if (!Util.validIndex(id, conn.p.item.bag3.length)) {
                 return;
             }
             Item3 it = conn.p.item.bag3[id];
@@ -1552,7 +1555,7 @@ public static void npc_chat(Session conn, String s) throws IOException {
         }
         switch (type) {
             case 0: { // cua hang potion
-                if (idbuy > (ItemTemplate4.item.size() - 1)) {
+                if (idbuy < 0 || idbuy > (ItemTemplate4.item.size() - 1)) {
                     return;
                 }
 
@@ -1588,7 +1591,7 @@ public static void npc_chat(Session conn, String s) throws IOException {
                 break;
             }
             case 1: {
-                if (idbuy > (ItemTemplate3.item.size() - 1)) {
+                if (idbuy < 0 || idbuy > (ItemTemplate3.item.size() - 1)) {
                     return;
                 }
                 if (idbuy == 2943 || idbuy == 2944) {

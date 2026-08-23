@@ -545,9 +545,10 @@ public class MapService {
         byte type = m2.reader().readByte();
         byte tem = m2.reader().readByte();
         byte size_buff = m2.reader().readByte();
-        // System.out.println(type);
-        // System.out.println(tem);
-        // System.out.println(size_buff);
+        // type là chỉ số skill do client gửi -> chặn index ngoài biên
+        if (conn.p.skills == null || !Util.validIndex(type, conn.p.skills.length)) {
+            return;
+        }
         MapService.add_eff_skill(map, conn.p, null, type);
         for (int i = 0; i < size_buff; i++) {
             int id = Short.toUnsignedInt(m2.reader().readShort());
@@ -1144,10 +1145,10 @@ public class MapService {
 
     public static void send_chat(Map map, Session conn, Message m2) throws IOException {
         String chat = m2.reader().readUTF();
-        if (conn.user.equals("admin") && chat.equals("admin")) {
+        if (conn.isAdmin() && chat.equals("admin")) {
             MenuController.send_menu_select(conn, 126, new String[]{"Bảo trì", "Cộng vàng x1.000.000.000",
                 "Cộng ngọc x1.000.000", "Update data", "Lấy item", "Up level", "Set Xp"});
-        } else if (conn.user.equals("admin") && chat.equals("xem")) {
+        } else if (conn.isAdmin() && chat.equals("xem")) {
             int num = 0;
             for (Map[] maps : Map.entrys) {
                 for (Map map_ : maps) {
@@ -1196,7 +1197,7 @@ public class MapService {
             // m.writer().writeInt(3000);
             // send_msg_player_inside(conn.p, m, true);
             // m.cleanup();
-        } else if (conn.user.equals("admin") && chat.equals("ok")) {
+        } else if (conn.isAdmin() && chat.equals("ok")) {
             try {
 							Mob_in_map mob = new Mob_in_map();
 							mob.template = Mob.entrys.get(150);
@@ -1244,7 +1245,7 @@ public class MapService {
 //            ChienTruong.gI().setTime(3);
         } else if (chat.equals("pk")) {
             Service.send_notice_box(conn, "Bạn đang có " + conn.p.hieuchien + " Điểm Pk.");
-        } else if (chat.equals("bosstg") && conn.user.equals("admin")) {
+        } else if (chat.equals("bosstg") && conn.isAdmin()) {
             Manager.gI().bossTG.refresh();
         } else {
             Message m = new Message(27);
@@ -1442,6 +1443,10 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
         synchronized (map) {
             byte index_skill = m.reader().readByte();
             int n = m.reader().readByte();
+            // index_skill do client gửi -> chặn index ngoài biên trước khi tra skills/skill_point
+            if (conn.p.skills == null || !Util.validIndex(index_skill, conn.p.skills.length)) {
+                return;
+            }
             int sk_point = conn.p.body.get_skill_point(index_skill);
             if (sk_point < 1) {
                 return;

@@ -1,0 +1,10 @@
+# Không gửi vào build context (data/ và log/ được mount qua compose, không copy vào image)
+target/
+log/
+data/
+*.mdmp
+*.log
+src_old/
+src/main1/
+.git/
+SERVER_REPORT.html

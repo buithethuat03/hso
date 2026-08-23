@@ -26,6 +26,11 @@ public class ServerManager implements Runnable {
     private static ServerManager instance;
     private final Thread mythread;
     private Thread server_live;
+    // Một executor dùng lại cho việc lưu dữ liệu định kỳ, thay cho việc tạo Thread mới mỗi phút.
+    // Single-thread: nếu một lần lưu kéo dài, lần sau xếp hàng (SaveData.process vốn synchronized)
+    // thay vì tích luỹ thread vô hạn.
+    private final java.util.concurrent.ExecutorService saveExecutor
+            = java.util.concurrent.Executors.newSingleThreadExecutor();
     private boolean running;
     private ServerSocket server;
     private final long time;
@@ -107,16 +112,14 @@ public class ServerManager implements Runnable {
                         Mob_in_map.create_boss();
                     }
                     if (min % 7 == 0 && sec == 0) {
-                        Manager.gI().chatKTGprocess("Chào mừng đến với Hiệp Sĩ Ong Đất Online - Để xem điểm pk chat : pk. - Chat : thoatket khi bị kẹt map | Tham gia nhóm Zalo tại : https://zalo.me/g/wpavje263 ");
+                        Manager.gI().chatKTGprocess("Chào mừng đến với Hiệp Sĩ Free Online - Để xem điểm pk chat : pk. - Chat : thoatket khi bị kẹt map | Tham gia nhóm Zalo tại : https://zalo.me/g/wpavje263 ");
                     }
                     if (min % 11 == 0 && sec == 0) {
                         Manager.gI().chatKTGprocess("Nhận điểm danh hàng ngày tại NPC Zulu, Nạp Ngọc vui lòng truy cập website để nạp");
 
                     }
                     if (min % 1 == 0 && sec == 10) { // update BXH + luu data
-                        new Thread(() -> {
-                            SaveData.process();
-                        }).start();
+                        saveExecutor.execute(SaveData::process);
                     }
                     if (hour == 0 && min == 0 && sec == 1) {
                         Manager.gI().ip_create_char.clear();

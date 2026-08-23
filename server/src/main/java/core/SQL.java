@@ -14,8 +14,9 @@ public class SQL {
     private final String pass;
 
     public SQL() {
-		url = "jdbc:mysql://" + Manager.gI().mysql_host + ":3306/" + Manager.gI().mysql_database
-		      + "?autoReconnect=true&useUnicode=yes&characterEncoding=UTF-8";
+		url = "jdbc:mysql://" + Manager.gI().mysql_host + ":" + Manager.gI().mysql_port + "/" + Manager.gI().mysql_database
+		      + "?autoReconnect=true&useUnicode=yes&characterEncoding=UTF-8"
+		      + "&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
 		System.out.println(url);
 		user = Manager.gI().mysql_user;
 		pass = Manager.gI().mysql_pass;
@@ -32,12 +33,13 @@ public class SQL {
 		config.setMaximumPoolSize(10);
 		config.setPoolName("HSO_pool");
 		//
-		// config.setLeakDetectionThreshold(10_000L);
-		// config.setMaxLifetime(1000L);
+		// Phát hiện connection bị giữ quá lâu (rò rỉ) và ghi cảnh báo vào log.
+		config.setLeakDetectionThreshold(30_000L);
 		//
-		// config.addDataSourceProperty("cachePrepStmts", "true");
-		// config.addDataSourceProperty("prepStmtCacheSize", "250");
-		// config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
+		// Cache prepared statement phía driver để giảm chi phí truy vấn lặp lại.
+		config.addDataSourceProperty("cachePrepStmts", "true");
+		config.addDataSourceProperty("prepStmtCacheSize", "250");
+		config.addDataSourceProperty("prepStmtCacheSqlLimit", "2048");
 		//
 		dataSource = new HikariDataSource(config);
 		SQL.is_connected = true;
