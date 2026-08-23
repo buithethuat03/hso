@@ -1,15 +1,20 @@
 # Project HSO
 
-Hai nửa của cùng một game: client J2ME đã mod, và mã nguồn server.
+Hai phần độc lập của cùng dòng game Hiệp Sĩ: mod client J2ME, và mã nguồn server.
+**Cùng game nhưng khác version** — đừng dùng tài liệu bên này làm căn cứ cho bên kia.
 
 | Thư mục | Nội dung |
 |---|---|
-| `client/jar/` | Toàn bộ việc mod client: patcher ASM, support class, jar gốc + jar đã mod, source decompile. Xem `client/jar/CLAUDE.md` để biết cách build — **lệnh build phải chạy từ trong thư mục đó**. |
-| `server/` | Mã nguồn server (chưa có, sẽ giải nén vào sau). |
+| `client/jar/` | Mod client J2ME: patcher ASM, support class, jar gốc + jar đã mod, source decompile. Xem `client/jar/CLAUDE.md` — **lệnh build phải chạy từ trong thư mục đó**. |
+| `server/` | Server Java 17 + Maven + MySQL của một server khác. Xem `server/CLAUDE.md`, và `server/SERVER_REPORT.html` cho khảo sát đầy đủ. **Lệnh build cũng phải chạy từ trong `server/`**. |
 
-## Tài liệu tham chiếu
+Repo là git (khởi tạo 23/08/2026). `.gitignore` loại `target/`, `log/`, `*.class`, `*.mdmp` và
+các thư mục decompile — những thứ đó sinh lại được.
 
-- `client/jar/PROTOCOL.md` — protocol mạng đã reverse từ client: frame format, handshake,
-  keystream XOR, bảng opcode, các kỹ thuật mod đã verify. Khi có mã nguồn server thì đây là
-  tài liệu để đối chiếu: bảng opcode dựng từ phía client, server sẽ xác nhận hoặc bổ sung.
-- `client/jar/HSOSKY_COMBAT_ANALYSIS.md` — phân tích luồng combat phía client.
+## Tài liệu
+
+| File | Nội dung |
+|---|---|
+| `server/SERVER_REPORT.html` | Khảo sát mã nguồn server: kiến trúc, 55 opcode, lược đồ DB, danh sách lỗi theo mức ưu tiên kèm `file:line`, runbook vận hành, lộ trình nâng cấp. Đọc trước khi sửa server. |
+| `client/jar/PROTOCOL.md` | Protocol mạng của **client** đã mod: frame, handshake, keystream, opcode, kỹ thuật mod đã verify. Của version server khác. |
+| `client/jar/HSOSKY_COMBAT_ANALYSIS.md` | Phân tích luồng combat phía client. |
