@@ -762,9 +762,24 @@ public final class AutoTradePatcher implements Opcodes {
         require(!callsOwner(real, sym("class.CHARS"), sym("screen.findPath")),
                 "realPath() goi thang findPath - phai di qua ke hoach, khong thi moi nhip"
                 + " lai ra mot loi vong khac va nhan vat chay vong vo");
-        require(callsSupport(planned, "approachPath"),
-                "plannedPath() khong co duong do quanh o dich - cong nam tren o chan thi"
-                + " tat Noclip la khong bao gio toi noi");
+        /*
+         * Sat dich ma khong co duong that thi phai buoc THANG toi dich, dung cach engine
+         * goc lam khi findPath tra ve null.
+         *
+         * Da thu thay bang viec do vong quanh o dich lay cho dung thay the, va hong: moi
+         * nhip lai chon mot o thay the khac nen nhan vat nhay qua nhay lai quanh cong, va
+         * o thay the thi nam ngoai 40px ma server doi de mo cong - "di den gan cong thi tu
+         * nhien chay ra cho khac, khong chiu sang map".
+         */
+        MethodNode walk = null;
+        for (MethodNode m : support.methods) if ("walkTo".equals(m.name)) walk = m;
+        require(walk != null, "support khong con ham walkTo()");
+        require(callsSupport(walk, "realPath") && callsSupport(walk, "straightPath"),
+                "walkTo() thieu mot trong hai duong di: duong that va buoc thang du phong");
+        for (MethodNode m : support.methods) {
+            require(!"approachPath".equals(m.name),
+                    "support con approachPath() - cach do vong quanh o dich da bi bo o v25");
+        }
 
         /*
          * Nham goc de ne cong khac chi dung khi dang di xuyen dia hinh: diem goc neo vao

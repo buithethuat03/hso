@@ -1302,3 +1302,37 @@ thế — GhostMod làm y hệt cho cổng (`PORTAL_APPROACH_RADIUS = 4`).
 - `realPath()` **không được** gọi thẳng `findPath` — phải đi qua `plannedPath()`.
 - `plannedPath()` **phải** có `approachPath()`.
 - `routeTowards()` **phải** đọc `noclipOn` (tức có canh nhánh cho `computeAim`).
+
+## v25 - Vào đúng cổng thay vì lảng vảng quanh cổng
+
+**Lỗi đã kiểm chứng (tiếp theo v24):** tắt Noclip thì cứ đi đến gần cổng là tự nhiên chạy ra
+chỗ khác, không chịu sang map.
+
+Hai nguyên nhân, và cả hai đều do v24 gây ra hoặc để lộ.
+
+### 1. `approachPath()` — dò quanh ô đích lấy chỗ đứng thay thế
+
+Ý tưởng chép từ GhostMod (`PORTAL_APPROACH_RADIUS = 4`) nhưng đặt sai chỗ. Mỗi nhịp nó có thể
+chọn **một ô thay thế khác**, nên nhân vật nhảy qua nhảy lại giữa mấy ô quanh cổng. Tệ hơn: ô
+thay thế nằm ngoài **40px** mà server đòi để mở cổng, nên dù có đứng yên ở đó cũng không bao
+giờ sang map được.
+
+Đã bỏ hẳn. Thay bằng đúng cách **engine gốc** làm: gọi `findPath`, trả về `null` thì **bước
+thẳng** tới đích chứ không bỏ cuộc. Chỉ bước thẳng trong phạm vi `STRAIGHT_NUDGE_PX` (= 200px,
+tức vùng quanh cổng) để đoạn đi xuyên — nếu có — luôn ngắn, còn cả chặng đường dài vẫn đi theo
+lối thật.
+
+Đây cũng là lý do cổng hay là chỗ duy nhất cần bước thẳng: cổng được ghi bằng **toạ độ pixel**,
+ô dưới chân nó không chắc là ô đi được trong bản đồ thật.
+
+### 2. `preGateX/preGateY` không bao giờ được xoá khi đổi map
+
+Điểm "lùi ra rồi bước vào lại" (nhánh `gateBackOff`, dùng khi đứng trên cổng 4 giây mà server
+không mở) được ghi trên map **cũ**. Qua cổng xong mà gặp lại nhánh đó là nhân vật chạy tới một
+toạ độ của map trước — tức lao đi đâu đó giữa map mới. Lỗi này có từ lâu và độc lập với Noclip;
+bật Noclip thì qua cổng nhanh nên hiếm khi chạm tới.
+
+### Chốt trong verify
+
+- `walkTo()` phải có **cả hai** đường: `realPath()` và `straightPath()` dự phòng.
+- Lớp support **không được** có lại `approachPath()`.

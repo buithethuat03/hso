@@ -182,15 +182,13 @@ public final class HSOAutoTradeSupport {
     /** Ngan sach tim duong giao cho findPath - dung con so engine goc dung o ca ba cho. */
     static final int PATH_BUDGET = 5000;
     /**
-     * Khi o dich khong di toi duoc, do ra quanh no bay nhieu O de tim cho dung thay the.
+     * Sat dich ngan nay ma van khong tim ra duong that thi buoc THANG toi dich.
      *
-     * Cong va cac diem moc duoc ghi bang TOA DO PIXEL, khong bao dam o duoi chan chung la o
-     * di duoc trong ban do that. Bat Noclip thi khong sao - moi o deu thanh di duoc. Tat di
-     * thi findPath khong toi noi, va neu bo cuoc luon thi auto dung ngay o cho do.
-     *
-     * GhostMod cung lam y het cho cong (PORTAL_APPROACH_RADIUS = 4 o).
+     * Dung lai GATE_NEAR_PX (200px) chu khong dat hang so rieng: day chinh la vung quanh
+     * cong, va cong la cho gan nhu duy nhat can toi mot diem ma ban do that co the khong
+     * cho dung len.
      */
-    static final int PATH_APPROACH_TILES = 4;
+    static final int STRAIGHT_NUDGE_PX = GATE_NEAR_PX;
 
     /** Coi la "da toi noi" khi ca hai truc deu trong nguong nay (cong them mot o). */
     static final int ARRIVE_PX = 16;
@@ -823,6 +821,13 @@ public final class HSOAutoTradeSupport {
                 routeMissSince = 0L;
                 fetchRuns = 0;     // qua duoc mot cong la co tien do that, dem lai tu dau
                 clearPlan();       // ban do khac roi, duong di cu vo nghia
+                /*
+                 * Quen diem lui ra cong. Diem nay duoc ghi tren map CU; giu lai thi ngay
+                 * sau khi qua cong, neu gap nhanh lui-ra-buoc-vao-lai, nhan vat se chay toi
+                 * mot toa do cua map truoc - tuc la lao di dau do giua map moi.
+                 */
+                preGateX = 0;
+                preGateY = 0;
             }
             // Theo doi con bo o mot cho duy nhat, de moi buoc doi chieu cung mot moc thoi gian.
             if (cow() != null) cowGoneSince = 0L;
@@ -1728,6 +1733,23 @@ public final class HSOAutoTradeSupport {
         short[] path = noclipOn
                 ? straightPath(fromTx, fromTy, toTx, toTy, maxTiles)
                 : realPath(fromTx, fromTy, toTx, toTy, maxTiles);
+        if (path == null && !noclipOn && within(tx, ty, STRAIGHT_NUDGE_PX)) {
+            /*
+             * Khong tim ra duong that toi dich, ma dich thi da o ngay truoc mat.
+             *
+             * Hay gap nhat la o CONG: cong duoc ghi bang toa do pixel, o duoi chan no khong
+             * chac la o di duoc trong ban do that, nen findPath khong bao gio toi noi. Ma
+             * server chi mo cong khi nhan duoc bao cao vi tri trong 40px quanh no - dung xa
+             * ra vai o la khong bao gio qua duoc map.
+             *
+             * Chinh ENGINE GOC cung lam dung the: cho no goi findPath, neu tra ve null thi
+             * no buoc thang toi dich chu khong bo cuoc.
+             *
+             * Chi lam trong pham vi GATE_NEAR_PX de doan di xuyen (neu co) luon ngan, con
+             * ca chang duong dai van di theo loi that.
+             */
+            path = straightPath(fromTx, fromTy, toTx, toTy, maxTiles);
+        }
         if (path == null) {
             // Dang dung dung o dich thi khong co gi de di - dung, chu khong phai loi.
             return fromTx == toTx && fromTy == toTy;
@@ -1825,15 +1847,19 @@ public final class HSOAutoTradeSupport {
             return planPath;
         }
 
+        /*
+         * O dich khong toi duoc thi tra ve null luon, KHONG di tim mot o khac gan do.
+         *
+         * Da thu do vong tron quanh o dich lay cho dung thay the, va hong: moi nhip lai co
+         * the chon mot o thay the khac, nen nhan vat nhay qua nhay lai giua may o quanh cong
+         * ma khong bao gio vao dung cong - dung loi "di den gan cong thi tu nhien chay ra cho
+         * khac, khong chiu sang map". Cho dung thay the con lam hong dieu quan trong nhat:
+         * server chi mo cong khi bao cao vi tri roi vao trong 40px quanh no, ma o thay the
+         * co the cach toi may o.
+         *
+         * Khong co duong that thi de walkTo buoc thang toi cong - dung cach engine goc lam.
+         */
         short[] found = askPath(screen, fromTx, fromTy, toTx, toTy);
-        if (found == null) {
-            /*
-             * O dich khong toi duoc - rat hay gap voi cong va cac diem moc, vi chung duoc
-             * ghi bang toa do pixel chu khong bao dam dung tren o di duoc. Do ra quanh no
-             * tim cho dung thay the, gan nhat truoc.
-             */
-            found = approachPath(screen, fromTx, fromTy, toTx, toTy);
-        }
         if (found == null) return null;
 
         planPath = found;
@@ -1865,22 +1891,6 @@ public final class HSOAutoTradeSupport {
                 || found[0] != tileWord(fromTx, fromTy)
                 || found[found.length - 1] != tileWord(toTx, toTy)) return null;
         return found;
-    }
-
-    /** Do vong tron dan quanh o dich de tim mot o den duoc. */
-    static short[] approachPath(@class.CHARS@ screen, int fromTx, int fromTy,
-            int toTx, int toTy) {
-        for (int r = 1; r <= PATH_APPROACH_TILES; r++) {
-            for (int dx = -r; dx <= r; dx++) {
-                for (int dy = -r; dy <= r; dy++) {
-                    // Chi xet vien ngoai cung cua vong - vien trong da xet o vong truoc.
-                    if (Math.abs(dx) != r && Math.abs(dy) != r) continue;
-                    short[] hit = askPath(screen, fromTx, fromTy, toTx + dx, toTy + dy);
-                    if (hit != null) return hit;
-                }
-            }
-        }
-        return null;
     }
 
     static int indexOfTile(short[] path, short tile) {

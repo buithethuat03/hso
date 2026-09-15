@@ -346,11 +346,14 @@ public final class TestAutoTradeRoute {
             }
             expect(hasPlan, "thieu clearPlan() - khong co ke hoach duong di thi moi nhip lai"
                     + " tinh lai mot loi vong khac, nhan vat chay vong vo khi tat Noclip");
-            int around = ci(c, "PATH_APPROACH_TILES");
-            expect(around >= 1 && around <= 8,
-                    "PATH_APPROACH_TILES = " + around + " - do quanh o dich de tim cho dung"
-                    + " thay the; 0 la cong nam tren o chan thi khong bao gio toi, qua lon la"
-                    + " dung xa dich toi may chuc pixel");
+            int nudge = ci(c, "STRAIGHT_NUDGE_PX");
+            expect(nudge >= ci(c, "GATE_NEAR_PX"),
+                    "STRAIGHT_NUDGE_PX = " + nudge + " phai phu het vung quanh cong ("
+                    + ci(c, "GATE_NEAR_PX") + "px): het duong that o cong ma khong buoc thang"
+                    + " toi thi khong bao gio vao duoc trong 40px server doi");
+            expect(nudge <= 400,
+                    "STRAIGHT_NUDGE_PX = " + nudge + " qua rong - doan di xuyen dia hinh khi"
+                    + " da tat Noclip phai ngan, chi du de vao dung cong");
             expect(ci(c, "PATH_BUDGET") == 5000,
                     "PATH_BUDGET = " + ci(c, "PATH_BUDGET") + ", phai la 5000 - dung con so"
                     + " engine goc truyen cho findPath o ca ba cho no goi. De nho hon thi map"
