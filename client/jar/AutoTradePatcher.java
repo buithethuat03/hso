@@ -737,6 +737,47 @@ public final class AutoTradePatcher implements Opcodes {
         require(callsSupport(drop, "markAlien"),
                 "dropCow() khong danh dau con vua buong - vong sau se vo lai dung con do");
 
+        /*
+         * Chot bai hoc thu tam: tat Noclip thi phai tinh duong MOT LAN roi di theo.
+         *
+         * Loi da kiem chung: vua tat Noclip la nhan vat chay vong vo ngay o buoc dau. Mot
+         * nhip chi giao cho engine mot doan ngan roi tinh lai tu vi tri moi - duong thang
+         * thi tinh lai van ra dung duong do, nhung duong di THAT thi vong qua chuong ngai,
+         * va tu hai vi tri gan nhau ham tim duong co the tra ve hai loi vong khac han nhau.
+         * Nhip nay re trai, nhip sau re phai, roi lai trai.
+         *
+         * Ca GhostMod lan chinh engine goc deu tinh ca duong roi giao han cho nhan vat.
+         */
+        MethodNode real = null;
+        MethodNode planned = null;
+        for (MethodNode m : support.methods) {
+            if ("realPath".equals(m.name)) real = m;
+            if ("plannedPath".equals(m.name)) planned = m;
+        }
+        require(real != null, "support khong con ham realPath()");
+        require(planned != null, "support khong con ham plannedPath() - ke hoach duong di"
+                + " bi go, se tinh lai moi nhip va chay vong vo khi tat Noclip");
+        require(callsSupport(real, "plannedPath"),
+                "realPath() khong di qua plannedPath() - dang tinh duong lai tung nhip");
+        require(!callsOwner(real, sym("class.CHARS"), sym("screen.findPath")),
+                "realPath() goi thang findPath - phai di qua ke hoach, khong thi moi nhip"
+                + " lai ra mot loi vong khac va nhan vat chay vong vo");
+        require(callsSupport(planned, "approachPath"),
+                "plannedPath() khong co duong do quanh o dich - cong nam tren o chan thi"
+                + " tat Noclip la khong bao gio toi noi");
+
+        /*
+         * Nham goc de ne cong khac chi dung khi dang di xuyen dia hinh: diem goc neo vao
+         * toa do hien tai cua nhan vat, ma di duong that thi toa do do doi ca hai truc moi
+         * buoc - goc truot theo chan, duoi mai khong kip.
+         */
+        MethodNode rt = null;
+        for (MethodNode m : support.methods) if ("routeTowards".equals(m.name)) rt = m;
+        require(rt != null, "support khong con ham routeTowards()");
+        require(readsField(rt, "HSOAutoTradeSupport", "noclipOn"),
+                "routeTowards() khong xet noclipOn - se nham goc ne cong ca khi dang di"
+                + " duong that, va goc do truot theo chan nhan vat");
+
         // Cac mod cu phai con nguyen.
         require(anyClassCalls(entries, "HSOSKYRuntimeSupport", "adjustTile"),
                 "mat noclip (adjustTile) trong jar");
@@ -754,6 +795,28 @@ public final class AutoTradePatcher implements Opcodes {
                 "so cho hen ket noi lai 15 giay khong dung " + EXPECT_RETRY_SITES);
 
         System.out.println("[9] Verify jar vua ghi: OK");
+    }
+
+    /** Method nay co goi ham cua mot lop khac khong (khop ca owner lan ten). */
+    static boolean callsOwner(MethodNode m, String owner, String name) {
+        if (m.instructions == null) return false;
+        for (AbstractInsnNode n = m.instructions.getFirst(); n != null; n = n.getNext()) {
+            if (!(n instanceof MethodInsnNode)) continue;
+            MethodInsnNode c = (MethodInsnNode) n;
+            if (owner.equals(c.owner) && name.equals(c.name)) return true;
+        }
+        return false;
+    }
+
+    /** Method nay co doc mot field cho truoc khong. */
+    static boolean readsField(MethodNode m, String owner, String name) {
+        if (m.instructions == null) return false;
+        for (AbstractInsnNode n = m.instructions.getFirst(); n != null; n = n.getNext()) {
+            if (!(n instanceof FieldInsnNode)) continue;
+            FieldInsnNode f = (FieldInsnNode) n;
+            if (owner.equals(f.owner) && name.equals(f.name)) return true;
+        }
+        return false;
     }
 
     static boolean anyClassCalls(Map<String, byte[]> entries, String owner, String name) {

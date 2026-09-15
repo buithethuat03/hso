@@ -181,6 +181,16 @@ public final class HSOAutoTradeSupport {
     static final int MAX_PATH_FAILS = 25;
     /** Ngan sach tim duong giao cho findPath - dung con so engine goc dung o ca ba cho. */
     static final int PATH_BUDGET = 5000;
+    /**
+     * Khi o dich khong di toi duoc, do ra quanh no bay nhieu O de tim cho dung thay the.
+     *
+     * Cong va cac diem moc duoc ghi bang TOA DO PIXEL, khong bao dam o duoi chan chung la o
+     * di duoc trong ban do that. Bat Noclip thi khong sao - moi o deu thanh di duoc. Tat di
+     * thi findPath khong toi noi, va neu bo cuoc luon thi auto dung ngay o cho do.
+     *
+     * GhostMod cung lam y het cho cong (PORTAL_APPROACH_RADIUS = 4 o).
+     */
+    static final int PATH_APPROACH_TILES = 4;
 
     /** Coi la "da toi noi" khi ca hai truc deu trong nguong nay (cong them mot o). */
     static final int ARRIVE_PX = 16;
@@ -385,6 +395,16 @@ public final class HSOAutoTradeSupport {
     static long fetchSince;
     /** Map dang dung truoc lan chuyen map gan nhat. */
     static int prevMapId = -1;
+    /**
+     * Duong di THAT da tinh san, dung khi tat Noclip. Xem plannedPath().
+     *
+     * Giu lai thay vi tinh lai moi nhip: tinh lai lien tuc roi moi lan chi di mot doan la
+     * cach chac chan nhat de di vong vo - xem ghi chu o plannedPath().
+     */
+    static short[] planPath;
+    static int planTx = -1;
+    static int planTy = -1;
+    static int planMapId = -1;
     /** Luc doi map gan nhat - trong MAP_SETTLE_MS sau do thi du lieu map chua dang tin. */
     static long mapChangedAt;
     /** Luc bat dau khong thay bo; 0 = dang thay binh thuong. */
@@ -449,6 +469,7 @@ public final class HSOAutoTradeSupport {
         if (action == ACT_NOCLIP) {
             noclipOn = !noclipOn;
             HSOSKYRuntimeSupport.setNoClipEnabled(noclipOn);
+            clearPlan();
             @class.PLAYER@ me = player();
             if (me != null) haltWalk(me);
             notice(noclipOn ? "Noclip: BAT (di xuyen dia hinh)."
@@ -492,6 +513,7 @@ public final class HSOAutoTradeSupport {
         @class.ENGINE@.@engine.field.autoSell@ = false;
         @class.ENGINE@.@engine.field.autoHorse@ = false;
         HSOSKYRuntimeSupport.setNoClipEnabled(noclipOn);
+        clearPlan();
 
         beginTrip();
         talkingNpc = -1;
@@ -800,6 +822,7 @@ public final class HSOAutoTradeSupport {
                 cowGoneSince = 0L;
                 routeMissSince = 0L;
                 fetchRuns = 0;     // qua duoc mot cong la co tien do that, dem lai tu dau
+                clearPlan();       // ban do khac roi, duong di cu vo nghia
             }
             // Theo doi con bo o mot cho duy nhat, de moi buoc doi chieu cung mot moc thoi gian.
             if (cow() != null) cowGoneSince = 0L;
@@ -1755,31 +1778,122 @@ public final class HSOAutoTradeSupport {
         @class.CHARS@ screen = @class.CANVAS@.@canvas.currentScreen@;
         if (screen == null) return null;
 
-        /*
-         * Giong engine goc: tim ca duong truoc, roi cat do dai giao cho nhip nay.
-         *
-         * Thu tu tham so la DICH truoc, vi tri hien tai sau - doc tu chinh cho engine goi
-         * findPath (nap toa do cua doi tuong dich, roi moi nap CHARS.player). Ket qua tra
-         * ve da theo huong hien tai -> dich.
-         *
-         * Tham so cuoi la PATH_BUDGET: ca ba cho engine goi ham nay deu truyen 5000, nen
-         * o day truyen y het. Truoc do cho nay de 127 - de nham voi bien toa do o (0..127),
-         * ma no khong phai the: de qua nho thi map nao duong dai la findPath tra ve null,
-         * walkTo bao that bai, va sau MAX_PATH_FAILS lan la auto tu tat.
-         */
-        short[] found = screen.@screen.findPath@(toTx, toTy, fromTx, fromTy, PATH_BUDGET);
+        short[] plan = plannedPath(screen, fromTx, fromTy, toTx, toTy);
+        if (plan == null) return null;
+
+        // Dang dung o dau tren ke hoach? Khong tim thay tuc la da di lech - tinh lai.
+        int at = indexOfTile(plan, tileWord(fromTx, fromTy));
+        if (at < 0) {
+            clearPlan();
+            return null;
+        }
+        int left = plan.length - 1 - at;
+        if (left <= 0) {
+            clearPlan();        // da di het ke hoach
+            return null;
+        }
+
+        int steps = left < maxTiles ? left : maxTiles;
+        short[] out = new short[steps + 1];
+        for (int i = 0; i <= steps; i++) {
+            out[i] = plan[at + i];
+        }
+        return out;
+    }
+
+    /**
+     * Ke hoach duong di toi o dich, tinh MOT LAN roi dung lai cho cac nhip sau.
+     *
+     * Vi sao khong tinh lai moi nhip: mot nhip chi giao cho engine mot doan ngan, xong lai
+     * tinh lai tu vi tri moi. Duong thang thi khong sao - tinh lai van ra dung duong do.
+     * Nhung duong di THAT thi vong qua chuong ngai, va tu hai vi tri gan nhau, ham tim
+     * duong co the tra ve hai loi vong khac han nhau (trai hay phai deu dai bang nhau).
+     * The la nhip nay di sang trai, nhip sau di sang phai, roi lai sang trai - nhan vat
+     * chay vong vo tai cho, khong toi dau ca. Dung loi nguoi choi gap ngay o buoc dau
+     * tien sau khi tat Noclip.
+     *
+     * GhostMod lam dung the nay: tinh ca duong roi giao han cho nhan vat (assignPlayerPath),
+     * khong tinh lai tung nhip. Chinh engine goc cung vay.
+     *
+     * Ke hoach chi duoc tinh lai khi: chua co, doi o dich, doi map, hoac nhan vat khong con
+     * dung tren duong da vach (bi day ra, hoac tu di cho khac).
+     */
+    static short[] plannedPath(@class.CHARS@ screen, int fromTx, int fromTy,
+            int toTx, int toTy) {
+        if (planPath != null && planMapId == mapId() && planTx == toTx && planTy == toTy
+                && indexOfTile(planPath, tileWord(fromTx, fromTy)) >= 0) {
+            return planPath;
+        }
+
+        short[] found = askPath(screen, fromTx, fromTy, toTx, toTy);
+        if (found == null) {
+            /*
+             * O dich khong toi duoc - rat hay gap voi cong va cac diem moc, vi chung duoc
+             * ghi bang toa do pixel chu khong bao dam dung tren o di duoc. Do ra quanh no
+             * tim cho dung thay the, gan nhat truoc.
+             */
+            found = approachPath(screen, fromTx, fromTy, toTx, toTy);
+        }
+        if (found == null) return null;
+
+        planPath = found;
+        planTx = toTx;          // khoa theo o dich DA YEU CAU, khong phai o thay the
+        planTy = toTy;
+        planMapId = mapId();
+        return planPath;
+    }
+
+    /**
+     * Hoi engine mot duong di, va chi nhan khi no that su di tu cho dang dung toi dung dich.
+     *
+     * Thu tu tham so la DICH truoc, vi tri hien tai sau - doc tu chinh cho engine goi
+     * findPath (nap toa do doi tuong dich, roi moi nap CHARS.player), va GhostMod goi ham
+     * tuong ung cua no cung theo thu tu do. Ket qua tra ve da theo huong hien tai -> dich,
+     * phan tu 0 la o dang dung (engine dat con tro = 1 ngay sau khi nhan duong).
+     *
+     * Tham so cuoi la PATH_BUDGET: ca ba cho engine goi ham nay deu truyen 5000.
+     */
+    static short[] askPath(@class.CHARS@ screen, int fromTx, int fromTy, int toTx, int toTy) {
+        if (!tileInRange(toTx) || !tileInRange(toTy)) return null;
+        short[] found;
+        try {
+            found = screen.@screen.findPath@(toTx, toTy, fromTx, fromTy, PATH_BUDGET);
+        } catch (Throwable t) {
+            return null;        // ban do chua nap xong chang han
+        }
         if (found == null || found.length < 2
                 || found[0] != tileWord(fromTx, fromTy)
                 || found[found.length - 1] != tileWord(toTx, toTy)) return null;
+        return found;
+    }
 
-        int steps = found.length - 1;
-        if (steps > maxTiles) steps = maxTiles;
-        short[] out = new short[steps + 1];
-        out[0] = found[0];
-        for (int i = 1; i <= steps; i++) {
-            out[i] = found[i];
+    /** Do vong tron dan quanh o dich de tim mot o den duoc. */
+    static short[] approachPath(@class.CHARS@ screen, int fromTx, int fromTy,
+            int toTx, int toTy) {
+        for (int r = 1; r <= PATH_APPROACH_TILES; r++) {
+            for (int dx = -r; dx <= r; dx++) {
+                for (int dy = -r; dy <= r; dy++) {
+                    // Chi xet vien ngoai cung cua vong - vien trong da xet o vong truoc.
+                    if (Math.abs(dx) != r && Math.abs(dy) != r) continue;
+                    short[] hit = askPath(screen, fromTx, fromTy, toTx + dx, toTy + dy);
+                    if (hit != null) return hit;
+                }
+            }
         }
-        return out;
+        return null;
+    }
+
+    static int indexOfTile(short[] path, short tile) {
+        if (path == null) return -1;
+        for (int i = 0; i < path.length; i++) if (path[i] == tile) return i;
+        return -1;
+    }
+
+    static void clearPlan() {
+        planPath = null;
+        planTx = -1;
+        planTy = -1;
+        planMapId = -1;
     }
 
     static boolean tileInRange(int t) {
@@ -1834,7 +1948,21 @@ public final class HSOAutoTradeSupport {
             }
             gateSince = 0L;
             gateBackOff = false;
-            computeAim(wp, gx, gy);
+            /*
+             * Nham goc chi dung khi dang di XUYEN dia hinh.
+             *
+             * Diem goc duoc neo vao toa do HIEN TAI cua nhan vat: (gx, my) hoac (mx, gy).
+             * Di duong thang thi mot truc dung yen nen goc do dung im. Con di duong that
+             * thi duong vong len xuong ca hai truc, nen goc truot theo tung buoc chan -
+             * nhan vat duoi mot cai dich khong bao gio dung lai. Ma tat Noclip roi thi
+             * cung khong can no nua: duong that da di theo loi that, khong cat ngang cong
+             * khac nhu duong thang.
+             */
+            if (noclipOn) {
+                computeAim(wp, gx, gy);
+            } else {
+                aimIsCorner = false;
+            }
             stepToward(aimIsCorner ? aimCornerX : gx, aimIsCorner ? aimCornerY : gy,
                     leadingCow, !gateZone);
             return;

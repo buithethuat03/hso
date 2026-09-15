@@ -1257,3 +1257,48 @@ toàn bộ nguồn Auto Đi Buôn đã vào git.
 
 Cũng lần đó phát hiện `MAX_GEMS` đang để **1** — giá trị chạy thử của một phiên trước, suýt
 phát hành. Test đã chốt cứng 24 chính để bắt việc này.
+
+## v24 - Tắt Noclip thì phải tính đường MỘT LẦN rồi đi theo
+
+**Lỗi đã kiểm chứng:** vừa tắt Noclip là nhân vật chạy vòng vòng, không đi đâu cả, ngay ở
+bước đầu tiên (Về cổng địa ngục).
+
+Hai nguyên nhân, cả hai đều là do bê nguyên cách làm của chế độ đi xuyên tường sang.
+
+### 1. Tính lại đường mỗi nhịp
+
+`walkTo()` chỉ giao cho engine một đoạn ngắn rồi nhịp sau tính lại từ vị trí mới. Đi **đường
+thẳng** thì tính lại vẫn ra đúng đường đó — vô hại, và đó là lý do nó chạy tốt suốt hai chục
+bản. Nhưng **đường đi thật** thì vòng qua chướng ngại, và từ hai vị trí cách nhau vài ô, hàm
+tìm đường có thể trả về hai lối vòng khác hẳn nhau (trái hay phải đều dài bằng nhau). Nhịp
+này rẽ trái, nhịp sau rẽ phải, rồi lại trái — chạy vòng vô tại chỗ.
+
+`plannedPath()` giữ lại kế hoạch, chỉ tính lại khi: chưa có, đổi ô đích, đổi map, hoặc nhân
+vật không còn đứng trên đường đã vạch.
+
+Cả **GhostMod** lẫn **chính engine gốc** đều làm thế — đó là chỗ người chơi chỉ sang xem:
+- `GhostMod.assignPlayerPath()`: tính cả đường rồi giao hẳn cho nhân vật, không tính lại.
+- Engine gốc: `player.path = findPath(destX, destY, curX, curY, 5000)` rồi đặt
+  `pathCursor = 1` và gọi `startMove()`. Xác nhận luôn hai điều: thứ tự tham số **đích trước**,
+  và con trỏ bắt đầu từ **1** (phần tử 0 là ô đang đứng) — đúng như `walkTo()` đang làm.
+
+### 2. Nhắm góc để né cổng khác
+
+`computeAim()` neo điểm góc vào **toạ độ hiện tại** của nhân vật: `(gx, my)` hoặc `(mx, gy)`.
+Đi đường thẳng thì một trục đứng yên nên góc đó đứng im. Đi đường thật thì đường vòng lên
+xuống cả hai trục, nên góc **trượt theo từng bước chân** — đuổi mãi không kịp. Mà tắt Noclip
+rồi thì cũng không cần nó nữa: đường thật đã đi theo lối thật, không cắt ngang cổng khác như
+đường thẳng. Giờ chỉ nhắm góc khi `noclipOn`.
+
+### 3. Ô đích có thể không đi được
+
+Cổng và các điểm mốc được ghi bằng **toạ độ pixel**, không bảo đảm ô dưới chân chúng là ô đi
+được trong bản đồ thật. Bật Noclip thì không sao. Tắt đi thì `findPath` không tới nơi.
+`approachPath()` dò vòng tròn dần quanh ô đích (`PATH_APPROACH_TILES = 4`) tìm chỗ đứng thay
+thế — GhostMod làm y hệt cho cổng (`PORTAL_APPROACH_RADIUS = 4`).
+
+### Chốt trong verify
+
+- `realPath()` **không được** gọi thẳng `findPath` — phải đi qua `plannedPath()`.
+- `plannedPath()` **phải** có `approachPath()`.
+- `routeTowards()` **phải** đọc `noclipOn` (tức có canh nhánh cho `computeAim`).

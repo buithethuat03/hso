@@ -95,7 +95,9 @@ sang classpath jar HSOSKY, sẽ không compile.
 | `autotrade_v22.1.jar` | v22 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `autotrade_v22_x3.jar` | v22 **nhân ba** — 193 lớp ở gói mặc định + `b/` + `c/`, ba ô lưu RMS riêng nên đăng nhập ba nhân vật cùng lúc |
 | `autotrade_v23.jar` | v22 + **công tắc Noclip** trong menu Auto Đi Buôn: tắt thì tìm đường thật thay vì đi xuyên tường |
-| `autotrade_v23_x3.jar` | **bản đang chơi** — v23 nhân ba, dựng từ `autotrade_v22_x3.jar` bằng `RepackSupportX3` |
+| `autotrade_v23_x3.jar` | v23 nhân ba — **tắt Noclip thì chạy vòng vòng**, đừng dùng |
+| `autotrade_v24.jar` | v23 + tính đường **một lần rồi đi theo** khi tắt Noclip (hết chạy vòng vòng) |
+| `autotrade_v24_x3.jar` | **bản đang chơi** — v24 nhân ba, dựng từ `autotrade_v22_x3.jar` bằng `RepackSupportX3` |
 | `KNIGHT_ONLINE_RL.jar` | V3 → server **"Rồng Lửa"** `27.0.12.133:19129`, MIDlet đổi tên, auto đập đồ giãn 4s |
 | `KNIGHT_ONLINE_RL_V3.jar` | dựng từ V5 (bản chạy thử 1 viên) |
 | `KNIGHT_ONLINE_RL_V5.jar` | dựng từ V7 |
@@ -152,7 +154,7 @@ Ba điểm dễ vướng riêng của mod này:
 hai bản `b/` `c/` tham chiếu tới các lớp đã đổi tên theo gói.
 
 ```powershell
-java  -cp ".;asm-9.7.jar;asm-tree-9.7.jar" RepackSupportX3 autotrade_v22_x3.jar autotrade_v23_x3.jar HSOAutoTradeSupport HSOSKYRuntimeSupport
+java  -cp ".;asm-9.7.jar;asm-tree-9.7.jar" RepackSupportX3 autotrade_v22_x3.jar autotrade_v24_x3.jar HSOAutoTradeSupport HSOSKYRuntimeSupport
 ```
 
 Công cụ **tự kiểm trước khi ghi**: nó chạy phép đổi gói lên lớp CŨ của chính jar đầu vào rồi so với

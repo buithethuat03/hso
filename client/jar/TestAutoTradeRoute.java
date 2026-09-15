@@ -337,6 +337,20 @@ public final class TestAutoTradeRoute {
             Class<?> runtime = Class.forName("HSOSKYRuntimeSupport", true, cl);
             expect(runtime.getDeclaredMethod("setNoClipEnabled", boolean.class) != null,
                     "runtime phai cho phep bat/tat noclip that");
+            boolean hasPlan = false;
+            try {
+                c.getDeclaredMethod("clearPlan");
+                hasPlan = true;
+            } catch (Throwable ex) {
+                hasPlan = false;
+            }
+            expect(hasPlan, "thieu clearPlan() - khong co ke hoach duong di thi moi nhip lai"
+                    + " tinh lai mot loi vong khac, nhan vat chay vong vo khi tat Noclip");
+            int around = ci(c, "PATH_APPROACH_TILES");
+            expect(around >= 1 && around <= 8,
+                    "PATH_APPROACH_TILES = " + around + " - do quanh o dich de tim cho dung"
+                    + " thay the; 0 la cong nam tren o chan thi khong bao gio toi, qua lon la"
+                    + " dung xa dich toi may chuc pixel");
             expect(ci(c, "PATH_BUDGET") == 5000,
                     "PATH_BUDGET = " + ci(c, "PATH_BUDGET") + ", phai la 5000 - dung con so"
                     + " engine goc truyen cho findPath o ca ba cho no goi. De nho hon thi map"
