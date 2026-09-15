@@ -27,3 +27,6 @@ server/SERVER_REPORT.html
 
 # Client jar tro sang EC2 (sinh boi ClientRepointPatcher)
 client/jar/*_EC2.jar
+
+# Ban bien dich trung gian cua Auto Di Buon - sinh lai duoc bang MakeAutoTradeCompileJar
+client/jar/.autotrade-compile.jar

@@ -1,0 +1,576 @@
+<title>Chặng dắt bò</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:opsz,wght@8..60,600;8..60,700&display=swap">
+<style>
+:root{
+  --ground:#FAF7F1; --surface:#FFFFFF; --sunk:#F3EEE4;
+  --ink:#1A1713; --muted:#6E665A; --rule:#E6DFD3;
+  --accent:#A85D12; --accent-soft:#F5E7D3;
+  --danger:#A3281F; --danger-soft:#F7E3E0;
+  --ok:#2A6146; --ok-soft:#DFEDE5;
+  --shadow:0 1px 2px rgba(26,23,19,.05);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#141210; --surface:#1D1A16; --sunk:#232019;
+    --ink:#EFE9DE; --muted:#988F81; --rule:#2F2A22;
+    --accent:#E0A24A; --accent-soft:#3A2B15;
+    --danger:#E0796C; --danger-soft:#3B211D;
+    --ok:#6FBF95; --ok-soft:#1B2F25;
+    --shadow:0 1px 2px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#141210; --surface:#1D1A16; --sunk:#232019;
+  --ink:#EFE9DE; --muted:#988F81; --rule:#2F2A22;
+  --accent:#E0A24A; --accent-soft:#3A2B15;
+  --danger:#E0796C; --danger-soft:#3B211D;
+  --ok:#6FBF95; --ok-soft:#1B2F25;
+  --shadow:0 1px 2px rgba(0,0,0,.3);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:"Be Vietnam Pro",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15.5px; line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:860px; margin:0 auto; padding-inline:20px; padding-block:0 72px}
+
+/* ---------- header ---------- */
+header{border-bottom:1px solid var(--rule); padding-block:56px 30px; margin-bottom:44px}
+.eyebrow{
+  font-family:"JetBrains Mono",ui-monospace,monospace; font-size:11.5px;
+  letter-spacing:.13em; text-transform:uppercase; color:var(--accent);
+  margin:0 0 14px;
+}
+h1{
+  font-family:"Source Serif 4",Georgia,serif; font-weight:700;
+  font-size:clamp(34px,6.5vw,52px); line-height:1.08; letter-spacing:-.015em;
+  margin:0 0 18px; text-wrap:balance;
+}
+.standfirst{font-size:17px; color:var(--muted); margin:0; max-width:62ch; text-wrap:pretty}
+.meta{
+  display:flex; flex-wrap:wrap; gap:8px 22px; margin-top:24px;
+  font-family:"JetBrains Mono",ui-monospace,monospace; font-size:12px; color:var(--muted);
+}
+.meta b{color:var(--ink); font-weight:500}
+
+/* ---------- sections ---------- */
+section{margin-bottom:52px; scroll-margin-top:20px}
+h2{
+  font-family:"Source Serif 4",Georgia,serif; font-weight:600;
+  font-size:26px; line-height:1.2; letter-spacing:-.01em;
+  margin:0 0 6px; text-wrap:balance;
+}
+h2 .num{
+  font-family:"JetBrains Mono",ui-monospace,monospace; font-size:13px;
+  color:var(--accent); margin-right:12px; font-weight:500; letter-spacing:0;
+}
+h3{
+  font-size:15px; font-weight:600; margin:30px 0 8px; letter-spacing:-.005em;
+}
+.lede{color:var(--muted); margin:0 0 22px; max-width:64ch}
+p{margin:0 0 14px; max-width:66ch; text-wrap:pretty}
+ul{margin:0 0 14px; padding-left:20px; max-width:66ch}
+li{margin-bottom:6px}
+code,.m{
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:.88em; font-variant-numeric:tabular-nums;
+}
+code{background:var(--sunk); padding:1px 5px; border-radius:3px}
+strong{font-weight:600}
+a{color:var(--accent)}
+
+/* ---------- tables ---------- */
+.scroll{overflow-x:auto; margin-bottom:18px; -webkit-overflow-scrolling:touch}
+table{border-collapse:collapse; width:100%; min-width:520px; font-size:14px}
+th{
+  text-align:left; font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+  color:var(--muted); font-weight:500;
+  padding:0 14px 8px 0; border-bottom:1px solid var(--rule); white-space:nowrap;
+}
+td{padding:10px 14px 10px 0; border-bottom:1px solid var(--rule); vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.n{font-family:"JetBrains Mono",ui-monospace,monospace; font-variant-numeric:tabular-nums; white-space:nowrap}
+td.k{font-family:"JetBrains Mono",ui-monospace,monospace; font-size:12.5px; white-space:nowrap}
+
+/* ---------- the tick ladder ---------- */
+.ladder{list-style:none; margin:0 0 20px; padding:0; counter-reset:rung}
+.ladder li{
+  display:grid; grid-template-columns:30px 1fr; gap:0 16px;
+  padding:14px 0; border-bottom:1px solid var(--rule); margin:0;
+}
+.ladder li:last-child{border-bottom:none}
+.ladder li::before{
+  counter-increment:rung; content:counter(rung);
+  font-family:"JetBrains Mono",ui-monospace,monospace; font-size:12px;
+  color:var(--accent); padding-top:2px; font-variant-numeric:tabular-nums;
+}
+.rung-c{font-family:"JetBrains Mono",ui-monospace,monospace; font-size:13px; margin-bottom:3px}
+.rung-a{color:var(--muted); font-size:14px}
+.rung-a b{color:var(--ink); font-weight:500}
+
+/* ---------- route chain ---------- */
+.chain{display:flex; align-items:stretch; gap:0; min-width:min-content; padding-bottom:6px}
+.hop{
+  flex:0 0 auto; display:flex; flex-direction:column; justify-content:flex-start;
+  width:104px; padding:10px 12px 12px 0;
+}
+.hop .id{
+  font-family:"JetBrains Mono",ui-monospace,monospace; font-size:11px;
+  color:var(--accent); margin-bottom:3px;
+}
+.hop .nm{font-size:12.5px; line-height:1.3; color:var(--muted)}
+.hop.end .nm{color:var(--ink); font-weight:600}
+.hop .bar{height:3px; background:var(--rule); margin-bottom:9px; border-radius:2px}
+.hop.end .bar{background:var(--accent)}
+
+/* ---------- callouts ---------- */
+.note{
+  border-left:2px solid var(--accent); background:var(--accent-soft);
+  padding:14px 18px; margin:0 0 20px; border-radius:0 4px 4px 0;
+}
+.note.warn{border-left-color:var(--danger); background:var(--danger-soft)}
+.note p:last-child{margin-bottom:0}
+.note .tag{
+  font-family:"JetBrains Mono",ui-monospace,monospace; font-size:10.5px;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--accent);
+  display:block; margin-bottom:6px;
+}
+.note.warn .tag{color:var(--danger)}
+
+/* ---------- history cards ---------- */
+.hist{display:grid; gap:0; margin-bottom:8px}
+.hist > div{padding:16px 0; border-bottom:1px solid var(--rule)}
+.hist > div:last-child{border-bottom:none}
+.hist .sym{
+  font-family:"JetBrains Mono",ui-monospace,monospace; font-size:12px;
+  color:var(--danger); margin-bottom:4px;
+}
+.hist .fix{color:var(--muted); font-size:14px; margin:6px 0 0}
+.hist .fix b{color:var(--ink); font-weight:500}
+
+.pill{
+  display:inline-block; font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:11px; padding:1px 7px; border-radius:10px; white-space:nowrap;
+  background:var(--sunk); color:var(--muted);
+}
+.pill.on{background:var(--ok-soft); color:var(--ok)}
+.pill.off{background:var(--danger-soft); color:var(--danger)}
+
+footer{
+  border-top:1px solid var(--rule); padding-top:22px; margin-top:8px;
+  font-size:13px; color:var(--muted);
+}
+@media (max-width:520px){
+  header{padding-block:38px 24px}
+  .wrap{padding-inline:16px}
+}
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Auto Đi Buôn · bước 6 · bản v19</p>
+  <h1>Chặng dắt bò</h1>
+  <p class="standfirst">Từ Cổng địa ngục sang Thung Lũng Kỳ Bí: 14 lần chuyển map, khoảng 7 phút, dắt theo một con pet do <em>server</em> điều khiển. Đây là bước dài nhất và là bước duy nhất mà đi sai một nhịp là hỏng cả chuyến.</p>
+  <div class="meta">
+    <span><b>52 → 8</b> · 14 cổng</span>
+    <span><b>48px/giây</b> khi tăng tốc</span>
+    <span>hạn bò <b>30 phút</b></span>
+    <span><b>stepHaul()</b> + <b>stepToward()</b> + <b>routeTowards()</b></span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">01</span>Ba con số của server</h2>
+  <p class="lede">Mọi hằng số trong mod đều là hệ quả của ba luật dưới đây. Không có luật nào trong số này do client quyết định.</p>
+
+  <div class="scroll">
+  <table>
+    <tr>
+      <th>Luật</th><th>Điều kiện</th><th>Tối đa an toàn</th><th>Nguồn</th>
+    </tr>
+    <tr>
+      <td><b>Bò bám theo</b><br><span style="color:var(--muted);font-size:13px">mỗi 1 giây server kéo bò về đúng chỗ mình đứng</span></td>
+      <td class="k">|Δx| &lt; 85 × speed<br>|Δy| &lt; 85 × speed</td>
+      <td class="n">84px <span class="pill">speed 1</span><br>339px <span class="pill">speed 4</span></td>
+      <td class="k">MapService<br>:213–217</td>
+    </tr>
+    <tr>
+      <td><b>Bò theo qua cổng</b><br><span style="color:var(--muted);font-size:13px">xa hơn là bò <em>ở lại map cũ</em></span></td>
+      <td class="k">|Δx| &lt; 125<br>|Δy| &lt; 125</td>
+      <td class="n">124px<br><span class="pill off">không nhân theo speed</span></td>
+      <td class="k">Player<br>:1209</td>
+    </tr>
+    <tr>
+      <td><b>Tăng tốc</b><br><span style="color:var(--muted);font-size:13px">tốn ngọc, mỗi lần dùng lại tăng thêm 5</span></td>
+      <td class="k">speed = 4</td>
+      <td class="n">tới khi bò biến mất<br><span class="pill on">cả chặng</span></td>
+      <td class="k">Pet_di_buon<br>.update_speed</td>
+    </tr>
+  </table>
+  </div>
+
+  <div class="note">
+    <span class="tag">Đính chính — khác với mã tham chiếu</span>
+    <p>Mã tham chiếu cho Tăng tốc sống <b>10 giây</b> (<code>time_skill = now + 10s</code>, sau đó server hạ <code>speed</code> về 1). <b>Server đang chơi thì không</b> — Tăng tốc sống <b>tới khi con bò biến mất</b>, người chơi xác nhận bằng cách chơi thử.</p>
+    <p>Hệ quả là <code>speed = 4</code> suốt cả chặng, nên bán kính kéo thật là <b>340px</b> chứ không phải 85px. Điều này đổi hẳn cách xử lý khi bò tụt lại — xem mục 06.</p>
+  </div>
+
+  <p>Kiểm tra là <strong>theo từng trục riêng</strong> (<code>Math.abs(Δx)</code> và <code>Math.abs(Δy)</code> tách nhau), nên vùng an toàn là một <em>hình vuông</em>, không phải hình tròn. Và so sánh là <code>&lt;</code> chứ không phải <code>&lt;=</code>, nên giá trị dùng được là số đó trừ 1.</p>
+
+  <div class="note">
+    <span class="tag">Về nguồn</span>
+    <p>Mã trong <code>server/</code> là <strong>một phiên bản khác</strong> với server đang chơi — cùng dòng game, không cùng bản. Mọi con số trên đây đọc từ đó, và đã đối chiếu lại bằng cách chơi thử. Chỗ nào chưa đối chiếu được thì ghi rõ ở mục cuối.</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">02</span>Tuyến đường</h2>
+  <p class="lede">Đồ thị cổng lấy từ <code>hsoodtest.sql</code>, BFS ra chặng ngắn nhất. Bảng kề trong mod phủ cả 91 map chứ không chỉ tuyến này, nên mọi bước khác (về Cổng địa ngục, quay lại đón bò) đều dùng chung một hàm định tuyến.</p>
+
+  <div class="scroll">
+    <div class="chain">
+      <div class="hop end"><div class="bar"></div><div class="id">52</div><div class="nm">Cổng địa ngục</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">45</div><div class="nm">Cổng vào Hạ giới</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">44</div><div class="nm">Cây cầu ma ám</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">43</div><div class="nm">Đường xuống lòng đất</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">42</div><div class="nm">Đèo hoang sơ</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">22</div><div class="nm">Vực Lún</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">24</div><div class="nm">Nghĩa địa cát</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">23</div><div class="nm">Hố Tử Thần</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">20</div><div class="nm">Sa Mạc</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">34</div><div class="nm">Khu phía Tây</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">33</div><div class="nm">Thành Phố Kho Báu</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">25</div><div class="nm">Rừng Chết</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">18</div><div class="nm">Hang Sói Quỷ</div></div>
+      <div class="hop"><div class="bar"></div><div class="id">7</div><div class="nm">Cánh Đồng Sói</div></div>
+      <div class="hop end"><div class="bar"></div><div class="id">8</div><div class="nm">Thung Lũng Kỳ Bí</div></div>
+    </div>
+  </div>
+
+  <p>Đích cuối là <code>(241, 787)</code> trên map 8, chỗ Graham. Mỗi lần đổi map, mod ghi lại map vừa rời (<code>prevMapId</code>) — đó là thứ duy nhất cứu được con bò khi nó bị bỏ lại phía sau.</p>
+</section>
+
+<section>
+  <h2><span class="num">03</span>Một nhịp dắt bò</h2>
+  <p class="lede">Thứ tự dưới đây là thứ tự thật trong <code>stepToward(..., leadingCow = true)</code>, và thứ tự <em>là</em> thông tin: kiểm tra nào đứng trước thì nó thắng.</p>
+
+  <ol class="ladder">
+    <li>
+      <div>
+        <div class="rung-c">cowGap() &lt; 0</div>
+        <div class="rung-a">Không thấy bò đâu cả → <b>goFetchCow()</b></div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="rung-c">cowRecovering &amp;&amp; gap &gt; 20</div>
+        <div class="rung-a">Đang trên đường quay lại đón mà chưa sát → <b>đón tiếp</b>. Phải bám tới 20px mới tính là xong, không thì quay đầu ↔ bấm liên tục mà không đi được mét nào.</div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="rung-c">cowRecovering &amp;&amp; gap ≤ 20</div>
+        <div class="rung-a">Đón xong → bỏ đường đang đi, báo <b>"Đã dắt lại được bò, đi tiếp"</b>, tính đường lại từ đầu.</div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="rung-c">gap &gt; petLostPx()</div>
+        <div class="rung-a">Bò tụt quá ngưỡng → <b>goFetchCow()</b> ngay, không chờ. Vừa đổi map trong 3 giây thì không kết luận gì cả.</div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="rung-c">me.path != null</div>
+        <div class="rung-a">Engine đang đi dở đoạn đã giao → <b>để yên</b>. Mod không điều khiển từng bước chân, nó giao cả một đoạn đường rồi đợi.</div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="rung-c">now − lastStep &lt; 1000ms</div>
+        <div class="rung-a">Chưa tới nhịp → <b>chờ</b>. Nhịp này khớp đúng nhịp kéo pet 1 giây của server.</div>
+      </div>
+    </li>
+    <li>
+      <div>
+        <div class="rung-c">walkTo(tx, ty, true)</div>
+        <div class="rung-a">Giao cho engine <b>2 ô</b> (48px) nếu bật tăng tốc, <b>1 ô</b> (24px) nếu tắt. Ô rộng 24px.</div>
+      </div>
+    </li>
+  </ol>
+
+  <div class="note">
+    <span class="tag">Vì sao chặn bằng thời gian chứ không bằng khoảng cách</span>
+    <p>Nhịp đi bị chặn bằng <strong>thời gian</strong> (≤ 1 đoạn mỗi giây), còn khoảng cách tới bò chỉ dùng làm <em>cảnh báo</em>. Bắt buộc bò phải bám sát mới cho bước tiếp nghe thì an toàn, nhưng khi bò không được kéo vì một lý do khác (sai khu, sai <code>id_map</code>) thì điều kiện đó không bao giờ đúng và auto đứng im vĩnh viễn, không một dòng báo nào. <b>Chờ có điều kiện mà không có hạn là lỗi, không phải sự thận trọng.</b></p>
+  </div>
+
+  <h3>Đọc vị trí con bò theo góc nhìn của server</h3>
+  <p><code>cowX()</code> / <code>cowY()</code> đọc <code>stepDestX/Y</code> trước, chỉ rơi về <code>x/y</code> khi không có. Lý do: server đặt <code>pet.x = player.x</code> rồi gửi xuống, client lưu vào ô "điểm đến" và cho mob <em>đi bộ</em> tới dần. Đọc toạ độ đang vẽ sẽ thấy bò tụt xa hơn thực tế — đủ để treo cả chặng dắt.</p>
+</section>
+
+<section>
+  <h2><span class="num">04</span>Các con số</h2>
+
+  <div class="scroll">
+  <table>
+    <tr><th>Hằng số</th><th>Bật tăng tốc</th><th>Tắt</th><th>Nó chống cái gì</th></tr>
+    <tr>
+      <td class="k">HAUL_STEP_PX<br>HAUL_TICK_MS</td>
+      <td class="n">48px / 1s</td>
+      <td class="n">24px / 1s</td>
+      <td>Ngân sách 60px cắt theo ô nguyên (60 ÷ 24 = 2 ô). Thấp hơn nhiều so với tầm kéo 340px — <b>còn nhiều chỗ để nâng</b>, xem mục 09.</td>
+    </tr>
+    <tr>
+      <td class="k">petLostPx()</td>
+      <td class="n">240px</td>
+      <td class="n">80px</td>
+      <td>Ngưỡng "bò tụt lại, quay đầu đón". Xem cảnh báo ngay dưới.</td>
+    </tr>
+    <tr>
+      <td class="k">PET_STEP_OK</td>
+      <td class="n" colspan="2">20px</td>
+      <td>Đã quay đầu đón thì phải bám sát đến mức này mới tính là xong — chống dao qua dao lại.</td>
+    </tr>
+    <tr>
+      <td class="k">GATE_PET_PX</td>
+      <td class="n" colspan="2">70px</td>
+      <td>Chốt <em>riêng</em> ở cổng. 70 + một bước 48 = 118 &lt; 125, nên chính bước cuối cùng bước vào cổng cũng không làm bò rớt lại.</td>
+    </tr>
+    <tr>
+      <td class="k">GATE_NEAR_PX</td>
+      <td class="n" colspan="2">200px</td>
+      <td>Vào trong khoảng này quanh cổng thì bắt đầu áp chốt 70px thay cho ngưỡng đi đường.</td>
+    </tr>
+    <tr>
+      <td class="k">GATE_AVOID_PX</td>
+      <td class="n" colspan="2">60px</td>
+      <td>Bán kính né <em>cổng khác</em> trên đường đi. Server mở cổng ngay khi vào trong 40px quanh nó.</td>
+    </tr>
+    <tr>
+      <td class="k">ARRIVE_PX</td>
+      <td class="n" colspan="2">16px + 1 ô</td>
+      <td>Đường đi kết thúc ở tâm một ô nên ngưỡng "tới nơi" phải nới ra bằng kích thước ô → 40px.</td>
+    </tr>
+    <tr>
+      <td class="k">COW_GONE_MS</td>
+      <td class="n" colspan="2">4000ms</td>
+      <td>Không thấy bò lâu đến thế này mới được kết luận là mất. Một khung hình trống không tính.</td>
+    </tr>
+    <tr>
+      <td class="k">MAP_SETTLE_MS</td>
+      <td class="n" colspan="2">3000ms</td>
+      <td>Vừa đổi map thì danh sách thực thể và bảng cổng chưa nạp xong — mọi kết luận trong khoảng này đều bị hoãn.</td>
+    </tr>
+    <tr>
+      <td class="k">COW_SEARCH_MS</td>
+      <td class="n" colspan="2">8000ms</td>
+      <td>Về tới map cũ rồi mà chờ ngần này vẫn không thấy bò thì mới chịu là mất thật.</td>
+    </tr>
+    <tr>
+      <td class="k">STUCK_MS</td>
+      <td class="n" colspan="2">8000ms</td>
+      <td>Đứng một chỗ lâu hơn thế thì báo ra kèm toạ độ, rồi tự bỏ đường đang treo để vòng sau tính lại.</td>
+    </tr>
+    <tr>
+      <td class="k">HAUL_TIMEOUT_MS</td>
+      <td class="n">25 phút</td>
+      <td class="n">50 phút</td>
+      <td>Hạn cho cả chặng. Tắt tăng tốc thì đi nửa tốc độ nên hạn gấp đôi.</td>
+    </tr>
+  </table>
+  </div>
+
+  <div class="note">
+    <span class="tag">Vì sao 200 là an toàn</span>
+    <p><code>petLostPx()</code> = <b>240px</b> khi bật tăng tốc, nằm gọn trong bán kính kéo thật <b>340px</b> — vì <code>speed = 4</code> suốt cả chặng trên server này. Ngưỡng càng rộng thì càng ít lần phải quay đầu. Con số này do người chơi chọn sau khi chạy thử: 160 (v11) → 200 (v18) → 240 (v22).</p>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">05</span>Qua cổng</h2>
+  <p class="lede">Mỗi cổng là ba vấn đề khác nhau chồng lên nhau, và mỗi cái cần một cơ chế riêng.</p>
+
+  <h3>Vấn đề 1 — bò phải đủ sát <em>trước khi</em> bước vào</h3>
+  <p>125px của cổng không nhân theo tốc độ, trong khi ngưỡng đi đường lúc tăng tốc là 240px. Nếu để cổng ăn theo ngưỡng đi đường thì bò bị bỏ lại. Nên vào trong <code>GATE_NEAR_PX</code> (200px) quanh cổng, mod chuyển sang đòi <code>cowGap() ≤ 70</code>, chưa đạt thì <b>quay lại đón bò</b> chứ không bước vào.</p>
+  <p>Đây là chỗ hay quay đầu oan nhất cả chặng: ngưỡng ở cổng chỉ 70px, mà khoảng cách tới bò dao lên xuống theo nhịp kéo pet mỗi giây, gói tin lại về trễ — nên vượt 70 là chuyện thường. Trước bản v19, mỗi lần như thế là một lần quay đầu đi ngược rồi đi lại, 14 cổng mỗi chuyến.</p>
+
+  <h3>Vấn đề 2 — đi thẳng tới cổng có thể đi <em>ngang qua</em> cổng khác</h3>
+  <p>Server mở cổng ngay khi nhận báo cáo vị trí rơi vào trong 40px quanh nó. Có map mà đường thẳng tới cổng đích quét sát một cổng khác — thế là bị đặt sang map lạ. Lỗi này gặp thật ở map <em>Cổng vào Hạ giới</em>.</p>
+  <p><code>computeAim()</code> lấy mẫu đoạn thẳng từ chỗ đang đứng tới cổng, mỗi 16px một điểm, xem có điểm nào lọt vào hình vuông 60px quanh một cổng khác không. Có thì thử đi theo hình chữ L: ngang trước rồi dọc, hoặc dọc trước rồi ngang — lối nào sạch thì đi lối đó. Không lối nào sạch thì vẫn đi thẳng, vì đứng im còn tệ hơn.</p>
+
+  <h3>Vấn đề 3 — đứng đúng trên cổng mà không sang được</h3>
+  <p>Server chỉ đổi map khi <em>nhận được một báo cáo vị trí</em> rơi vào vùng cổng. Đứng im không gửi thêm gói nào thì kẹt luôn. Nên cứ mỗi <code>GATE_RETRY_MS</code> (4 giây), mod lật qua lật lại giữa "lùi về chỗ trước cổng" và "bước vào cổng" — sinh thêm báo cáo vị trí, đúng như người chơi sẽ làm bằng tay.</p>
+</section>
+
+<section>
+  <h2><span class="num">06</span>Con bò nào là của mình, và mất bò</h2>
+
+  <h3>Ba lớp nhận diện</h3>
+  <p>Cổng địa ngục lúc nào cũng đông thương nhân, và suốt tuyến 14 map luôn có người khác cũng đang dắt bò. Con bò đi buôn là <b>MOB</b> nằm chung danh sách thực thể với mọi mob khác, nên phải tự phân biệt.</p>
+  <div class="scroll">
+  <table>
+    <tr><th>Lớp</th><th>Căn cứ</th><th>Sức mạnh</th></tr>
+    <tr>
+      <td><b>Tên chủ</b></td>
+      <td><code>mob.name</code> so với tên nhân vật mình</td>
+      <td><b>Tuyệt đối.</b> Server gửi kèm tên người chủ trong gói 7 của chính con bò đó (<code>Service.java:546</code> <code>writeUTF(temp2.name)</code>). Khớp tên là của mình, không giới hạn khoảng cách; tên khác là của người khác, loại thẳng.</td>
+    </tr>
+    <tr>
+      <td><b>Chốt đối tượng</b></td>
+      <td><code>cowRef</code> — giữ nguyên tham chiếu object</td>
+      <td>Chỉ có giá trị <em>chừng nào tên chủ chưa phủ nhận nó</em>. Vừa có tên mà không phải tên mình là buông ngay (<code>dropCow()</code>).</td>
+    </tr>
+    <tr>
+      <td><b>Ảnh chụp + khoảng cách</b></td>
+      <td><code>markAlienCows()</code> chụp mọi con bò chưa có tên <em>ngay trước</em> lúc bấm gọi, rồi lấy con gần nhất trong <code>petLostPx()</code></td>
+      <td>Chỉ để đỡ trong lúc tên chưa về. Bò của mình bao giờ cũng là object <b>mới</b>, tạo sau lúc chụp.</td>
+    </tr>
+  </table>
+  </div>
+  <p>Vì sao vẫn cần lớp 3: đổi map là client <b>dựng lại toàn bộ danh sách thực thể</b> rồi mới hỏi lại gói 7 cho từng mob, nên trong khoảng một giây <em>mọi</em> con bò trên map mới đều chưa có tên — kể cả của mình. Không có lớp 3 thì nhịp nào ngay sau cổng cũng kết luận là mất bò.</p>
+  <p><strong>Lưới cuối — <code>MAX_FETCH_RUNS = 3</code>:</strong> bò của mình được server kéo về chỗ mình mỗi giây nên đón <em>một</em> lần là xong. Phải quay đầu đón đúng một con tới lần thứ ba mà vẫn chưa yên thì con đó không theo mình, tức không phải của mình → buông. Chỉ đếm khi chưa khớp tên; đã khớp tên thì đón bao nhiêu lần cũng đón.</p>
+
+  <h3>Đi đón bò — luật một câu</h3>
+  <blockquote style="border-left:3px solid var(--accent);margin:0 0 18px;padding:2px 0 2px 16px">
+    Ngưỡng <b>kết thúc</b> một lượt đón phải chặt hơn <b>mọi</b> ngưỡng kích hoạt đón.
+  </blockquote>
+  <p><code>PET_STEP_OK</code> 20 &lt; <code>GATE_PET_PX</code> 70 &lt; <code>PET_LOST_PX</code> 80 &lt; <code>PET_LOST_BOOST_PX</code> 240. Không hở dải nào. Vi phạm luật này là sinh ra một <b>dải chết</b>: một khoảng khoảng cách mà chỗ gọi đón bảo "chưa đạt" còn hàm đón bảo "đủ gần rồi" — không bên nào phát lệnh đi, nhân vật đứng im vĩnh viễn. Xem mục 08.</p>
+  <p>Cách đón: <code>goFetchCow()</code> bỏ đường đang đi, rồi đi <b>hết</b> quãng tới con bò bằng chế độ đi nhanh, qua <code>stepToward()</code>. Đơn giản, và quan trọng hơn: không có đường nào đi mà không phát lệnh.</p>
+  <p><code>MAX_FETCH_RUNS</code> = 3 chỉ áp dụng cho con bò <b>chưa khớp tên</b> — đó là lưới bắt bò người khác. Bò đã khớp tên thì đón bao nhiêu lần cũng đón.</p>
+
+  <h3>Mất bò</h3>
+  <p class="lede">Không tình huống nào ở đây được phép tắt auto. Server bảo trì hai lần mỗi ngày, và sau bảo trì thì bò biến mất — tắt auto ở đây nghĩa là mỗi lần bảo trì xong là đứng chờ tới lúc người chơi để ý.</p>
+
+  <div class="scroll">
+  <table>
+    <tr><th>Tình huống</th><th>Mod làm gì</th><th>Vì sao</th></tr>
+    <tr>
+      <td>Một khung hình không thấy bò</td>
+      <td><b>Không làm gì</b></td>
+      <td>Danh sách thực thể có lúc trống một nhịp. Phải trống đủ <code>COW_GONE_MS</code> = 4 giây mới tính.</td>
+    </tr>
+    <tr>
+      <td>Sắp tới cổng, bò quá <b>chốt cổng 70px</b></td>
+      <td><b>goFetchCow()</b> — quay lại đón <em>ngay</em></td>
+      <td>Không chờ. Đã thử chèn một nhịp đứng chờ ở đây và hỏng nặng — xem mục 08.</td>
+    </tr>
+    <tr>
+      <td>Bò tụt ra <b>ngoài <code>petLostPx()</code></b> (80px / <b>240px</b> khi tăng tốc)</td>
+      <td><b>goFetchCow()</b> — bỏ đường đang đi, quay lại <em>ngay</em></td>
+      <td>Cũng không chờ. Quay đầu nhiều còn hơn đứng im.</td>
+    </tr>
+    <tr>
+      <td>Mất hẳn, biết map vừa rời</td>
+      <td><b>Quay lại map đó đón</b> (đi nhanh, đang không dắt gì)</td>
+      <td>Gần như chắc chắn nó bị bỏ lại đúng map trước — đó là cách duy nhất bò rời khỏi mình.</td>
+    </tr>
+    <tr>
+      <td>Về tới map cũ, chờ 8 giây, vẫn không thấy</td>
+      <td><b>restartTrip()</b> → quay về bước 1</td>
+      <td>Lúc này mới chịu là mất thật.</td>
+    </tr>
+    <tr>
+      <td>Mất bò mà không rõ bỏ lại đâu<br><span style="color:var(--muted);font-size:13px">(vừa vào lại game sau khi rớt mạng)</span></td>
+      <td><b>restartTrip()</b> → quay về bước 1</td>
+      <td><code>prevMapId</code> bị xoá khi vào lại game: mốc đó là từ trước lúc rớt mạng, chạy ngược về đó là vô nghĩa.</td>
+    </tr>
+    <tr>
+      <td>Hai chuyến liên tiếp đều hỏng</td>
+      <td><b>Dừng auto</b></td>
+      <td>Van chặn duy nhất, để không đốt sạch Bò vàng trong hành trang. Gọi được bò và đi được một chuyến là bộ đếm về 0.</td>
+    </tr>
+  </table>
+  </div>
+
+  <p>Còn một trường hợp <em>không phải</em> mất bò mà giống hệt mất bò: <strong>bán xong cho Graham thì server thu con bò đi</strong>. Nên ở bước Bán đá quý, "không còn bò" được đọc là "đã bán xong" chứ không phải "mất bò" — nhưng chỉ khi mod đã thực sự bấm bán.</p>
+</section>
+
+<section>
+  <h2><span class="num">07</span>Rớt mạng giữa chặng</h2>
+  <p>Vào lại game giống hệt vừa đổi map: danh sách thực thể và bảng cổng nạp lại từ đầu, nên <code>cowRef</code> bị bỏ để nhận dạng lại, và mọi mốc thời gian được dời đúng bằng thời gian nghỉ — không thì hạn của bước đã trôi qua từ bao giờ và auto tắt ngay khi vừa vào lại được.</p>
+  <p><strong>Đồng hồ 30 phút của con bò thì không được dời</strong> — nó chạy theo giờ thực, offline nó vẫn chạy.</p>
+  <div class="scroll">
+  <table>
+    <tr><th>Vào lại game, đang dắt bò</th><th>Đi tiếp thế nào</th></tr>
+    <tr><td>Bò vẫn ở đó</td><td class="n"><span class="pill on">dắt tiếp</span> từ đúng chỗ đang đứng</td></tr>
+    <tr><td>Bò mất rồi</td><td class="n"><span class="pill off">về bước 1</span> — Về cổng địa ngục, làm lại chuyến</td></tr>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">08</span>Tám lần đã đặt sai</h2>
+  <p class="lede">Ghi lại để không ai "sửa" ngược trở lại. Mỗi con số ở mục 04 đều có một lần sai đứng sau nó.</p>
+
+  <div class="hist">
+    <div>
+      <div class="sym">ngưỡng 36px &lt; bước 48px</div>
+      <p>Bước nào cũng bị coi là bò tụt lại, nên quay đầu liên tục, không đi được mét nào.</p>
+      <p class="fix"><b>Chốt lại:</b> ngưỡng bò tụt phải luôn lớn hơn hẳn một bước đi. Test chốt cứng điều này.</p>
+    </div>
+    <div>
+      <div class="sym">bắt buộc bám sát 20px mới cho bước tiếp</div>
+      <p>Khi bò không được kéo vì lý do khác (sai khu, sai <code>id_map</code>), điều kiện không bao giờ đúng → auto đứng im vĩnh viễn, không một dòng báo nào.</p>
+      <p class="fix"><b>Chốt lại:</b> nhịp đi chặn bằng thời gian, khoảng cách chỉ dùng làm cảnh báo. Mọi vòng chờ đều phải có hạn.</p>
+    </div>
+    <div>
+      <div class="sym">bật tăng tốc: nhân đôi bước nhưng quên nhân ngưỡng</div>
+      <p>Bước dài gấp đôi mà ngưỡng giữ nguyên 80px → cứ đi một tí là quay đầu, dù bò vẫn theo kịp.</p>
+      <p class="fix"><b>Chốt lại:</b> <code>petLostPx()</code> đi theo trạng thái tăng tốc, và cổng có chốt riêng 70px vì 125 không nhân theo tốc độ.</p>
+    </div>
+    <div>
+      <div class="sym">bò tụt nhịp là quay đầu đi đón ngay</div>
+      <p>Ở gần cổng ngưỡng chỉ 70px, mà khoảng cách dao theo nhịp kéo pet mỗi giây — nên chuyến nào cũng dính vài lần quay đầu vô ích, dù bò vẫn theo kịp.</p>
+      <p class="fix"><b>Chốt lại — và đây là lần "sửa" sai:</b> hai bản sau đó lần lượt chèn đứng-chờ và đón-đoạn-ngắn để chữa triệu chứng này, và cả hai đều đổi quay-đầu-vô-ích lấy đứng-im-vĩnh-viễn. Quay đầu nhiều là cái giá chấp nhận được; đứng im thì không.</p>
+    </div>
+    <div>
+      <div class="sym">đón bò theo từng đoạn ngắn, dừng khi còn cách <code>rejoinPx()</code></div>
+      <p><b>Lỗi đã kiểm chứng, và là lần đặt sai nặng nhất.</b> Ý định là tránh đi quá mặt con bò. Kết quả: hàm đón dừng ở 100px (nửa ngưỡng lúc tăng tốc), trong khi chốt cổng đòi bò trong 70px và gọi thẳng <code>goFetchCow()</code> không qua <code>stepToward()</code>. Ở dải <b>70..100px</b>, chốt cổng bảo "chưa đạt" còn hàm đón bảo "đủ gần rồi" — không ai phát lệnh đi. Cả nhân vật lẫn con bò đứng im vĩnh viễn; người chơi bấm một phím di chuyển là thoát dải và nó chạy tiếp.</p>
+      <p class="fix"><b>Chốt lại:</b> ngưỡng kết thúc lượt đón phải chặt hơn mọi ngưỡng kích hoạt. Quay về đúng hình bản v11: đón là đi hết quãng, qua <code>stepToward()</code>, kết thúc ở <code>PET_STEP_OK</code> = 20px.</p>
+    </div>
+    <div>
+      <div class="sym">chèn "đứng yên chờ bò bám kịp" vào chặng dắt</div>
+      <p>Lý do nghe rất hợp lý: server kéo bò về chỗ mình mỗi giây, nên đứng yên một nhịp là nó tới, rẻ hơn quay đầu. Nhưng mỗi đường "chờ" là thêm một <code>return</code> đặt <em>ngay trước</em> chỗ phát lệnh đi. Riêng nó thì có hạn 4 giây nên tự thoát, nhưng ghép với một hàm đón có thể không phát lệnh nào thì thành kẹt cứng.</p>
+      <p class="fix"><b>Chốt lại:</b> chặng dắt bò không có đường chờ nào. Quay đầu nhiều còn hơn đứng im — bản v11 quay đầu nhiều mà chuyến nào cũng xong. <code>verify()</code> cấm hàm <code>waitForCow</code> tồn tại.</p>
+    </div>
+    <div>
+      <div class="sym">chốt đối tượng được xét trước tên chủ</div>
+      <p><b>Lỗi đã kiểm chứng ngoài thực địa.</b> Hai người cùng dắt bò qua cổng một lúc, cả hai con đều chưa kịp mang tên, auto vồ nhầm con của người kia. Vì chốt đứng trên tên nên tên về cũng không gỡ được — kể cả khi bò thật của mình đang đứng ngay cạnh với đúng tên mình. Đến lúc họ dắt bò đi là mất bò và <b>đứng im cả đêm</b>: đón tới nơi thì nó lại chạy theo chủ nó, mình lại đón, vòng lặp không bao giờ hết, mà vì nhân vật vẫn dịch chuyển nên cả <code>watchStuck()</code> lẫn hạn giờ đều không bắt được.</p>
+      <p class="fix"><b>Chốt lại:</b> tên chủ là quyền cao nhất, trên cả chốt đối tượng. Chốt chỉ có giá trị khi tên chưa phủ nhận nó. Và mọi vòng "đón lại" phải có bộ đếm — <code>MAX_FETCH_RUNS</code>.</p>
+    </div>
+    <div>
+      <div class="sym">đọc x/y đang vẽ thay vì stepDestX/Y</div>
+      <p>Client cho mob đi bộ tới điểm server gán, nên toạ độ đang vẽ luôn tụt sau — đủ để treo cả chặng.</p>
+      <p class="fix"><b>Chốt lại:</b> đọc vị trí bò theo đúng góc nhìn của server.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">09</span>Còn hở</h2>
+  <p class="lede">Những chỗ chưa đối chiếu được với server đang chơi. Ghi ra để lần sau có triệu chứng lạ thì biết chỗ mà ngờ.</p>
+  <ul>
+    <li><strong>Khu (zone) hoàn toàn không được xử lý.</strong> Server tham chiếu đòi <code>p.map.zone_id == p.map.maxzone</code> thì bò mới được kéo — tức là chỉ khu cuối cùng của map. Mod không đọc, không đặt, không kiểm khu bao giờ. Nếu vào nhầm khu thì bò đứng im và mod chỉ nhận ra ở ngưỡng 240px. <em>Chưa kiểm chứng trên server thật.</em></li>
+    <li><strong>Ô rộng 24px là quan sát, không phải hằng số.</strong> Mod đọc <code>TILEMAP.tileSize</code> lúc chạy và chia theo đó, nên vẫn đúng nếu map nào khác — nhưng các con số 48px/24px trên đây là tính theo ô 24px.</li>
+    <li><strong>Nhịp đi 48px/giây là di sản của giả định cũ.</strong> Nó được chọn để nằm dưới 85px.
+        Biết tầm kéo thật là <b>340px</b> thì con số này đang thắt cổ chai cả chặng: giới hạn thật
+        giờ là <em>tốc độ chạy của nhân vật</em>, không phải luật của server. Nâng lên là chuyến
+        ngắn hơn hẳn — chưa làm, vì cần đo thử tứng nấc chứ không đoán. Chốt cổng 70px thì
+        <em>không</em> được nâng theo: 125px của cổng vẫn không nhân theo tốc độ.</li>
+    <li><strong>Hạn 50 phút lúc tắt tăng tốc là hạn thừa</strong> — bò chỉ sống 30 phút nên nó biến mất trước. Không sai, chỉ là con số đó không bao giờ tới lượt.</li>
+    <li><strong>Bán cho Graham giữa lúc rớt mạng.</strong> Nếu đứt kết nối đúng lúc vừa bấm bán, mod có thể đọc "không còn bò" thành "đã bán xong" và quay về làm chuyến mới trong khi thực ra chưa bán được gì.</li>
+  </ul>
+</section>
+
+<footer>
+  Đọc từ <code>HSOAutoTradeSupport.java.in</code> bản v22 — <code>cow()</code>, <code>stepHaul()</code>, <code>stepToward()</code>, <code>routeTowards()</code>, <code>goFetchCow()</code>, <code>fetchCowFromPrevMap()</code> — đối chiếu với <code>MapService.java</code>, <code>Player.java</code>, <code>Pet_di_buon.java</code> của server tham chiếu.
+</footer>
+
+</div>

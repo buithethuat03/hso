@@ -18,6 +18,7 @@ public final class HSOSKYRuntimeSupport {
     private static int worldToken = Integer.MIN_VALUE;
     private static int worldZone = Integer.MIN_VALUE;
     private static boolean noClipEnabled = true;
+    private static boolean requestedNoClipEnabled = true;
 
     private static final int[] moveX = new int[12];
     private static final int[] moveY = new int[12];
@@ -36,8 +37,8 @@ public final class HSOSKYRuntimeSupport {
     private static final int[] ownDropType = new int[32];
     private static final long[] ownDropAt = new long[32];
     private static int ownDropCursor;
-    private static final int[] fallbackId = new int[32];
-    private static final int[] fallbackType = new int[32];
+    private static final int[] fallbackId = new int[128];
+    private static final int[] fallbackType = new int[128];
     private static int fallbackCursor;
 
     private static int lootState;
@@ -65,7 +66,7 @@ public final class HSOSKYRuntimeSupport {
         }
         worldToken = token;
         worldZone = zone;
-        noClipEnabled = true;
+        noClipEnabled = requestedNoClipEnabled;
         moveCursor = 0;
         correctionCount = 0;
         killCursor = 0;
@@ -76,7 +77,8 @@ public final class HSOSKYRuntimeSupport {
         clear(correctionAt);
         clear(killAt);
         clear(ownDropAt);
-        System.out.println("HSOSKY: NoClip ON for new map/zone");
+        System.out.println("HSOSKY: NoClip " + (noClipEnabled ? "ON" : "OFF")
+                + " for new map/zone");
     }
 
     /** Called by the map loader once for every map/zone load. */
@@ -97,8 +99,19 @@ public final class HSOSKYRuntimeSupport {
         return noClipEnabled;
     }
 
+    /** Set the user-selected no-clip mode; the choice survives map changes. */
+    public static synchronized void setNoClipEnabled(boolean enabled) {
+        requestedNoClipEnabled = enabled;
+        noClipEnabled = enabled;
+        correctionCount = 0;
+        clear(correctionAt);
+    }
+
     public static synchronized int adjustTile(int originalTile) {
-        if (noClipEnabled && (originalTile == 1 || originalTile == -1)) {
+        if (!noClipEnabled) {
+            return originalTile;
+        }
+        if (originalTile == 1 || originalTile == -1) {
             return 0;
         }
         return originalTile;
@@ -197,72 +210,23 @@ public final class HSOSKYRuntimeSupport {
 
     public static synchronized void notePickupAttempt(
             int id, int type, int itemX, int itemY, int playerX, int playerY) {
-        if (lootState != 0 || !isOwnDrop(id, type) || wasFallbackAttempted(id, type)) {
-            return;
-        }
-        lootId = id;
-        lootType = type;
-        lootItemX = itemX;
-        lootItemY = itemY;
-        lootOriginX = playerX;
-        lootOriginY = playerY;
-        lootWorldToken = worldToken;
-        lootWorldZone = worldZone;
-        lootState = 1;
-        lootStateAt = System.currentTimeMillis();
+        // Stationary whole-map loot: no movement/teleport attempts
     }
 
     public static synchronized void onDropRemoved(int id, int type) {
         if (lootState == 0 || lootId != id || lootType != type) {
             return;
         }
-        if (lootState == 1) {
-            clearLoot();
-        } else {
-            lootState = 4;
-            lootStateAt = 0L;
-        }
+        clearLoot();
     }
 
     public static synchronized int pollLootAction(
             int token, int zone, int playerX, int playerY, boolean playerAlive) {
-        if (lootState == 0) {
-            return ACTION_NONE;
-        }
-        if (!playerAlive || token != lootWorldToken || zone != lootWorldZone) {
-            clearLoot();
-            return ACTION_NONE;
-        }
-        long now = System.currentTimeMillis();
-        if (lootState == 1 && now - lootStateAt >= REMOTE_PICKUP_TIMEOUT_MS) {
-            markFallbackAttempted(lootId, lootType);
-            actionX = lootItemX;
-            actionY = lootItemY;
-            lootState = 2;
-            lootStateAt = now;
-            return ACTION_TELEPORT_ITEM;
-        }
-        if (lootState == 2 && now - lootStateAt >= TELEPORT_SETTLE_MS) {
-            actionId = lootId;
-            actionType = lootType;
-            lootState = 3;
-            lootStateAt = now;
-            return ACTION_RETRY_PICKUP;
-        }
-        if (lootState == 3 && now - lootStateAt >= PICKUP_RESULT_TIMEOUT_MS) {
-            lootState = 4;
-        }
-        if (lootState == 4) {
-            actionX = lootOriginX;
-            actionY = lootOriginY;
-            clearLootKeepingAction();
-            return ACTION_RETURN_ORIGIN;
-        }
         return ACTION_NONE;
     }
 
     public static synchronized int pollLootAction(int playerX, int playerY, boolean playerAlive) {
-        return pollLootAction(worldToken, worldZone, playerX, playerY, playerAlive);
+        return ACTION_NONE;
     }
 
     public static synchronized int getActionX() {
@@ -282,18 +246,11 @@ public final class HSOSKYRuntimeSupport {
     }
 
     public static synchronized boolean isLootTeleportActive() {
-        return lootState >= 2;
+        return false;
     }
 
     private static boolean isOwnDrop(int id, int type) {
-        long now = System.currentTimeMillis();
-        for (int i = 0; i < ownDropAt.length; i++) {
-            if (ownDropId[i] == id && ownDropType[i] == type
-                    && ownDropAt[i] != 0L && now - ownDropAt[i] <= 60000L) {
-                return true;
-            }
-        }
-        return false;
+        return true;
     }
 
     private static boolean wasFallbackAttempted(int id, int type) {
