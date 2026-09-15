@@ -188,6 +188,23 @@ public final class HSOAutoTradeSupport {
      * forcePortalStep). De 2 o cho co chut bien, van rat ngan.
      */
     static final int GATE_FORCE_TILES = 2;
+    /**
+     * Duong do engine tra ve dai hon ngan nay thi khong dung nua - tu tim lay.
+     *
+     * GhostMod dat dung con so nay (ENGINE_PATHFINDER_HARD_LIMIT = 126) va co ly do: ham
+     * tim duong cua engine chi chay tot trong tam ngan, di xa la tra ve null hoac tra ve
+     * mot doan khong dan toi dau. Day chinh la vi sao "map lon thi khong tim duoc duong".
+     */
+    static final int ENGINE_PATH_MAX = 126;
+    /**
+     * O dich khong dat chan len duoc thi nhan o di duoc gan no nhat trong ban kinh nay.
+     *
+     * Bang PORTAL_APPROACH_RADIUS cua GhostMod. Khac ban v24 o cho quyet dinh: v24 do ra
+     * quanh o dich va HOI ENGINE tung o mot, moi nhip co the ra mot dap an khac; o day chi
+     * chay MOT lan do rong tu cho dang dung, roi chon o gan dich nhat trong so cac o that
+     * su den duoc - mot lan tinh, mot ket qua.
+     */
+    static final int GATE_APPROACH_TILES = 4;
 
     /** Coi la "da toi noi" khi ca hai truc deu trong nguong nay (cong them mot o). */
     static final int ARRIVE_PX = 16;
@@ -402,6 +419,14 @@ public final class HSOAutoTradeSupport {
     static int planTx = -1;
     static int planTy = -1;
     static int planMapId = -1;
+    /**
+     * Bo nho lam viec cua ham do rong (BFS). Giu lai de khong cap phat lai moi lan tim
+     * duong - may J2ME khong chiu noi vai tram KB rac moi vai giay.
+     */
+    static int[] bfsPrev;
+    static int[] bfsDist;
+    static int[] bfsQueue;
+    static int bfsCells;
     /** Luc doi map gan nhat - trong MAP_SETTLE_MS sau do thi du lieu map chua dang tin. */
     static long mapChangedAt;
     /** Luc bat dau khong thay bo; 0 = dang thay binh thuong. */
@@ -1747,7 +1772,8 @@ public final class HSOAutoTradeSupport {
          *
          * Chi lam khi da trong GATE_FORCE_TILES o, nen doan di thang luon rat ngan.
          */
-        if (!noclipOn && within(tx, ty, tile * GATE_FORCE_TILES)) {
+        if (!noclipOn && within(tx, ty, tile * GATE_FORCE_TILES)
+                && walkableTile(toTx, toTy)) {
             return forceStep(me, tile, tx, ty);
         }
 
@@ -1832,24 +1858,60 @@ public final class HSOAutoTradeSupport {
         short[] plan = plannedPath(screen, fromTx, fromTy, toTx, toTy);
         if (plan == null) return null;
 
-        // Dang dung o dau tren ke hoach? Khong tim thay tuc la da di lech - tinh lai.
-        int at = indexOfTile(plan, tileWord(fromTx, fromTy));
+        /*
+         * Dang dung o dau tren ke hoach?
+         *
+         * Truoc day cho nay doi nhan vat phai dung DUNG tren mot o cua ke hoach, khong thi
+         * vut ca ke hoach di va tinh lai. Do la mot cho hong lon: nhan vat di theo pixel,
+         * chi lech nua o la da roi khoi ke hoach, va lan tinh lai tu cho moi rat de ra mot
+         * loi vong khac - the la quay dau. Chinh la loi "di gan toi noi thi tu nhien chay
+         * ra cho khac roi chay vong vo".
+         *
+         * Gio chi can dang o CANH ke hoach (lech toi da mot o) la di tiep, va buoc dau
+         * tien la buoc tro lai len ke hoach.
+         */
+        int at = nearestOnPath(plan, fromTx, fromTy);
         if (at < 0) {
             clearPlan();
             return null;
         }
-        int left = plan.length - 1 - at;
+        boolean onPlan = plan[at] == tileWord(fromTx, fromTy);
+        int left = onPlan ? plan.length - 1 - at : plan.length - at;
         if (left <= 0) {
             clearPlan();        // da di het ke hoach
             return null;
         }
 
         int steps = left < maxTiles ? left : maxTiles;
+        int src = onPlan ? at + 1 : at;
         short[] out = new short[steps + 1];
-        for (int i = 0; i <= steps; i++) {
-            out[i] = plan[at + i];
+        out[0] = tileWord(fromTx, fromTy);      // phan tu 0 luon la o DANG dung
+        for (int i = 1; i <= steps; i++) {
+            out[i] = plan[src + i - 1];
         }
         return out;
+    }
+
+    /**
+     * Vi tri cua nhan vat tren ke hoach: chi so cua o gan nhat, hoac -1 neu da di qua xa.
+     *
+     * Cho phep lech mot o vi nhan vat di theo pixel chu khong nhay tung o; doi khop tuyet
+     * doi thi ke hoach bi vut di lien tuc.
+     */
+    static int nearestOnPath(short[] path, int fromTx, int fromTy) {
+        if (path == null) return -1;
+        int best = -1;
+        int bestDist = Integer.MAX_VALUE;
+        for (int i = 0; i < path.length; i++) {
+            int dx = Math.abs(((path[i] >> 8) & 0xFF) - fromTx);
+            int dy = Math.abs((path[i] & 0xFF) - fromTy);
+            int d = dx > dy ? dx : dy;
+            if (d < bestDist) {
+                bestDist = d;
+                best = i;
+            }
+        }
+        return bestDist <= 1 ? best : -1;
     }
 
     /**
@@ -1872,25 +1934,33 @@ public final class HSOAutoTradeSupport {
     static short[] plannedPath(@class.CHARS@ screen, int fromTx, int fromTy,
             int toTx, int toTy) {
         if (planPath != null && planMapId == mapId() && planTx == toTx && planTy == toTy
-                && indexOfTile(planPath, tileWord(fromTx, fromTy)) >= 0) {
+                && nearestOnPath(planPath, fromTx, fromTy) >= 0) {
             return planPath;
         }
 
         /*
-         * O dich khong dat chan len duoc thi di toi o KE BEN no.
+         * Hai tang, dung thu tu cua GhostMod (buildPathToTile):
          *
-         * Chi xet 8 o ke ngay canh, va chon o GAN NGUOI CHOI NHAT trong so nhung o toi
-         * duoc. Hai rang buoc do la de khong lap lai loi cu: ban truoc do vong tron ban
-         * kinh 4 o va moi nhip lai chon mot o khac, nen nhan vat nhay qua nhay lai quanh
-         * cong. O ke ben thi cach o dich dung mot o (~24px), dung o do la da nam trong
-         * 40px ma server doi, va buoc cuoi da co forceStep lo not.
+         *   1. Hoi ham tim duong cua engine. Nhanh, va la loi di ma chinh game dung.
+         *   2. Engine chiu thua (hoac tra ve duong dai qua muc tin duoc) thi TU DO RONG lay
+         *      tren ban do o that.
          *
-         * Ke hoach duoc nho lai (planPath) nen trong suot doan duong con lai khong tinh
-         * lai nua - khong con cho nao de doi y giua chung.
+         * Tang 2 la thu mod nay thieu tu dau, va la ly do map lon khong bao gio tim ra
+         * duong: ham cua engine chi lam viec trong tam ngan, di xa la no bo cuoc, ma bo
+         * cuoc thi truoc day coi nhu khong co duong. GhostMod co dung tang nay va chay
+         * duoc; day la "thuat toan tim duong cua GhostMod" theo dung nghia den.
+         *
+         * Ham do rong cung tra loi luon cau hoi "o dich khong dat chan len duoc thi di dau":
+         * no chon o GAN DICH NHAT trong so cac o that su den duoc, thay vi do tung o mot
+         * bang engine nhu ban v24 - do kieu do moi nhip ra mot dap an khac nen nhan vat
+         * nhay qua nhay lai quanh cong.
          */
-        short[] found = askPath(screen, fromTx, fromTy, toTx, toTy);
+        short[] found = null;
+        if (walkableTile(toTx, toTy)) {
+            found = askPath(screen, fromTx, fromTy, toTx, toTy);
+        }
         if (found == null) {
-            found = neighbourPath(screen, fromTx, fromTy, toTx, toTy);
+            found = gridPath(fromTx, fromTy, toTx, toTy, GATE_APPROACH_TILES);
         }
         if (found == null) return null;
 
@@ -1920,43 +1990,141 @@ public final class HSOAutoTradeSupport {
             return null;        // ban do chua nap xong chang han
         }
         if (found == null || found.length < 2
+                || found.length > ENGINE_PATH_MAX
                 || found[0] != tileWord(fromTx, fromTy)
                 || found[found.length - 1] != tileWord(toTx, toTy)) return null;
         return found;
     }
 
-    /** 8 o ke ben, theo thu tu co dinh. */
-    static final int[] NB_X = {-1, 0, 1, -1, 1, -1, 0, 1};
-    static final int[] NB_Y = {-1, -1, -1, 0, 0, 1, 1, 1};
+    // ------------------------------------------------------- ban do o that
 
-    /** Duong toi o ke ben o dich gan nguoi choi nhat ma toi duoc; null neu khong o nao toi duoc. */
-    static short[] neighbourPath(@class.CHARS@ screen, int fromTx, int fromTy,
-            int toTx, int toTy) {
-        boolean[] used = new boolean[NB_X.length];
-        for (int round = 0; round < NB_X.length; round++) {
-            int pick = -1;
-            int best = Integer.MAX_VALUE;
-            for (int i = 0; i < NB_X.length; i++) {
-                if (used[i]) continue;
-                int dx = Math.abs(toTx + NB_X[i] - fromTx);
-                int dy = Math.abs(toTy + NB_Y[i] - fromTy);
-                int d = dx > dy ? dx : dy;
-                if (d >= best) continue;
-                best = d;
-                pick = i;
-            }
-            if (pick < 0) break;
-            used[pick] = true;
-            short[] hit = askPath(screen, fromTx, fromTy, toTx + NB_X[pick], toTy + NB_Y[pick]);
-            if (hit != null) return hit;
-        }
-        return null;
+    /**
+     * Mang o cua ban do dang mo. Moi o mot so; 1 va -1 la o CHAN, con lai la di duoc.
+     *
+     * Chinh ham hoi o cua engine doc mang nay: idx = (pixelY / o) * rong + (pixelX / o).
+     * Doc thang mang thay vi goi ham do vi ham do da bi mod cai Noclip vao giua (adjustTile
+     * bien moi o thanh di duoc), ma o day can dia hinh THAT.
+     */
+    static int[] tileGrid() {
+        @class.TILEMAP@ m = @class.CANVAS@.@canvas.mapHolder@;
+        return m == null ? null : m.@tilemap.tiles@;
     }
 
-    static int indexOfTile(short[] path, short tile) {
-        if (path == null) return -1;
-        for (int i = 0; i < path.length; i++) if (path[i] == tile) return i;
-        return -1;
+    /** So o theo chieu ngang cua ban do dang mo. */
+    static int gridWidth() {
+        @class.TILEMAP@ m = @class.CANVAS@.@canvas.mapHolder@;
+        return m == null ? 0 : m.@tilemap.width@;
+    }
+
+    /** O nay co dat chan len duoc khong (theo dia hinh THAT, khong tinh Noclip). */
+    static boolean walkableTile(int tx, int ty) {
+        int[] grid = tileGrid();
+        int w = gridWidth();
+        if (grid == null || w <= 0) return false;
+        int h = grid.length / w;
+        if (tx < 0 || ty < 0 || tx >= w || ty >= h) return false;
+        if (!tileInRange(tx) || !tileInRange(ty)) return false;
+        int cell = grid[ty * w + tx];
+        return cell != 1 && cell != -1;
+    }
+
+    /**
+     * Tu tim duong bang cach do rong (BFS) tren ban do o that.
+     *
+     * Day la tang duoi cua GhostMod (buildGridPathToTile) va la thu mod nay thieu tu dau.
+     * Ham tim duong cua engine chi lam viec trong tam ngan; di xa la no bo cuoc, va truoc
+     * day bo cuoc dong nghia voi "khong co duong" - dung loi "map lon khong tim duoc duong
+     * di". Do rong thi khong co tam: no duyet het ban do, co loi la ra loi.
+     *
+     * Do rong MOT lan tu cho dang dung, roi trong so cac o den duoc chon o gan DICH nhat
+     * (trong ban kinh cho phep). Nho vay khi o dich bi chan - cong hay nam sat vien map -
+     * van co mot cho dung hop ly, va quan trong hon la lan nao cung ra CUNG mot cho, khong
+     * doi y giua chung nhu ban do-tung-o-bang-engine truoc day.
+     *
+     * Duong tra ve co phan tu 0 la o dang dung, giong het dinh dang cua engine.
+     */
+    static short[] gridPath(int fromTx, int fromTy, int toTx, int toTy, int radius) {
+        int[] grid = tileGrid();
+        int w = gridWidth();
+        if (grid == null || w <= 0) return null;
+        int h = grid.length / w;
+        if (h <= 0) return null;
+        if (fromTx < 0 || fromTy < 0 || fromTx >= w || fromTy >= h) return null;
+
+        int total = w * h;
+        if (total <= 0 || total > grid.length) return null;
+        if (bfsPrev == null || bfsCells != total) {
+            bfsPrev = new int[total];
+            bfsDist = new int[total];
+            bfsQueue = new int[total];
+            bfsCells = total;
+        }
+        for (int i = 0; i < total; i++) {
+            bfsPrev[i] = -1;
+            bfsDist[i] = -1;
+        }
+
+        int start = fromTy * w + fromTx;
+        int head = 0;
+        int tail = 0;
+        bfsQueue[tail++] = start;
+        bfsDist[start] = 0;
+        while (head < tail) {
+            int cur = bfsQueue[head++];
+            int x = cur % w;
+            int y = cur / w;
+            tail = pushTile(grid, w, h, x + 1, y, cur, tail);
+            tail = pushTile(grid, w, h, x - 1, y, cur, tail);
+            tail = pushTile(grid, w, h, x, y + 1, cur, tail);
+            tail = pushTile(grid, w, h, x, y - 1, cur, tail);
+        }
+
+        /*
+         * Cho dung: o gan DICH nhat trong so cac o vua den duoc. Hoa nhau thi lay o toi
+         * bang duong ngan hon - de ket qua khong phu thuoc thu tu duyet.
+         */
+        int best = -1;
+        int bestNear = Integer.MAX_VALUE;
+        int bestSteps = Integer.MAX_VALUE;
+        for (int dy = -radius; dy <= radius; dy++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                int x = toTx + dx;
+                int y = toTy + dy;
+                if (x < 0 || y < 0 || x >= w || y >= h) continue;
+                int idx = y * w + x;
+                if (bfsDist[idx] < 0) continue;
+                int near = dx * dx + dy * dy;
+                if (near > bestNear || (near == bestNear && bfsDist[idx] >= bestSteps)) continue;
+                bestNear = near;
+                bestSteps = bfsDist[idx];
+                best = idx;
+            }
+        }
+        if (best < 0) return null;
+
+        int len = bfsDist[best] + 1;
+        if (len < 2) return null;           // da dung dung cho roi
+        short[] out = new short[len];
+        int cur = best;
+        for (int i = len - 1; i >= 0 && cur >= 0; i--) {
+            out[i] = tileWord(cur % w, cur / w);
+            cur = bfsPrev[cur];
+        }
+        return out;
+    }
+
+    /** Mot buoc cua ham do rong: nhan o ke neu di duoc va chua tham. */
+    static int pushTile(int[] grid, int w, int h, int x, int y, int from, int tail) {
+        if (x < 0 || y < 0 || x >= w || y >= h) return tail;
+        if (!tileInRange(x) || !tileInRange(y)) return tail;   // duong ma hoa 1 byte moi truc
+        int idx = y * w + x;
+        if (bfsDist[idx] >= 0) return tail;
+        int cell = grid[idx];
+        if (cell == 1 || cell == -1) return tail;
+        bfsDist[idx] = bfsDist[from] + 1;
+        bfsPrev[idx] = from;
+        bfsQueue[tail++] = idx;
+        return tail;
     }
 
     static void clearPlan() {

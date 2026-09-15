@@ -794,12 +794,44 @@ public final class AutoTradePatcher implements Opcodes {
         require(!callsSupport(force, "realPath") && !callsSupport(force, "straightPath")
                         && !callsSupport(force, "plannedPath"),
                 "forceStep() lai di qua ham tim duong - the thi no khong con la buoc ep nua");
-        require(callsSupport(planned, "neighbourPath"),
-                "plannedPath() khong co duong toi o ke ben - o cong bi chan thi khong toi"
-                + " duoc cho nao gan cong ca");
+        /*
+         * Chot bai hoc thu chin: phai co ham TU tim duong tren ban do o that.
+         *
+         * Loi da kiem chung: tat Noclip thi map lon khong bao gio tim duoc duong di, map
+         * nho thi toi gan cong lai quay dau va chay vong vo. Ham tim duong cua engine chi
+         * lam viec trong tam ngan - di xa la no bo cuoc - va truoc day bo cuoc dong nghia
+         * voi "khong co duong". GhostMod co hai tang: hoi engine truoc, engine chiu thua
+         * thi tu do rong (BFS) tren mang o that. Tang do rong la thu mod nay thieu tu dau.
+         */
+        MethodNode grid = null;
+        MethodNode walkable = null;
+        MethodNode nearest = null;
+        for (MethodNode m : support.methods) {
+            if ("gridPath".equals(m.name)) grid = m;
+            if ("walkableTile".equals(m.name)) walkable = m;
+            if ("nearestOnPath".equals(m.name)) nearest = m;
+        }
+        require(grid != null, "support khong con ham gridPath() - mat tang tu tim duong,"
+                + " map lon se lai khong tim duoc duong khi tat Noclip");
+        require(walkable != null, "support khong con ham walkableTile()");
+        require(nearest != null, "support khong con ham nearestOnPath()");
+        require(callsSupport(planned, "gridPath"),
+                "plannedPath() khong co tang tu tim duong - engine chiu thua la coi nhu"
+                + " khong co duong, dung loi map lon khong di duoc");
+        require(!callsOwner(grid, sym("class.CHARS"), sym("screen.findPath")),
+                "gridPath() lai goi engine - the thi no khong con la tang du phong nua");
+        require(readsOwnerField(grid, sym("class.TILEMAP"), sym("tilemap.tiles"))
+                        || callsSupport(grid, "tileGrid"),
+                "gridPath() khong doc mang o that - dang do rong tren cai gi?");
+        require(callsSupport(real, "nearestOnPath") && callsSupport(planned, "nearestOnPath"),
+                "khong con bam ke hoach theo o gan nhat - doi khop tuyet doi thi chi lech"
+                + " nua o la vut ca ke hoach, tinh lai ra loi vong khac va quay dau");
         for (MethodNode m : support.methods) {
             require(!"approachPath".equals(m.name),
                     "support con approachPath() - cach do vong quanh o dich da bi bo o v25");
+            require(!"neighbourPath".equals(m.name),
+                    "support con neighbourPath() - gridPath() da lam ca viec do, va lam"
+                    + " mot lan chu khong doi y moi nhip");
         }
 
         /*
@@ -840,6 +872,17 @@ public final class AutoTradePatcher implements Opcodes {
             if (!(n instanceof MethodInsnNode)) continue;
             MethodInsnNode c = (MethodInsnNode) n;
             if (owner.equals(c.owner) && name.equals(c.name)) return true;
+        }
+        return false;
+    }
+
+    /** Method nay co doc mot field cua lop khac khong (khop ca owner lan ten). */
+    static boolean readsOwnerField(MethodNode m, String owner, String name) {
+        if (m.instructions == null) return false;
+        for (AbstractInsnNode n = m.instructions.getFirst(); n != null; n = n.getNext()) {
+            if (!(n instanceof FieldInsnNode)) continue;
+            FieldInsnNode f = (FieldInsnNode) n;
+            if (owner.equals(f.owner) && name.equals(f.name)) return true;
         }
         return false;
     }

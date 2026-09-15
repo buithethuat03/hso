@@ -363,6 +363,20 @@ public final class TestAutoTradeRoute {
             }
             expect(hasForce, "thieu forceStep() - mieng da thieu qua ba ban: ap sat cong thi"
                     + " phai giao duong mot o thay vi tim duong");
+            expect(has(c, "gridPath"), "thieu gridPath() - mat tang tu tim duong tren ban"
+                    + " do o that, map lon se lai khong tim duoc duong khi tat Noclip");
+            expect(has(c, "walkableTile"), "thieu walkableTile() - khong doc duoc dia hinh that");
+            expect(has(c, "nearestOnPath"), "thieu nearestOnPath() - bam ke hoach theo khop"
+                    + " tuyet doi thi chi lech nua o la vut ca ke hoach va quay dau");
+            int engineMax = ci(c, "ENGINE_PATH_MAX");
+            expect(engineMax > 0 && engineMax <= 126,
+                    "ENGINE_PATH_MAX = " + engineMax + " - duong engine dai hon 126 o thi"
+                    + " khong tin duoc nua (GhostMod dat dung con so nay)");
+            int approach = ci(c, "GATE_APPROACH_TILES");
+            expect(approach >= 1 && approach <= 8,
+                    "GATE_APPROACH_TILES = " + approach + " - o dich bi chan thi nhan o gan"
+                    + " nhat trong ban kinh nay; 0 la khong bao gio toi noi, qua lon la dung"
+                    + " cach dich toi may chuc pixel");
             expect(ci(c, "PATH_BUDGET") == 5000,
                     "PATH_BUDGET = " + ci(c, "PATH_BUDGET") + ", phai la 5000 - dung con so"
                     + " engine goc truyen cho findPath o ca ba cho no goi. De nho hon thi map"
@@ -479,6 +493,13 @@ public final class TestAutoTradeRoute {
     }
 
     /** Doc mot hang so int trong HSOAutoTradeSupport. */
+    static boolean has(Class<?> c, String name) {
+        for (java.lang.reflect.Method m : c.getDeclaredMethods()) {
+            if (m.getName().equals(name)) return true;
+        }
+        return false;
+    }
+
     static int ci(Class<?> c, String name) throws Exception {
         java.lang.reflect.Field f = c.getDeclaredField(name);
         f.setAccessible(true);

@@ -1376,3 +1376,88 @@ nên giữa chừng không có chỗ nào để đổi ý.
 - `walkTo()` **phải** gọi `forceStep()`.
 - `forceStep()` **không được** gọi lại bất kỳ hàm tìm đường nào — thế thì nó hết là bước ép.
 - `plannedPath()` **phải** có `neighbourPath()`.
+
+---
+
+## v27 — tự tìm đường trên bản đồ ô thật (tầng dưới của GhostMod)
+
+Bản v23 → v26 đều hỏng theo cùng một kiểu khi tắt Noclip, và người chơi mô tả rất chính xác:
+
+> Map nhỏ thì nó còn tìm được đường nhưng đến gần cổng thì nó chạy quay lại => chạy vòng vòng.
+> Map lớn nó còn không tìm được đường đi cơ.
+
+Lý do: **cả bốn bản đều chỉ có một nguồn đường đi duy nhất là hàm tìm đường của engine.**
+Mỗi bản chỉ thay cách *dùng* kết quả của nó — cắt ngắn, nhớ lại, dò ô thay thế, ép bước cuối.
+Hàm đó chịu thua thì cả bốn bản đều coi như "không có đường".
+
+### GhostMod có hai tầng, mod này chỉ có một
+
+`GhostMod.buildPathToTile()` ([GhostMod.java:2565](GhostMod.java#L2565)):
+
+```java
+enginePath = fu.c.a(targetTileX, targetTileY, cn.g.aZ / cs.l, cn.g.ba / cs.l, maxPathLength);
+if (isEnginePathUsable(enginePath, maxPathLength)) return enginePath;
+return buildGridPathToTile(targetTileX, targetTileY, maxPathLength);   // <-- tầng thiếu
+```
+
+`buildGridPathToTile` là một phép **dò rộng (BFS) 4 hướng** tự viết, chạy thẳng trên mảng ô của
+bản đồ: `fu.q.n` (mảng ô), `fu.q.e` (rộng), `fu.q.f` (cao), ô đi được là `cell != 1 && cell != -1`.
+
+Và `ENGINE_PATHFINDER_HARD_LIMIT = 126`: đường engine dài hơn 126 ô thì GhostMod **không dùng**,
+kể cả khi nó trả về. Hàm của engine chỉ làm việc trong tầm ngắn — đi xa là nó bỏ cuộc, đúng
+với "map lớn không tìm được đường".
+
+### Bản đồ ô thật nằm ở đâu trong jar này
+
+Điểm neo là hàm hỏi ô của `TILEMAP`: method `(II)I` **duy nhất có đúng một `iaload`**. Thân nó là
+
+```java
+idx = (pixelY / TILE) * width + (pixelX / TILE);
+return HSOSKYRuntimeSupport.adjustTile(tiles[idx]);     // adjustTile do mod Noclip chèn vào
+```
+
+Đọc thẳng từ bytecode ra được cả hai thứ cần: mảng ô (field `[I`) và chiều rộng (field `I` đứng
+ngay trước `imul`). `AddTileGridSymbols` làm đúng việc đó và ghi ra `tilemap.tiles`, `tilemap.width`.
+
+**Tên mảng ô trùng đúng tên field `player.y`** — lại một lần nữa đúng cái bẫy của jar này, nên
+tra bằng owner + descriptor chứ không bao giờ bằng tên.
+
+Chiều cao không cần ký hiệu riêng: lúc nạp bản đồ, `tiles = new int[width * height]`
+(offset 697-724 của hàm nạp), nên `tiles.length / width` **đúng bằng** chiều cao, không có đệm.
+
+Mod đọc thẳng mảng chứ không gọi hàm hỏi ô, vì hàm đó đã bị Noclip chèn `adjustTile` vào giữa —
+`adjustTile` biến mọi ô thành đi được, mà ở đây cần địa hình **thật**.
+
+### Cái sửa thứ hai: bám kế hoạch lỏng hơn
+
+`realPath()` trước đây đòi nhân vật đứng **đúng** trên một ô của kế hoạch, không thì vứt cả kế
+hoạch đi và tính lại. Nhân vật đi theo pixel chứ không nhảy từng ô, nên chỉ lệch nửa ô là kế
+hoạch bị vứt, và lần tính lại từ chỗ mới rất dễ ra một lối vòng khác — **thế là quay đầu**.
+Đúng triệu chứng "đi gần tới nơi thì tự nhiên chạy ra chỗ khác rồi chạy vòng vòng".
+
+`nearestOnPath()` cho phép lệch tối đa **một ô**, và bước đầu tiên là bước trở lại lên kế hoạch.
+
+### Chỗ đứng khi ô đích bị chặn
+
+`gridPath()` dò rộng **một lần** từ chỗ đang đứng, rồi trong số các ô đến được chọn ô **gần đích
+nhất** trong bán kính `GATE_APPROACH_TILES = 4` (hoà nhau thì lấy ô tới bằng đường ngắn hơn).
+
+Khác hẳn bản v24 về bản chất: v24 dò quanh ô đích và **hỏi engine từng ô một**, mỗi nhịp có thể
+ra một đáp án khác nên nhân vật nhảy qua nhảy lại quanh cổng. Ở đây một lần dò cho ra một kết
+quả, và kết quả đó được nhớ lại trong `planPath`.
+
+`neighbourPath()` bị bỏ — `gridPath()` đã làm cả việc đó, và làm một lần.
+
+`forceStep()` giữ nguyên nhưng **chỉ ép khi ô đích thật sự đi được** (`walkableTile`). Lớp
+`PLAYER` gọi hàm hỏi ô của `TILEMAP` **10 chỗ**, tức là engine có kiểm va chạm khi bước, nên ép
+một đường một phần tử lên ô bị chặn thì nhân vật chỉ đứng im chứ không vào được.
+
+### Chốt trong verify
+
+- `support` phải còn `gridPath()`, `walkableTile()`, `nearestOnPath()`.
+- `plannedPath()` **phải** gọi `gridPath()` — mất tầng này là map lớn lại không đi được.
+- `gridPath()` **không được** gọi `findPath` của engine — thế thì nó hết là tầng dự phòng.
+- `gridPath()` phải đọc mảng ô thật (`tilemap.tiles`) hoặc đi qua `tileGrid()`.
+- `realPath()` và `plannedPath()` **phải** gọi `nearestOnPath()`.
+- `neighbourPath()` và `approachPath()` **không được** còn trong support.
+- Test chốt `ENGINE_PATH_MAX <= 126` và `1 <= GATE_APPROACH_TILES <= 8`.
