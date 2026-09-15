@@ -775,7 +775,28 @@ public final class AutoTradePatcher implements Opcodes {
         for (MethodNode m : support.methods) if ("walkTo".equals(m.name)) walk = m;
         require(walk != null, "support khong con ham walkTo()");
         require(callsSupport(walk, "realPath") && callsSupport(walk, "straightPath"),
-                "walkTo() thieu mot trong hai duong di: duong that va buoc thang du phong");
+                "walkTo() thieu mot trong hai duong di: duong that va duong thang");
+        /*
+         * Mieng quan trong nhat, va la mieng da thieu qua ba ban: ap sat cong thi phai EP
+         * buoc thang len o cong, khong tim duong nua.
+         *
+         * Cong ghi bang toa do pixel, o duoi chan no thuong khong phai o di duoc. Tat Noclip
+         * ma van di tim duong len o do thi khong bao gio dat chan len duoc, va nhan vat cu
+         * lan quan quanh cong. GhostMod vao trong mot o la goi forcePortalStep: giao duong
+         * DUY NHAT MOT O, con tro 0.
+         */
+        require(callsSupport(walk, "forceStep"),
+                "walkTo() khong co buoc ep vao o dich - ap sat cong roi ma van tim duong thi"
+                + " khong bao gio vao duoc cong khi da tat Noclip");
+        MethodNode force = null;
+        for (MethodNode m : support.methods) if ("forceStep".equals(m.name)) force = m;
+        require(force != null, "support khong con ham forceStep()");
+        require(!callsSupport(force, "realPath") && !callsSupport(force, "straightPath")
+                        && !callsSupport(force, "plannedPath"),
+                "forceStep() lai di qua ham tim duong - the thi no khong con la buoc ep nua");
+        require(callsSupport(planned, "neighbourPath"),
+                "plannedPath() khong co duong toi o ke ben - o cong bi chan thi khong toi"
+                + " duoc cho nao gan cong ca");
         for (MethodNode m : support.methods) {
             require(!"approachPath".equals(m.name),
                     "support con approachPath() - cach do vong quanh o dich da bi bo o v25");

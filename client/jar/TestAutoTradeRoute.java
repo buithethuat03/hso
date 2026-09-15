@@ -346,14 +346,23 @@ public final class TestAutoTradeRoute {
             }
             expect(hasPlan, "thieu clearPlan() - khong co ke hoach duong di thi moi nhip lai"
                     + " tinh lai mot loi vong khac, nhan vat chay vong vo khi tat Noclip");
-            int nudge = ci(c, "STRAIGHT_NUDGE_PX");
-            expect(nudge >= ci(c, "GATE_NEAR_PX"),
-                    "STRAIGHT_NUDGE_PX = " + nudge + " phai phu het vung quanh cong ("
-                    + ci(c, "GATE_NEAR_PX") + "px): het duong that o cong ma khong buoc thang"
-                    + " toi thi khong bao gio vao duoc trong 40px server doi");
-            expect(nudge <= 400,
-                    "STRAIGHT_NUDGE_PX = " + nudge + " qua rong - doan di xuyen dia hinh khi"
-                    + " da tat Noclip phai ngan, chi du de vao dung cong");
+            int forceTiles = ci(c, "GATE_FORCE_TILES");
+            expect(forceTiles >= 1,
+                    "GATE_FORCE_TILES = " + forceTiles + " - phai ep buoc thang len o cong khi"
+                    + " da ap sat, khong thi tat Noclip la khong bao gio vao duoc cong");
+            expect(forceTiles * TILE_PX <= ci(c, "ARRIVE_PX") + TILE_PX * 2,
+                    "ep buoc thang tu " + (forceTiles * TILE_PX) + "px la qua xa - doan di"
+                    + " thang khi da tat Noclip phai ngan, chi du de dat chan len o cong");
+            boolean hasForce = false;
+            try {
+                for (java.lang.reflect.Method mm : c.getDeclaredMethods()) {
+                    if ("forceStep".equals(mm.getName())) hasForce = true;
+                }
+            } catch (Throwable ex) {
+                hasForce = false;
+            }
+            expect(hasForce, "thieu forceStep() - mieng da thieu qua ba ban: ap sat cong thi"
+                    + " phai giao duong mot o thay vi tim duong");
             expect(ci(c, "PATH_BUDGET") == 5000,
                     "PATH_BUDGET = " + ci(c, "PATH_BUDGET") + ", phai la 5000 - dung con so"
                     + " engine goc truyen cho findPath o ca ba cho no goi. De nho hon thi map"

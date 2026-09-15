@@ -1336,3 +1336,43 @@ bật Noclip thì qua cổng nhanh nên hiếm khi chạm tới.
 
 - `walkTo()` phải có **cả hai** đường: `realPath()` và `straightPath()` dự phòng.
 - Lớp support **không được** có lại `approachPath()`.
+
+## v26 - Ép bước cuối lên ô cổng (mảnh đã thiếu qua ba bản)
+
+Ba bản liền (v23, v24, v25) đều hỏng cùng một kiểu: tắt Noclip thì đi tới gần cổng rồi lại
+chạy ra chỗ khác, không vào cổng. Mỗi lần tôi chữa một triệu chứng khác nhau mà không tìm ra
+nguyên nhân gốc.
+
+**Nguyên nhân gốc:** cổng được ghi bằng **toạ độ pixel**, và ô dưới chân nó thường **không
+phải ô đi được** trong bản đồ thật (cổng hay nằm sát viền map). Bật Noclip thì không sao — mọi
+ô đều thành đi được. Tắt đi thì `findPath` **không bao giờ đặt chân lên ô đó**: hoặc trả về
+null, hoặc vòng ra một lối khác. Nên nhân vật cứ lẩn quẩn quanh cổng mà không bao giờ vào
+trong **40px** mà server đòi để mở cổng.
+
+Mọi cách chữa trước đều là tìm-đường-kiểu-khác, nên đều thất bại theo cùng một cách.
+
+**GhostMod giải đúng chỗ này** — `startMoveToPixel()`:
+
+```java
+if (isNearPosition(targetX, targetY, cs.l)) {   // trong ĐÚNG MỘT Ô
+    if (markPortal) return forcePortalStep(targetX, targetY);
+```
+
+`forcePortalStep()` không tìm đường: nó đặt thẳng điểm đến rồi giao cho nhân vật một đường đi
+**duy nhất một phần tử** — chính ô của cổng — với con trỏ **0**.
+
+`forceStep()` làm y hệt. Con trỏ phải là 0 chứ không phải 1: đường bình thường có phần tử 0 là
+ô **đang đứng** nên engine bắt đầu từ 1, còn đường này chỉ có đúng ô đích.
+
+Chỉ ép khi đã trong `GATE_FORCE_TILES = 2` ô, nên đoạn đi thẳng luôn rất ngắn.
+
+Kèm theo: nếu ô đích không đặt chân lên được thì `neighbourPath()` đi tới **ô kề bên** gần
+người chơi nhất trong 8 ô kề. Chỉ 8 ô kề chứ không dò vòng bán kính 4 như bản v24 — ô kề cách
+ô đích đúng một ô (~24px) nên đứng đó đã nằm trong 40px server đòi, và kế hoạch được nhớ lại
+nên giữa chừng không có chỗ nào để đổi ý.
+
+### Chốt trong verify
+
+- `walkTo()` **phải** gọi `forceStep()`.
+- `forceStep()` **không được** gọi lại bất kỳ hàm tìm đường nào — thế thì nó hết là bước ép.
+- `plannedPath()` **phải** có `neighbourPath()`.

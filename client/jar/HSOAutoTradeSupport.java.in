@@ -182,13 +182,12 @@ public final class HSOAutoTradeSupport {
     /** Ngan sach tim duong giao cho findPath - dung con so engine goc dung o ca ba cho. */
     static final int PATH_BUDGET = 5000;
     /**
-     * Sat dich ngan nay ma van khong tim ra duong that thi buoc THANG toi dich.
+     * Vao trong ngan nay O quanh dich thi BUOC THANG len o do, khong tim duong nua.
      *
-     * Dung lai GATE_NEAR_PX (200px) chu khong dat hang so rieng: day chinh la vung quanh
-     * cong, va cong la cho gan nhu duy nhat can toi mot diem ma ban do that co the khong
-     * cho dung len.
+     * GhostMod ep buoc cuoi khi da trong DUNG MOT o (isNearPosition(portal, cs.l) roi goi
+     * forcePortalStep). De 2 o cho co chut bien, van rat ngan.
      */
-    static final int STRAIGHT_NUDGE_PX = GATE_NEAR_PX;
+    static final int GATE_FORCE_TILES = 2;
 
     /** Coi la "da toi noi" khi ca hai truc deu trong nguong nay (cong them mot o). */
     static final int ARRIVE_PX = 16;
@@ -1730,26 +1729,31 @@ public final class HSOAutoTradeSupport {
         int fromTy = me.@player.y@ / tile;
         int toTx = tx / tile;
         int toTy = ty / tile;
+        /*
+         * DA AP SAT DICH: ep buoc thang len o dich, khong tim duong nua.
+         *
+         * Day la mieng con thieu cua hai ban truoc, va la ly do lan nao cung "di den gan
+         * cong roi lai chay ra cho khac".
+         *
+         * Cong duoc ghi bang TOA DO PIXEL; o duoi chan no thuong khong phai o di duoc trong
+         * ban do that (cong hay nam sat vien map). Tat Noclip thi findPath khong bao gio
+         * dat duoc chan len o do: hoac tra ve null, hoac vong ra loi khac. The la nhan vat
+         * cu lan quan quanh cong ma khong bao gio vao trong 40px ma server doi de mo cong.
+         *
+         * GhostMod giai dung cho nay: vao trong MOT o quanh cong la thoi tim duong, giao
+         * cho nhan vat mot duong di DUY NHAT MOT O - chinh o cua cong - roi de engine buoc
+         * thang len. Duong mot phan tu thi con tro phai bat dau tu 0 (khong co o "dang
+         * dung" o dau mang nhu duong binh thuong).
+         *
+         * Chi lam khi da trong GATE_FORCE_TILES o, nen doan di thang luon rat ngan.
+         */
+        if (!noclipOn && within(tx, ty, tile * GATE_FORCE_TILES)) {
+            return forceStep(me, tile, tx, ty);
+        }
+
         short[] path = noclipOn
                 ? straightPath(fromTx, fromTy, toTx, toTy, maxTiles)
                 : realPath(fromTx, fromTy, toTx, toTy, maxTiles);
-        if (path == null && !noclipOn && within(tx, ty, STRAIGHT_NUDGE_PX)) {
-            /*
-             * Khong tim ra duong that toi dich, ma dich thi da o ngay truoc mat.
-             *
-             * Hay gap nhat la o CONG: cong duoc ghi bang toa do pixel, o duoi chan no khong
-             * chac la o di duoc trong ban do that, nen findPath khong bao gio toi noi. Ma
-             * server chi mo cong khi nhan duoc bao cao vi tri trong 40px quanh no - dung xa
-             * ra vai o la khong bao gio qua duoc map.
-             *
-             * Chinh ENGINE GOC cung lam dung the: cho no goi findPath, neu tra ve null thi
-             * no buoc thang toi dich chu khong bo cuoc.
-             *
-             * Chi lam trong pham vi GATE_NEAR_PX de doan di xuyen (neu co) luon ngan, con
-             * ca chang duong dai van di theo loi that.
-             */
-            path = straightPath(fromTx, fromTy, toTx, toTy, maxTiles);
-        }
         if (path == null) {
             // Dang dung dung o dich thi khong co gi de di - dung, chu khong phai loi.
             return fromTx == toTx && fromTy == toTy;
@@ -1759,6 +1763,31 @@ public final class HSOAutoTradeSupport {
         me.@player.stepDestY@ = me.@player.y@;
         me.@player.path@ = path;
         me.@player.pathCursor@ = 1;
+        me.@player.startMove@();
+        return true;
+    }
+
+    /**
+     * Giao cho engine mot duong di DUY NHAT MOT O: chinh o dich.
+     *
+     * Khong qua ham tim duong, nen khong the bi tu choi vi o dich khong di duoc. Dung cach
+     * GhostMod ep buoc cuoi vao cong (forcePortalStep): dat luon diem den roi giao duong
+     * mot phan tu, con tro 0.
+     *
+     * Con tro phai la 0 chu khong phai 1: duong binh thuong co phan tu 0 la o DANG DUNG nen
+     * engine bat dau tu 1, con duong nay chi co dung o dich.
+     */
+    static boolean forceStep(@class.PLAYER@ me, int tile, int tx, int ty) {
+        int toTx = tx / tile;
+        int toTy = ty / tile;
+        if (!tileInRange(toTx) || !tileInRange(toTy)) return false;
+        haltWalk(me);
+        me.@player.stepDestX@ = tx;
+        me.@player.stepDestY@ = ty;
+        short[] one = new short[1];
+        one[0] = tileWord(toTx, toTy);
+        me.@player.path@ = one;
+        me.@player.pathCursor@ = 0;
         me.@player.startMove@();
         return true;
     }
@@ -1848,18 +1877,21 @@ public final class HSOAutoTradeSupport {
         }
 
         /*
-         * O dich khong toi duoc thi tra ve null luon, KHONG di tim mot o khac gan do.
+         * O dich khong dat chan len duoc thi di toi o KE BEN no.
          *
-         * Da thu do vong tron quanh o dich lay cho dung thay the, va hong: moi nhip lai co
-         * the chon mot o thay the khac, nen nhan vat nhay qua nhay lai giua may o quanh cong
-         * ma khong bao gio vao dung cong - dung loi "di den gan cong thi tu nhien chay ra cho
-         * khac, khong chiu sang map". Cho dung thay the con lam hong dieu quan trong nhat:
-         * server chi mo cong khi bao cao vi tri roi vao trong 40px quanh no, ma o thay the
-         * co the cach toi may o.
+         * Chi xet 8 o ke ngay canh, va chon o GAN NGUOI CHOI NHAT trong so nhung o toi
+         * duoc. Hai rang buoc do la de khong lap lai loi cu: ban truoc do vong tron ban
+         * kinh 4 o va moi nhip lai chon mot o khac, nen nhan vat nhay qua nhay lai quanh
+         * cong. O ke ben thi cach o dich dung mot o (~24px), dung o do la da nam trong
+         * 40px ma server doi, va buoc cuoi da co forceStep lo not.
          *
-         * Khong co duong that thi de walkTo buoc thang toi cong - dung cach engine goc lam.
+         * Ke hoach duoc nho lai (planPath) nen trong suot doan duong con lai khong tinh
+         * lai nua - khong con cho nao de doi y giua chung.
          */
         short[] found = askPath(screen, fromTx, fromTy, toTx, toTy);
+        if (found == null) {
+            found = neighbourPath(screen, fromTx, fromTy, toTx, toTy);
+        }
         if (found == null) return null;
 
         planPath = found;
@@ -1891,6 +1923,34 @@ public final class HSOAutoTradeSupport {
                 || found[0] != tileWord(fromTx, fromTy)
                 || found[found.length - 1] != tileWord(toTx, toTy)) return null;
         return found;
+    }
+
+    /** 8 o ke ben, theo thu tu co dinh. */
+    static final int[] NB_X = {-1, 0, 1, -1, 1, -1, 0, 1};
+    static final int[] NB_Y = {-1, -1, -1, 0, 0, 1, 1, 1};
+
+    /** Duong toi o ke ben o dich gan nguoi choi nhat ma toi duoc; null neu khong o nao toi duoc. */
+    static short[] neighbourPath(@class.CHARS@ screen, int fromTx, int fromTy,
+            int toTx, int toTy) {
+        boolean[] used = new boolean[NB_X.length];
+        for (int round = 0; round < NB_X.length; round++) {
+            int pick = -1;
+            int best = Integer.MAX_VALUE;
+            for (int i = 0; i < NB_X.length; i++) {
+                if (used[i]) continue;
+                int dx = Math.abs(toTx + NB_X[i] - fromTx);
+                int dy = Math.abs(toTy + NB_Y[i] - fromTy);
+                int d = dx > dy ? dx : dy;
+                if (d >= best) continue;
+                best = d;
+                pick = i;
+            }
+            if (pick < 0) break;
+            used[pick] = true;
+            short[] hit = askPath(screen, fromTx, fromTy, toTx + NB_X[pick], toTy + NB_Y[pick]);
+            if (hit != null) return hit;
+        }
+        return null;
     }
 
     static int indexOfTile(short[] path, short tile) {
