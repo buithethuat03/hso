@@ -2004,3 +2004,63 @@ Xong phó bản, đang ở 432,354, về chỗ NPC 610,505.
 Không vào được phó bản - hết vé và hết ngọc, hoặc chỗ nhớ sai (đang ở x,y, nhớ a,b).
 ```
 
+## auto_n4_v7 — bản cuối của lối cũ (chưa ghi chú trước đó)
+
+Dòng jar `auto_n4_*` = chỉ Auto Ngã 4: `AutoTradePatcher ... hide-trade-menu` ẩn dòng menu
+"Auto Đi Buôn", và `patchFrameRate()` đổi chu kỳ vòng lặp Canvas 8ms → 16ms (60 FPS).
+
+v7 gom: chỉ đợi map nạp xong khi **ra làng** (vào Ngã 4 xử lý ngay), bán kính tròn về chỗ
+NPC, chờ 1 giây trước khi hỏi menu, suy cửa từ vị trí con quái đầu khi không đọc được dòng
+báo. Vẫn còn lỗi ngẫu nhiên → viết lại ở v8.
+
+## auto_n4_v8 — viết lại theo bốn bước cố định
+
+Người chơi kết luận sau nhiều bản: lỗi không chắc chắn xảy ra mà **có xác suất**, tức là các
+bước đang chồng lên nhau. Yêu cầu: lấy Auto Đi Buôn làm mẫu, mỗi bước làm chắc bước đó.
+
+### Bốn bước, sáu trạng thái
+
+| Bước | Trạng thái | Việc duy nhất | Được đi? |
+|---|---|---|---|
+| B1 | `N4_HOME` | về map 1 (`routeTowards`), tới **(588,564)**, dừng hẳn 3 tầng, đợi **0.5s**, gọi menu NPC | ✔ đường thật, Noclip **tắt** |
+| B2 | `N4_TALK` | đứng yên, để `n4OnNpcMenu`/`n4Tick` bấm "ngã tư" → "horae" → "ngọc"; hết 20s → về B1 | ✘ |
+| B3a | `N4_WAIT` | đứng yên, đọc dòng "…cửa phía X…"; quá 30s không nghe → nhắm thiên thạch | ✘ |
+| B3b | `N4_MOVE` | đợi **0.5s** từ lúc chốt, ra chỗ đón cố định, dừng hẳn | ✔ đường thẳng, Noclip **bật** |
+| B3c | `N4_HOLD` | đứng yên; Auto Tự Đánh mode 7 làm việc; có hướng mới → B3b | ✘ |
+| B4 | `N4_LEAVE` | đợi **1s** + bản đồ nạp xong (`n4MapReady`) → B1 | ✘ (chỉ `haltWalk`, không gửi vị trí) |
+
+Chỗ đón cố định (người chơi chốt): **Bắc (684,552) · Đông (820,672) · Nam (688,768) · Tây (584,656)**;
+thiên thạch (684,672). Bốn chỗ đều nằm trên trục quái đi và cách thiên thạch ≤ 136px — đúng
+vùng quái dừng lại đánh thiên thạch (mob_speed 50–200px tuỳ mode, xem `server/map/Dungeon.java`).
+
+### Đổi bước theo map chỉ ở một chỗ
+
+Đầu `n4Tick()`: đang trong phó bản mà map đổi → B4; đang B2 mà map đổi → B3; đang B1 mà map
+đổi → không làm gì (B1 đang tự qua map). `n4InDungeon` chỉ do `n4OnEnterDungeon/LeaveDungeon` đổi.
+
+### Những gì bỏ hẳn
+
+- Nhớ chỗ đứng lúc bật / neo lại khi menu mở (`n4HomeX/Y`, `n4NearHome`) → toạ độ cố định.
+- Suy cửa từ vị trí quái (`n4InferGateFromMob`), lùi về giữa map (`n4RescueDue`), tính chỗ đón
+  từ `N4_GATE_EDGE_PX + N4_GATE_BACK_PX` → bảng toạ độ cố định.
+- `pollInfo()` ngoài làng — dòng báo chỉ có nghĩa trong phó bản.
+- Đọc `"hướng"` làm từ khoá — chỉ còn `"cửa"`.
+
+### Hai lỗi đã xác nhận, và chỗ chặn
+
+1. *Ra làng, chạy đến gần NPC rồi tự chạy về chỗ cũ* → B1 đi **đường thật, Noclip tắt**
+   (`n4WantNoclip(false)` ép cả cờ bên này và tầng runtime; runtime tự tắt Noclip sau 3 lần
+   bị kéo mà không báo, cờ lệch là đường giao cho engine không khớp va chạm). Tới nơi dừng
+   hẳn 3 tầng và đợi 0.5s rồi mới hỏi NPC. Hỏi không được → về B1, B1 tự thấy còn đứng đúng
+   chỗ thì chỉ dừng hẳn rồi hỏi lại.
+2. *Trong phó bản chạy vòng vòng, không đánh* → không có bước nào vừa đi vừa đọc vừa đổi đích;
+   B3a đứng yên cho tới khi có hướng; B3b đi một lần tới toạ độ cố định; B3c đứng. Tầm chọn
+   mục tiêu trong phó bản = **vòng tròn mod vẽ** (`tamDanh * 3 / 2` px, mặc định 140 → 210px),
+   `autoTargetGate()` dùng thẳng kết quả `n4InRange()` — patcher có luật khẳng định điều đó.
+
+### Khoá đổi cửa 20s → 2s
+
+Khoá 20 giây (v34) chặn được bản sao dòng cũ bị đẩy xuống, nhưng **nuốt mất** thông báo đợt sau
+khi đợt trước giết nhanh (< 20s): dòng đó bị đánh dấu "đã đọc" và không bao giờ được đọc lại.
+Bản sao bị đẩy xuống tới trong **cùng khung hình**, nên 2 giây là đủ.
+

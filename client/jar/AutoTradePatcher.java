@@ -1032,21 +1032,17 @@ public final class AutoTradePatcher implements Opcodes {
         require(callsOwner(gate, "HSOSKYPetFeedSupport", "isValidAutoTarget"),
                 "autoTargetGate() khong goi lai bo loc goc - moi che do khac Auto Nga 4 se"
                 + " doi hanh vi chon muc tieu, khong chi rieng pho ban");
-        require(readsField(gate, "HSOAutoTradeSupport", "n4State"),
-                "autoTargetGate() khong xet n4State - se siet tam chon muc tieu ca khi khong"
-                + " chay Auto Nga 4");
+        require(readsField(gate, "HSOAutoTradeSupport", "n4InDungeon"),
+                "autoTargetGate() khong xet n4InDungeon - se siet tam chon muc tieu ca khi khong"
+                + " o trong pho ban");
         /*
-         * Tam chon muc tieu phai la TOAN BAN DO - nguoi choi chot sau khi chay thu.
-         *
-         * Da thu cat tam ve dung vong tron tam danh va hong: auto nay khong tu di toi muc
-         * tieu, nen cat tam la thanh ra dung im khong chi vao con nao trong khi quai vay
-         * quanh. n4InRange() van duoc goi, nhung ket qua phai bi BO DI (POP) - no chi de
-         * ghi moc thoi gian cho n4RescueDue().
+         * Trong pho ban tam chon muc tieu PHAI la vong tron - nguoi choi chot. Ket qua cua
+         * n4InRange() phai la gia tri tra ve, khong duoc bo di (POP).
          */
-        require(resultDiscarded(gate, "HSOAutoTradeSupport", "n4InRange"),
-                "autoTargetGate() dung ket qua n4InRange() lam gia tri tra ve - tam chon muc"
-                + " tieu phai la toan ban do, khong duoc cat. Auto nay khong tu di toi muc"
-                + " tieu nen cat tam la dung im khong chi vao con quai nao ca");
+        require(callsOwner(gate, "HSOAutoTradeSupport", "n4InRange")
+                        && !resultDiscarded(gate, "HSOAutoTradeSupport", "n4InRange"),
+                "autoTargetGate() khong dung ket qua n4InRange() - trong pho ban auto se khoa"
+                + " vao con quai o tan dang xa va danh hut, con o ngay canh thi khong dung");
 
         MethodNode atk = null;
         MethodNode n4tick = null;

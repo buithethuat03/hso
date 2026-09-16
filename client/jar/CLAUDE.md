@@ -130,8 +130,18 @@ sang classpath jar HSOSKY, sẽ không compile.
 | `autotrade_v39.1.jar` | v39 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `autotrade_v40.jar` | tầm chọn mục tiêu trả lại toàn bản đồ |
 | `autotrade_v40.1.jar` | v40 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
-| `autotrade_v41.jar` | **bản đang chơi** — đợi bản đồ nạp xong rồi mới tính đường; neo chỗ đứng chặt hơn |
+| `autotrade_v41.jar` | đợi bản đồ nạp xong rồi mới tính đường; neo chỗ đứng chặt hơn |
 | `autotrade_v41.1.jar` | v41 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
+| `auto_n4_v7.jar` | dòng jar **chỉ có Auto Ngã 4** (ẩn menu Auto Đi Buôn, vòng lặp 16ms). Bản cuối của lối cũ: chỉ đợi map khi ra làng, bán kính tròn, suy cửa từ vị trí quái |
+| `auto_n4_v8.jar` | **bản đang chơi** — viết lại Auto Ngã 4 theo 4 bước cố định (B1 về (588,564) → B2 nói chuyện → B3 chờ hướng / ra chỗ đón cố định / đứng đánh trong vòng tròn → B4 đợi 1s rồi lặp) |
+| `auto_n4_v8.1.jar` | v8 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
+
+Lệnh dựng dòng `auto_n4_*` (khác dòng `autotrade_*` ở tham số thứ ba):
+
+```powershell
+java -cp ".;asm-9.7.jar;asm-tree-9.7.jar" AutoTradePatcher HSOLUNA_TRUONGBK_PERFECT.jar auto_n4_v9.jar hide-trade-menu
+java -cp ".;asm-9.7.jar;asm-tree-9.7.jar" AutoTradeV11_1Patcher auto_n4_v9.jar auto_n4_v9.1.jar HSOLUNA_V151 Truongbk_V151 C_
+```
 | `KNIGHT_ONLINE_RL.jar` | V3 → server **"Rồng Lửa"** `27.0.12.133:19129`, MIDlet đổi tên, auto đập đồ giãn 4s |
 | `KNIGHT_ONLINE_RL_V3.jar` | dựng từ V5 (bản chạy thử 1 viên) |
 | `KNIGHT_ONLINE_RL_V5.jar` | dựng từ V7 |

@@ -390,94 +390,76 @@ public final class TestAutoTradeRoute {
             expect(a1 != ci(c, "ACT_SUBMENU") && a1 != ci(c, "ACT_TOGGLE")
                             && a1 != ci(c, "ACT_BOOST") && a1 != ci(c, "ACT_NOCLIP")
                             && a2 != ci(c, "ACT_SUBMENU") && a2 != ci(c, "ACT_TOGGLE")
-                            && a2 != ci(c, "ACT_BOOST") && a2 != ci(c, "ACT_NOCLIP")
-                            && a1 != a2,
+                            && a2 != ci(c, "ACT_BOOST") && a2 != ci(c, "ACT_NOCLIP") && a1 != a2,
                     "action id cua Auto Nga 4 trung voi Auto Di Buon - bam mot muc se chay"
                     + " nham tinh nang kia");
-            expect(has(c, "n4Tick") && has(c, "n4StartAttack") && has(c, "n4OnNpcMenu")
-                            && has(c, "n4RockX") && has(c, "n4RockY") && has(c, "n4Stop"),
-                    "thieu mot trong cac ham cua Auto Nga 4");
+            expect(has(c, "n4Tick") && has(c, "n4Start") && has(c, "n4Stop")
+                            && has(c, "n4StepHome") && has(c, "n4StepTalk") && has(c, "n4StepWait")
+                            && has(c, "n4StepMove") && has(c, "n4StepHold") && has(c, "n4StepLeave"),
+                    "thieu mot buoc cua Auto Nga 4 - moi buoc mot ham, khong buoc nao lan sang"
+                    + " buoc khac");
+            expect(has(c, "n4Park") && has(c, "n4StandStill") && has(c, "n4WantNoclip")
+                            && has(c, "n4MapReady") && has(c, "n4ReadGate") && has(c, "n4OnNpcMenu")
+                            && has(c, "n4StartAttack") && has(c, "autoTargetGate") && has(c, "n4InRange"),
+                    "thieu mot ham phu cua Auto Nga 4 (dung han / Noclip / cho map / doc huong /"
+                    + " menu / tam danh)");
+            expect(!has(c, "n4InferGateFromMob") && !has(c, "n4RescueDue") && !has(c, "n4NearestMob")
+                            && !has(c, "n4RockEntity") && !has(c, "n4NpcEntity") && !has(c, "n4FindNpc")
+                            && !has(c, "n4NearHome") && !has(c, "n4SyncNoclip"),
+                    "support con ham doan mo (suy cua tu vi tri quai, lui ve giua map, tim NPC/"
+                    + "thien thach bang thuc the, nho cho dung) - chinh nhung cai nay sinh loi"
+                    + " ngau nhien, da bo het");
+            expect(ci(c, "N4_TOWN_MAP") == 1,
+                    "N4_TOWN_MAP phai la 1 - Lang Soi Trang");
+            expect(ci(c, "N4_HOME_X") == 588 && ci(c, "N4_HOME_Y") == 564,
+                    "cho dung canh Pho chi huy phai la (588,564) - nguoi choi chot");
+            int[] bac = ia(c, "N4_POS_BAC");
+            int[] dong = ia(c, "N4_POS_DONG");
+            int[] nam = ia(c, "N4_POS_NAM");
+            int[] tay = ia(c, "N4_POS_TAY");
+            expect(bac[0] == 684 && bac[1] == 552 && dong[0] == 820 && dong[1] == 672
+                            && nam[0] == 688 && nam[1] == 768 && tay[0] == 584 && tay[1] == 656,
+                    "bon cho don phai dung so nguoi choi chot: Bac 684,552 Dong 820,672"
+                    + " Nam 688,768 Tay 584,656");
+            int[][] pos = {bac, dong, nam, tay};
+            boolean inMap = true;
+            boolean nearRock = true;
+            for (int i = 0; i < pos.length; i++) {
+                if (pos[i][0] <= 0 || pos[i][0] >= 1368 || pos[i][1] <= 0 || pos[i][1] >= 1344) inMap = false;
+                int ddx = pos[i][0] - ci(c, "N4_ROCK_X");
+                int ddy = pos[i][1] - ci(c, "N4_ROCK_Y");
+                if (ddx * ddx + ddy * ddy > 200 * 200) nearRock = false;
+            }
+            expect(inMap, "co cho don nam ngoai ban do 1368x1344");
+            expect(nearRock, "co cho don cach thien thach hon 200px - quai dung lai canh thien"
+                    + " thach (toi da 200px o mode Hell) nen dung xa hon la khong voi toi");
+            expect(ci(c, "N4_ROCK_X") == 684 && ci(c, "N4_ROCK_Y") == 672,
+                    "thien thach phai o (684,672) - chinh giua ban do 57x56 o");
+            expect(cl(c, "N4_HOME_WAIT_MS") == 500L && cl(c, "N4_AIM_WAIT_MS") == 500L
+                            && cl(c, "N4_LEAVE_WAIT_MS") == 1000L,
+                    "nhip cho phai dung nguoi choi chot: 0.5s o NPC, 0.5s truoc khi ra cho don,"
+                    + " 1s sau khi ra lang");
             long hold = cl(c, "N4_GATE_HOLD_MS");
-            expect(hold >= 5000L,
-                    "N4_GATE_HOLD_MS = " + hold + "ms - hop thong bao co ba dong, dong cu bi"
-                    + " day xuong se bi doc lai nhu dong moi; khoa qua ngan la cua nhay qua"
-                    + " nhay lai va nhan vat chay di chay lai giua hai diem don");
-            expect(has(c, "n4MapReady") && has(c, "n4Pos") && has(c, "n4Home"),
-                    "thieu buoc cho ban do nap xong sau khi doi map - doc phai toa do cu thi"
-                    + " co the ket luan \"da ve toi cho NPC\" trong khi con dung tan cho ra,"
-                    + " roi bat chuyen voi khong khi ba lan va tu tat");
+            expect(hold >= 500L && hold <= 5000L,
+                    "N4_GATE_HOLD_MS = " + hold + "ms - phai du chan ban sao bi day xuong trong"
+                    + " cung khung hinh, nhung khong duoc dai: dot truoc giet nhanh thi thong bao"
+                    + " dot sau toi som, khoa dai la nuot mat va khong bao gio doc lai");
+            expect(cl(c, "N4_WAIT_GATE_MS") >= 10000L,
+                    "N4_WAIT_GATE_MS qua ngan - chua kip nghe huong da chay ra giua map");
             long n4Settle = cl(c, "N4_SETTLE_MS");
-            expect(n4Settle >= 1000L && n4Settle <= 15000L,
-                    "N4_SETTLE_MS = " + n4Settle + "ms - doi client nap xong ban do moi; qua"
-                    + " ngan la lai doc phai toa do cu");
-            expect(cl(c, "N4_SETTLE_MAX_MS") > n4Settle,
-                    "N4_SETTLE_MAX_MS phai lon hon N4_SETTLE_MS - het han nay thi cu lam,"
-                    + " khong treo im lang cho mai");
-            expect(has(c, "flushInfo"),
-                    "thieu flushInfo() - thong bao cua cua luot truoc se chiem mat khoa doi"
-                    + " cua, nhan vat chay sang cua sai roi 20 giay sau moi sua duoc");
-            expect(has(c, "n4HomeGap"),
-                    "thieu n4HomeGap() - bao chung chung thi khong biet cho da nho co dung"
-                    + " khong, da mat mot ban vi chuyen do");
-            expect(!has(c, "n4NpcEntity") && !has(c, "n4FindNpc"),
-                    "support con ham doc toa do thuc the NPC - Auto Di Buon chua bao gio doc"
-                    + " entity.x/y cua NPC, va doc thu do da hong: nhan vat chay ra mot cho"
-                    + " khong phai cho NPC roi bat chuyen voi khong khi");
-            expect(ci(c, "NPC_CHIHUY_ID") < 0,
-                    "NPC_CHIHUY_ID phai la id NPC (so am)");
-            expect(has(c, "n4Park"),
-                    "thieu n4Park() - khong dung han ba tang thi nhan vat troi theo quan tinh");
-            expect(has(c, "n4ReadGate") && has(c, "n4StandPx"),
-                    "thieu buoc doc cua quai ra - dung yen giua thien thach thi Auto Tu Danh"
-                    + " chon duoc muc tieu nhung khong voi toi");
-            expect(!has(c, "n4NearestMob"),
-                    "support con n4NearestMob() - duoi theo quai dang di lam nhan vat chay"
-                    + " lien tuc khong dung, da hong khi choi that");
-            int edge = ci(c, "N4_GATE_EDGE_PX");
-            expect(edge > 0 && edge < 400,
-                    "N4_GATE_EDGE_PX = " + edge + " - cua quai ra cach vien ban do ngan nay;"
-                    + " 0 la dung ra ngoai ban do, qua lon la dung khong toi cua");
-            expect(has(c, "autoTargetGate") && has(c, "n4InRange"),
-                    "thieu moc quan sat tam danh - n4RescueDue() khong biet da bao lau khong"
-                    + " co quai vao tam de ma lui ve giua thien thach");
-            int slack = ci(c, "N4_REACH_SLACK_PX");
-            expect(slack >= 0 && slack <= 60,
-                    "N4_REACH_SLACK_PX = " + slack + " - engine bo muc tieu dang giu khi xa"
-                    + " hon tamDanh + 20 PIXEL (tamDanh dem bang pixel, khong phai bang o)");
-
-            expect(has(c, "n4SyncNoclip"),
-                    "thieu n4SyncNoclip() - runtime tu tat Noclip sau ba lan bi server keo vi"
-                    + " tri ve ma khong bao ai; co ben nay khong doi theo thi van giao duong"
-                    + " di xuyen tuong cho engine da bat va cham tro lai - nhan vat dam tuong"
-                    + " roi tinh duong moi, nhin y het dang chay vong vong");
-            expect(has(c, "n4RescueDue"),
-                    "thieu n4RescueDue() - doc nham cua thi dung mai o do den khi thien thach"
-                    + " vo; phai lui ve giua thien thach, cho quai keo ve");
-            long waitGate = cl(c, "N4_WAIT_GATE_MS");
-            expect(waitGate >= 10000L,
-                    "N4_WAIT_GATE_MS = " + waitGate + "ms - vao pho ban phai DUNG YEN cho den"
-                    + " khi nghe duoc huong quai ra; di truoc roi quay dau la hai chuyen di"
-                    + " cho mot cho dung, quai ra mat roi moi toi noi");
-            long rescue = cl(c, "N4_RESCUE_MS");
-            expect(rescue >= 10000L,
-                    "N4_RESCUE_MS = " + rescue + "ms - qua ngan thi vua ra toi cua da lui ve"
-                    + " giua map, thanh ra chay di chay lai");
-            int gateBack = ci(c, "N4_GATE_BACK_PX");
-            expect(gateBack >= 0 && gateBack <= 700,
-                    "N4_GATE_BACK_PX = " + gateBack + " - lui ra khoi cua ngan nay cho quai"
-                    + " chay lai; cong voi N4_GATE_EDGE_PX moi ra khoang cach that toi tuong."
-                    + " Qua lon la ve gan nhu dung giua map");
-            expect(!has(c, "n4RockEntity"),
-                    "support con n4RockEntity() - cach di tim thien thach bang thuc the da"
-                    + " hong khi choi that, thien thach nam chinh giua ban do");
+            expect(n4Settle >= 500L && cl(c, "N4_SETTLE_MAX_MS") > n4Settle,
+                    "N4_SETTLE_MS/N4_SETTLE_MAX_MS - sau khi ra lang phai doi toa do moi, nhung"
+                    + " khong treo mai");
             int talkFails = ci(c, "MAX_N4_TALK_FAILS");
             expect(talkFails >= 2 && talkFails <= 10,
                     "MAX_N4_TALK_FAILS = " + talkFails + " - 1 la mot goi ve cham cung bi coi"
                     + " la het ve, qua nhieu la bam mai vao mat nguoi choi");
-            expect(ci(c, "N4_NPC_PX") > 0 && ci(c, "N4_NPC_PX") <= 120,
-                    "N4_NPC_PX phai la mot khoang cach bat chuyen hop ly");
+            expect(cl(c, "N4_TALK_TIMEOUT_MS") >= 5000L,
+                    "N4_TALK_TIMEOUT_MS qua ngan - menu chua kip mo da tinh la hong");
             expect(cl(c, "N4_FIGHT_TIMEOUT_MS") >= 900000L,
                     "han o trong pho ban phai >= 15 phut - 20 hiep quai khong nhanh");
+            expect(ci(c, "NPC_CHIHUY_ID") < 0,
+                    "NPC_CHIHUY_ID phai la id NPC (so am)");
 
             System.out.println("-- Het hang / cho NPC nhap hang --");
             expect(gems.length == 3 && "kim cương".equals(gems[0]) && "ruby".equals(gems[1])
@@ -599,6 +581,12 @@ public final class TestAutoTradeRoute {
         java.lang.reflect.Field f = c.getDeclaredField(name);
         f.setAccessible(true);
         return f.getInt(null);
+    }
+
+    static int[] ia(Class<?> c, String name) throws Exception {
+        java.lang.reflect.Field f = c.getDeclaredField(name);
+        f.setAccessible(true);
+        return (int[]) f.get(null);
     }
 
     /** Lan theo nextHop tung buoc mot cho toi khi den noi (toi da 40 chang). */
