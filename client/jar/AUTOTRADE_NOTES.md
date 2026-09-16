@@ -1805,3 +1805,33 @@ Câu *"hết đồng tiền Horae và hết ngọc"* được in cho cả trư�
 
 - chưa từng thấy menu → *"Không mở được menu Phó chỉ huy - hãy đứng sát NPC rồi bật lại."*
 - đã thấy menu mà vẫn không vào được → mới là hết vé và hết ngọc.
+
+---
+
+## v36 — tự neo lại chỗ bắt chuyện, và báo ra con số thật
+
+Người chơi đứng sát Phó chỉ huy rồi bật auto, nhưng hết lượt phó bản nó vẫn không về được chỗ NPC.
+
+### Neo lại chỗ đứng ngay khi menu NPC mở ra
+
+Chỗ nhớ lúc bật auto không đáng tin: người chơi bấm nút trong menu, mà bấm nút thì **nhân vật
+còn trôi một đoạn nữa mới dừng hẳn** — đúng lỗi "bật menu mà chưa tắt thì trôi xuống cuối bản
+đồ" đã gặp. Nên toạ độ ghi được lúc đó là một điểm giữa đường trôi, không phải chỗ đứng cạnh NPC.
+
+Chỗ đáng tin duy nhất là **lúc server mở menu NPC**: server chỉ mở khi nhân vật đã đủ gần, nên
+chỗ đang đứng lúc đó chắc chắn bắt chuyện được. `n4OnNpcMenu()` ghi đè `n4HomeX/n4HomeY` ngay
+tại đấy.
+
+Nhờ vậy chỉ cần bắt chuyện được **một lần** là mọi lượt về sau đều về đúng chỗ, và nó tự sửa
+chính mình chứ không phụ thuộc vào việc người chơi bật auto đứng chuẩn tới đâu.
+
+### Báo ra con số thật
+
+Đã mất một bản chỉ vì câu báo nói chung chung. Giờ:
+
+- Ra khỏi phó bản: `Xong phó bản, về chỗ NPC (lệch 168,174).`
+- Về tới nơi: `Đã về chỗ NPC, bắt chuyện.`
+- Hết hạn đi về: `Đi mãi không về được chỗ Phó chỉ huy (còn lệch 168,174).`
+
+Hai con số đó tách ngay ba khả năng: chỗ nhớ sai (lệch vô lý), nhân vật không đi (lệch không
+giảm), hay đã về đúng mà server không mở menu.

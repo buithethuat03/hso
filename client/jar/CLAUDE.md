@@ -118,8 +118,10 @@ sang classpath jar HSOSKY, sẽ không compile.
 | `autotrade_v33.1.jar` | v33 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `autotrade_v34.jar` | khoá đổi cửa 20s, dừng hẳn ba tầng, giữ Noclip — nhưng xong lượt thì không về được chỗ NPC |
 | `autotrade_v34.1.jar` | v34 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
-| `autotrade_v35.jar` | **bản đang chơi** — về đúng chỗ đã đứng lúc bật auto, thôi đọc toạ độ thực thể NPC |
+| `autotrade_v35.jar` | về chỗ đã đứng lúc bật auto — nhưng chỗ đó ghi lúc nhân vật còn đang trôi |
 | `autotrade_v35.1.jar` | v35 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
+| `autotrade_v36.jar` | **bản đang chơi** — tự neo lại chỗ bắt chuyện ngay khi menu NPC mở, và báo ra độ lệch thật |
+| `autotrade_v36.1.jar` | v36 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `KNIGHT_ONLINE_RL.jar` | V3 → server **"Rồng Lửa"** `27.0.12.133:19129`, MIDlet đổi tên, auto đập đồ giãn 4s |
 | `KNIGHT_ONLINE_RL_V3.jar` | dựng từ V5 (bản chạy thử 1 viên) |
 | `KNIGHT_ONLINE_RL_V5.jar` | dựng từ V7 |

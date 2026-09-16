@@ -3165,7 +3165,22 @@ public final class HSOAutoTradeSupport {
     static void n4OnLeaveDungeon() {
         n4RestoreAttack();
         n4SetState(N4_GOTO);
-        notice("Xong phó bản, đi vòng mới.");
+        /*
+         * Bao ra con so that, khong bao chung chung.
+         *
+         * Da mat mot ban chi vi cau bao khong noi duoc dang o dau so voi cho can toi. Co hai
+         * so nay thi nhin mot cai la biet cho da nho co dung khong.
+         */
+        notice(join(join("Xong phó bản, về chỗ NPC (lệch ", n4HomeGap()), ")."));
+    }
+
+    /** Khoang cach hien tai toi cho bat chuyen, dang "dx,dy" - de bao ra cho de doc. */
+    static String n4HomeGap() {
+        IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl me = player();
+        if (me == null) return "?";
+        int dx = Math.abs(me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll - n4HomeX);
+        int dy = Math.abs(me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll - n4HomeY);
+        return join(join(String.valueOf(dx), ","), String.valueOf(dy));
     }
 
     /**
@@ -3184,13 +3199,15 @@ public final class HSOAutoTradeSupport {
         }
         if (!within(n4HomeX, n4HomeY, N4_NPC_PX)) {
             if (now() - n4StateSince > N4_GOTO_TIMEOUT_MS) {
-                n4Stop("Đi mãi không về được chỗ Phó chỉ huy.");
+                n4Stop(join(join("Đi mãi không về được chỗ Phó chỉ huy (còn lệch ",
+                        n4HomeGap()), ")."));
                 return;
             }
             stepToward(n4HomeX, n4HomeY, false);
             return;
         }
         n4Park();                       // dung han lai roi moi bat chuyen
+        notice("Đã về chỗ NPC, bắt chuyện.");
         sender().IIllIIlIllIIlIlllIIllIIIllIIIllIlIIlIIIllIIlllIIllIllIlIIlllIIlllIlIlIIlllIIlllIIIllIIllIIlIIIllIIIlllIIIllIllIIIlllIIllIllIlllIIIllIIIllIIlIlIIllIIlIIIlllIIllIIllIllIlllIIIlIIlIIIlIIllIlIIllIlllIlIIIllIIIlIIIllIIIlIlIllIIllIlIll((byte) npcIdOf(NPC_CHIHUY, NPC_CHIHUY_ID));
         n4SetState(N4_TALK);
     }
@@ -3428,6 +3445,20 @@ public final class HSOAutoTradeSupport {
         if (pick < 0) pick = indexOfLabel(items, LBL_N4_HORAE);
         if (pick < 0) pick = indexOfLabel(items, LBL_N4_GEM);
         if (pick < 0) return false;
+        /*
+         * NEO LAI cho dung, ngay tai day.
+         *
+         * Server chi mo menu khi nhan vat da du gan NPC, nen cho dang dung LUC NAY chac chan
+         * la mot cho bat chuyen duoc. Ghi de len cho da nho luc bat auto: cho do chi la noi
+         * nguoi choi bam nut, ma bam nut thi nhan vat con troi mot doan nua moi dung han.
+         *
+         * Nho vay chi can bat chuyen duoc MOT lan la moi luot ve sau deu ve dung cho.
+         */
+        IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl meNow = player();
+        if (meNow != null) {
+            n4HomeX = meNow.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll;
+            n4HomeY = meNow.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll;
+        }
         n4MenuSeen = true;
         pendNpc = npcId;
         pendMenu = menuId;
