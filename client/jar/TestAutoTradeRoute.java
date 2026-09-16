@@ -398,11 +398,15 @@ public final class TestAutoTradeRoute {
                             && has(c, "n4StepMove") && has(c, "n4StepHold") && has(c, "n4StepLeave"),
                     "thieu mot buoc cua Auto Nga 4 - moi buoc mot ham, khong buoc nao lan sang"
                     + " buoc khac");
-            expect(has(c, "n4Park") && has(c, "n4StandStill") && has(c, "n4WantNoclip")
+            expect(has(c, "n4EngineIdle") && has(c, "n4Settled") && has(c, "n4WantNoclip")
                             && has(c, "n4MapReady") && has(c, "n4ReadGate") && has(c, "n4OnNpcMenu")
                             && has(c, "n4StartAttack") && has(c, "autoTargetGate") && has(c, "n4InRange"),
-                    "thieu mot ham phu cua Auto Nga 4 (dung han / Noclip / cho map / doc huong /"
-                    + " menu / tam danh)");
+                    "thieu mot ham phu cua Auto Nga 4 (engine ranh / doi / Noclip / cho map /"
+                    + " doc huong / menu / tam danh)");
+            expect(!has(c, "n4Park") && !has(c, "n4StandStill"),
+                    "support con ham dung gap giua duong - loi da xac nhan: vua vao tam la dung"
+                    + " gap va tuong tac trong khi engine con dang di not, nhan vat bi le di roi"
+                    + " giat nguoc lai. Phai de engine di het duong (path == null) roi moi xet");
             expect(!has(c, "n4InferGateFromMob") && !has(c, "n4RescueDue") && !has(c, "n4NearestMob")
                             && !has(c, "n4RockEntity") && !has(c, "n4NpcEntity") && !has(c, "n4FindNpc")
                             && !has(c, "n4NearHome") && !has(c, "n4SyncNoclip"),

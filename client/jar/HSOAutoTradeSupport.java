@@ -342,7 +342,7 @@ public final class HSOAutoTradeSupport {
     static final int[] N4_POS_TAY  = {584, 656};
 
     // --- nhip cho, do nguoi choi chot
-    /** Toi cho Pho chi huy, dung han, doi ngan nay roi moi bat chuyen. */
+    /** Toi cho Pho chi huy, engine da dung, doi them ngan nay roi moi bat chuyen. */
     static final long N4_HOME_WAIT_MS = 500L;
     /** Tinh xong cho don, doi ngan nay roi moi di. */
     static final long N4_AIM_WAIT_MS = 500L;
@@ -411,8 +411,8 @@ public final class HSOAutoTradeSupport {
     static boolean n4SavedPlayers;
     /** Noclip nguoi choi chon trong menu Auto Di Buon, tra lai khi tat. */
     static boolean n4SavedNoclip;
-    /** n4StandStill(): luc ca ba tang da dung han. */
-    static long n4StillSince;
+    /** n4Settled(): luc engine bat dau ranh (da di het duong) va nhan vat dung yen. */
+    static long n4IdleSince;
     /** Cho don dang nham toi (0/0 = chua co), ten huong, va luc chot. */
     static int n4AimX;
     static int n4AimY;
@@ -3046,12 +3046,16 @@ public final class HSOAutoTradeSupport {
     //
     //   - Moi buoc mot ham, moi ham mot viec. Khong buoc nao lam viec cua buoc khac.
     //   - Chi hai buoc duoc DI: N4_HOME (duong that, Noclip TAT) va N4_MOVE (Noclip BAT).
-    //     Cac buoc con lai goi n4Park() moi nhip de nhan vat khong troi.
+    //     Cac buoc con lai khong dung toi di chuyen: khong halt, khong tu gui vi tri.
     //   - Toa do deu CO DINH (cho NPC, bon cho don, thien thach). Khong doc thuc the, khong
     //     nho vi tri, khong suy doan tu vi tri quai.
     //   - Moi lan doi buoc theo map deu di qua DUNG MOT cho: dau n4Tick().
-    //   - Sau moi lan toi noi deu dung han ba tang roi doi mot nhip (nguoi choi chot: 0.5s o
-    //     NPC, 0.5s truoc khi ra cho don, 1s sau khi ra lang) roi moi lam viec tiep.
+    //   - KHONG BAO GIO CAT DUONG GIUA CHUNG. Da giao duong cho engine thi de no di het;
+    //     chi khi engine ranh (path == null) moi xet "toi chua", roi doi mot nhip (nguoi choi
+    //     chot: 0.5s o NPC, 0.5s truoc khi ra cho don, 1s sau khi ra lang), roi moi lam tiep.
+    //     Loi da xac nhan cua cac ban truoc: vua vao tam la dung gap va tuong tac ngay trong
+    //     khi engine con dang di not doan duong - nhan vat bi le di mot doan roi giat nguoc
+    //     lai. Do la hai buoc chong len nhau. Khong halt, khong tu gui vi tri: engine tu bao.
 
     /** Bat/tat va cac muc con cua Auto Nga 4. */
     static void showN4Submenu() {
@@ -3064,7 +3068,7 @@ public final class HSOAutoTradeSupport {
     static void n4SetState(int next) {
         n4State = next;
         n4StateSince = now();
-        n4StillSince = 0L;
+        n4IdleSince = 0L;
         lastStep = 0L;
         pathFails = 0;
     }
@@ -3092,7 +3096,7 @@ public final class HSOAutoTradeSupport {
         n4AimDirty = false;
         n4LastMap = mapId();
         clearPlan();
-        n4Park();          // dang mo menu ma van troi thi dung han lai da
+        // Khong cat duong dang di: nguoi choi dang di thi engine cu di het, B1 xet sau.
         notice("Auto Ngã 4: BẬT.");
         if (n4LastMap == N4_DUNGEON_MAP) {
             n4OnEnterDungeon();          // bat ngay trong pho ban thi danh luon
@@ -3182,10 +3186,8 @@ public final class HSOAutoTradeSupport {
              *   - hop chao cua NPC   -> dong dau la "Giao tiếp" (dong sau la "Đóng")
              *   - hop hoi vao pho ban -> dong dau la dong dong y
              * Rieng hop cua he thong (mat ket noi) thi khong dung toi, y het Auto Di Buon.
-             * Dang mo hop thi dung han: khong de nhan vat troi trong luc cho.
              */
             if (dialogOpen()) {
-                n4Park();
                 if (isLinkDialog(dialogText())) return;
                 pressOk();
                 return;
@@ -3245,7 +3247,7 @@ public final class HSOAutoTradeSupport {
         n4LeaveAt = now();
         n4MenuSeen = false;
         n4RestoreAttack();
-        n4WantNoclip(false);         // ngoai lang di duong that - Noclip la ly do bi keo ve cho cu
+        n4WantNoclip(n4SavedNoclip); // ngoai lang: tra ve dung cai nguoi choi chon
         n4SetState(N4_LEAVE);
         notice("Xong phó bản lượt " + n4Runs + ", đợi nạp xong rồi về chỗ Phó chỉ huy.");
     }
@@ -3253,31 +3255,39 @@ public final class HSOAutoTradeSupport {
     // ------------------------------------------------------------ B1
 
     /**
-     * B1: ve Lang Soi Trang, toi dung (N4_HOME_X, N4_HOME_Y), dung han, doi 0.5s, bat chuyen.
+     * B1: ve Lang Soi Trang, toi dung (N4_HOME_X, N4_HOME_Y), doi engine dung, doi 0.5s, bat chuyen.
      *
-     * Duong di la duong THAT (Noclip tat). Di xuyen nha trong lang la ly do cua loi "chay den
-     * gan Pho chi huy roi tu chay lai ve cho cu": server keo vi tri ve, va sau ba lan keo tang
-     * runtime tu tat Noclip ma co ben nay khong biet, tu do duong giao cho engine khong con
-     * khop voi va cham cua engine.
+     * Loi da xac nhan: "chay den gan Pho chi huy, chua bam gi da chay lai ve cho cu". Nguyen
+     * nhan la vua vao tam la dung gap va hoi NPC ngay trong khi engine con dang di not doan
+     * duong da giao - nhan vat bi le di mot doan roi giat nguoc lai. Server khong check va cham,
+     * Noclip khong lien quan.
+     *
+     * Nen o day KHONG halt, KHONG tu gui vi tri. Giao duong -> de engine di het (path == null)
+     * -> luc do moi xet toi chua -> toi roi thi doi them N4_HOME_WAIT_MS -> moi hoi NPC. Chua
+     * toi thi giao duong tiep. Toa do (588,564) la tam mot o nen duong that ket thuc dung do.
      */
     static void n4StepHome() {
-        n4WantNoclip(false);
+        n4WantNoclip(n4SavedNoclip);               // ngoai lang: dung cai nguoi choi chon
         if (now() - n4StateSince > N4_HOME_TIMEOUT_MS) {
             n4Stop(join(join("Đi mãi không về được chỗ Phó chỉ huy (map " + mapId() + ", đang ở ",
                     n4Pos()), ")."));
             return;
         }
         if (mapId() != N4_TOWN_MAP) {
+            n4IdleSince = 0L;
             routeTowards(N4_TOWN_MAP, false);      // bo dinh tuyen cua Auto Di Buon
             return;
         }
+        if (!n4EngineIdle()) {
+            n4IdleSince = 0L;                      // dang di het duong da giao - khong xet gi
+            return;
+        }
         if (!arrived(N4_HOME_X, N4_HOME_Y)) {
-            n4StillSince = 0L;
+            n4IdleSince = 0L;
             stepToward(N4_HOME_X, N4_HOME_Y, false);
             return;
         }
-        // Toi roi: dung han ba tang, doi N4_HOME_WAIT_MS cho server nhan vi tri, roi moi hoi.
-        if (!n4StandStill(N4_HOME_WAIT_MS)) return;
+        if (!n4Settled(N4_HOME_WAIT_MS)) return;   // toi roi, dung yen them 0.5s
         notice(join(join("Đã tới chỗ Phó chỉ huy (", n4Pos()), "), bắt chuyện."));
         sender().IIllIIlIllIIlIlllIIllIIIllIIIllIlIIlIIIllIIlllIIllIllIlIIlllIIlllIlIlIIlllIIlllIIIllIIllIIlIIIllIIIlllIIIllIllIIIlllIIllIllIlllIIIllIIIllIIlIlIIllIIlIIIlllIIllIIllIllIlllIIIlIIlIIIlIIllIlIIllIlllIlIIIllIIIlIIIllIIIlIlIllIIllIlIll((byte) npcIdOf(NPC_CHIHUY, NPC_CHIHUY_ID));
         n4SetState(N4_TALK);
@@ -3288,12 +3298,11 @@ public final class HSOAutoTradeSupport {
     /**
      * B2: menu va hop thoai do n4OnNpcMenu()/n4Tick() bam; o day chi dung yen va canh gio.
      *
-     * Het gio ma van chua doi map thi quay ve B1: B1 tu kiem tra - con dung dung cho thi chi
-     * dung han roi hoi lai, bi keo di roi thi di lai. Lap MAX_N4_TALK_FAILS lan van khong vao
+     * Het gio ma van chua doi map thi quay ve B1: B1 tu kiem tra - con dung dung cho thi doi
+     * 0.5s roi hoi lai, bi doi cho roi thi di lai. Lap MAX_N4_TALK_FAILS lan van khong vao
      * duoc thi dung han va noi ro ly do.
      */
     static void n4StepTalk() {
-        n4Park();
         if (now() - n4StateSince < N4_TALK_TIMEOUT_MS) return;
         if (++n4TalkFails >= MAX_N4_TALK_FAILS) {
             if (!n4MenuSeen) {
@@ -3324,7 +3333,6 @@ public final class HSOAutoTradeSupport {
      * quay dau - hai chuyen di cho mot cho dung, co luc mat 20 giay, quai ra mat roi.
      */
     static void n4StepWait() {
-        n4Park();
         if (n4FightTooLong()) return;
         if (!n4AutoOn) n4StartAttack();
         if (n4AimDirty) {
@@ -3343,19 +3351,20 @@ public final class HSOAutoTradeSupport {
     /**
      * B3b: doi N4_AIM_WAIT_MS ke tu luc chot cho don, roi ra do (Noclip bat, duong thang).
      *
-     * Toi noi thi dung han ba tang roi sang N4_HOLD. Khong toi duoc trong N4_MOVE_TIMEOUT_MS
-     * thi dung danh tai cho - con hon chay mai.
+     * Cung mot luat voi B1: engine dang di thi khong xet gi; engine ranh roi moi xem toi chua.
+     * Toi thi sang N4_HOLD - khong halt, vi engine da tu dung. Khong toi duoc trong
+     * N4_MOVE_TIMEOUT_MS thi dung danh tai cho - con hon chay mai.
      */
     static void n4StepMove() {
         if (n4FightTooLong()) return;
         if (!n4AutoOn) n4StartAttack();
         n4WantNoclip(true);
-        if (now() - n4AimAt < N4_AIM_WAIT_MS) {
-            n4Park();                              // doi mot nhip, dung yen
+        if (!n4EngineIdle()) {
+            n4IdleSince = 0L;                      // dang di het duong da giao
             return;
         }
+        if (now() - n4AimAt < N4_AIM_WAIT_MS) return;   // doi mot nhip sau khi chot cho don
         if (arrived(n4AimX, n4AimY)) {
-            if (!n4StandStill(0L)) return;         // dung han ba tang
             notice(join(join(join("Đã vào chỗ đón ", n4AimName), join(" (", n4Pos())), "), đứng đánh."));
             n4SetState(N4_HOLD);
             return;
@@ -3365,7 +3374,7 @@ public final class HSOAutoTradeSupport {
             n4SetState(N4_HOLD);
             return;
         }
-        n4StillSince = 0L;
+        n4IdleSince = 0L;
         stepToward(n4AimX, n4AimY, false);
     }
 
@@ -3375,7 +3384,6 @@ public final class HSOAutoTradeSupport {
      * Khong duoi theo quai, khong lui ve giua map, khong suy doan gi: chi dung va danh.
      */
     static void n4StepHold() {
-        n4Park();
         if (n4FightTooLong()) return;
         if (!n4AutoOn) n4StartAttack();
         n4WantNoclip(true);
@@ -3392,12 +3400,9 @@ public final class HSOAutoTradeSupport {
      *
      * Ma so map doi ngay tu goi tin dau tien, con ban do va vi tri moi cua nhan vat thi toi
      * sau. Lam gi o khung hinh do la doc phai toa do cu - ban truoc vi the ma ket luan "da ve
-     * toi cho NPC" trong khi nhan vat con dung tan cho ra. O day khong goi ca n4Park(): gui
-     * vi tri cu len server con te hon.
+     * toi cho NPC" trong khi nhan vat con dung tan cho ra. Khong gui gi len server o day.
      */
     static void n4StepLeave() {
-        IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl me = player();
-        if (me != null) haltWalk(me);
         if (now() - n4LeaveAt < N4_LEAVE_WAIT_MS) return;
         if (!n4MapReady()) return;
         notice(join(join("Đã nạp xong, đang ở ", n4Pos()), ", về chỗ Phó chỉ huy."));
@@ -3415,47 +3420,28 @@ public final class HSOAutoTradeSupport {
         return tileGrid() != null && gridWidth() > 0;
     }
 
-    // ------------------------------------------------------------ dung han
+    // ------------------------------------------------------------ engine ranh
 
     /**
-     * Dung HAN lai: bo doan duong con lai, keo diem den ve cho dang dung, va bao vi tri.
+     * Engine da di het duong duoc giao chua (player.path == null la tin hieu engine tu dat).
      *
-     * Ba tang deu can, giong het standStill() cua Auto Di Buon. Khong lam du ba tang thi nhan
-     * vat "troi" theo quan tinh. Da dung han roi thi la lenh rong - goi moi nhip cung khong sao.
+     * Chua het thi KHONG xet gi ca. Day la chot chan loi "vua vao tam la dung gap va tuong tac
+     * ngay": moi lan cat duong giua chung la mot lan nhan vat bi le di roi giat nguoc lai.
      */
-    static void n4Park() {
+    static boolean n4EngineIdle() {
         IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl me = player();
-        if (me == null) return;
-        if (me.IlllIIIlIlIlllIIIlIIlIIlIIIlIIlIIlIIllIlllIlIIlllIIllIIlllIlllIlllIIlllIIllIlllIIllIlIllIIlIIIlIIIlllIIlllIIIllIIllIIlllIlllIllIIllIIIlllIIlIIllIllIIlIIllIIllIIlllIIIlllIIlIIllIIIlllIlIIllIllIIlllIIlIIlIllIIllIIlllIllIllIllIlIl == null
-                && me.IIIlIIIllIIIllIlllIIllIlllIIlIIIllIIIlIIIllIIlllIIlllIIIlIlIllIlIIllIIlIllIIIlIlIIlllIIllIIIllIIllIIIlIIllIlIIllIIIllIlIIlllIIllIIIlIIlIIIllIlIIlllIIIllIllIlllIllIlIllIIIllIIlIllIIlIIlllIIllIlllIllIIlIllIIlIIllIlIllIIllIIl == me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll
-                && me.IllIlllIIllIIlIIlIlIIIllIIllIIlllIIIlIIlIIlllIIlIlIIIlIlIIIlIIllIlllIIIlllIIllIllIllIIlllIlIllIIlIlIIIlIlIlllIIIlIlllIIlIIllIIlIIllIllIIllIlllIIIllIllIlIIIllIIllIIllIIlIIIlIIlIlIIIllIIllIllIlllIIIllIIIllIIIlllIIlIIIlIlll == me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll) return;
-        haltWalk(me);
-        me.IIIlIIIllIIIllIlllIIllIlllIIlIIIllIIIlIIIllIIlllIIlllIIIlIlIllIlIIllIIlIllIIIlIlIIlllIIllIIIllIIllIIIlIIllIlIIllIIIllIlIIlllIIllIIIlIIlIIIllIlIIlllIIIllIllIlllIllIlIllIIIllIIlIllIIlIIlllIIllIlllIllIIlIllIIlIIllIlIllIIllIIl = me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll;
-        me.IllIlllIIllIIlIIlIlIIIllIIllIIlllIIIlIIlIIlllIIlIlIIIlIlIIIlIIllIlllIIIlllIIllIllIllIIlllIlIllIIlIlIIIlIlIlllIIIlIlllIIlIIllIIlIIllIllIIllIlllIIIllIllIlIIIllIIllIIllIIlIIIlIIlIlIIIllIIllIllIlllIIIllIIIllIIIlllIIlIIIlIlll = me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll;
-        sender().IIllIIlIllIIlIlllIIllIIIllIIIllIlIIlIIIllIIlllIIllIllIlIIlllIIlllIlIlIIlllIIlllIIIllIIllIIlIIIllIIIlllIIIllIllIIIlllIIllIllIlllIIIllIIIllIIlIlIIllIIlIIIlllIIllIIllIllIlllIIIlIIlIIIlIIllIlIIllIlllIlIIIllIIIlIIIllIIIlIlIllIIllIlIll((short) me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll, (short) me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll);
+        return me != null && me.IlllIIIlIlIlllIIIlIIlIIlIIIlIIlIIlIIllIlllIlIIlllIIllIIlllIlllIlllIIlllIIllIlllIIllIlIllIIlIIIlIIIlllIIlllIIIllIIllIIlllIlllIllIIllIIIlllIIlIIllIllIIlIIllIIllIIlllIIIlllIIlIIllIIIlllIlIIllIllIIlllIIlIIlIllIIllIIlllIllIllIllIlIl == null;
     }
 
     /**
-     * Dung han ba tang, roi DOI them `settle` ms ke tu luc da dung han. True khi da doi xong.
+     * Da dung yen (engine ranh, khong giao duong moi) lien tuc du `ms` chua.
      *
-     * Cai "doi them" la de server nhan duoc vi tri cuoi truoc khi minh hoi NPC hay di tiep -
-     * nguoi choi chot 0.5s o cho NPC.
+     * Khong halt, khong gui vi tri - engine da tu bao vi tri cuoi khi di het duong. Moi cho
+     * giao duong moi phai dat n4IdleSince = 0.
      */
-    static boolean n4StandStill(long settle) {
-        IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl me = player();
-        if (me == null) return false;
-        if (me.IlllIIIlIlIlllIIIlIIlIIlIIIlIIlIIlIIllIlllIlIIlllIIllIIlllIlllIlllIIlllIIllIlllIIllIlIllIIlIIIlIIIlllIIlllIIIllIIllIIlllIlllIllIIllIIIlllIIlIIllIllIIlIIllIIllIIlllIIIlllIIlIIllIIIlllIlIIllIllIIlllIIlIIlIllIIllIIlllIllIllIllIlIl != null
-                || me.IIIlIIIllIIIllIlllIIllIlllIIlIIIllIIIlIIIllIIlllIIlllIIIlIlIllIlIIllIIlIllIIIlIlIIlllIIllIIIllIIllIIIlIIllIlIIllIIIllIlIIlllIIllIIIlIIlIIIllIlIIlllIIIllIllIlllIllIlIllIIIllIIlIllIIlIIlllIIllIlllIllIIlIllIIlIIllIlIllIIllIIl != me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll
-                || me.IllIlllIIllIIlIIlIlIIIllIIllIIlllIIIlIIlIIlllIIlIlIIIlIlIIIlIIllIlllIIIlllIIllIllIllIIlllIlIllIIlIlIIIlIlIlllIIIlIlllIIlIIllIIlIIllIllIIllIlllIIIllIllIlIIIllIIllIIllIIlIIIlIIlIlIIIllIIllIllIlllIIIllIIIllIIIlllIIlIIIlIlll != me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll) {
-            haltWalk(me);
-            me.IIIlIIIllIIIllIlllIIllIlllIIlIIIllIIIlIIIllIIlllIIlllIIIlIlIllIlIIllIIlIllIIIlIlIIlllIIllIIIllIIllIIIlIIllIlIIllIIIllIlIIlllIIllIIIlIIlIIIllIlIIlllIIIllIllIlllIllIlIllIIIllIIlIllIIlIIlllIIllIlllIllIIlIllIIlIIllIlIllIIllIIl = me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll;
-            me.IllIlllIIllIIlIIlIlIIIllIIllIIlllIIIlIIlIIlllIIlIlIIIlIlIIIlIIllIlllIIIlllIIllIllIllIIlllIlIllIIlIlIIIlIlIlllIIIlIlllIIlIIllIIlIIllIllIIllIlllIIIllIllIlIIIllIIllIIllIIlIIIlIIlIlIIIllIIllIllIlllIIIllIIIllIIIlllIIlIIIlIlll = me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll;
-            sender().IIllIIlIllIIlIlllIIllIIIllIIIllIlIIlIIIllIIlllIIllIllIlIIlllIIlllIlIlIIlllIIlllIIIllIIllIIlIIIllIIIlllIIIllIllIIIlllIIllIllIlllIIIllIIIllIIlIlIIllIIlIIIlllIIllIIllIllIlllIIIlIIlIIIlIIllIlIIllIlllIlIIIllIIIlIIIllIIIlIlIllIIllIlIll((short) me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll, (short) me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll);
-            n4StillSince = now();
-            return false;
-        }
-        if (n4StillSince == 0L) n4StillSince = now();
-        return now() - n4StillSince >= settle;
+    static boolean n4Settled(long ms) {
+        if (n4IdleSince == 0L) n4IdleSince = now();
+        return now() - n4IdleSince >= ms;
     }
 
     /**
@@ -3464,7 +3450,7 @@ public final class HSOAutoTradeSupport {
      * Runtime tu tat Noclip sau ba lan bi server keo vi tri ve ma khong bao ai; co ben nay
      * lech voi no la duong giao cho engine khong khop va cham, nhan vat dam tuong roi tinh
      * duong moi, nhin y het chay vong vong. setNoClipEnabled() xoa luon bo dem keo vi tri.
-     * Doi trang thai thi bo duong da giao, vi duong do tinh theo che do cu.
+     * Chi bo ke hoach duong da tinh san; duong dang di thi de engine di not, khong cat.
      */
     static void n4WantNoclip(boolean want) {
         boolean real = HSOSKYRuntimeSupport.isNoClipEnabled();
@@ -3472,8 +3458,6 @@ public final class HSOAutoTradeSupport {
         noclipOn = want;
         HSOSKYRuntimeSupport.setNoClipEnabled(want);
         clearPlan();
-        IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl me = player();
-        if (me != null) haltWalk(me);
     }
 
     // ------------------------------------------------------------ doc huong quai

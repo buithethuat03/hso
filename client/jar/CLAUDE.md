@@ -133,8 +133,10 @@ sang classpath jar HSOSKY, sẽ không compile.
 | `autotrade_v41.jar` | đợi bản đồ nạp xong rồi mới tính đường; neo chỗ đứng chặt hơn |
 | `autotrade_v41.1.jar` | v41 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `auto_n4_v7.jar` | dòng jar **chỉ có Auto Ngã 4** (ẩn menu Auto Đi Buôn, vòng lặp 16ms). Bản cuối của lối cũ: chỉ đợi map khi ra làng, bán kính tròn, suy cửa từ vị trí quái |
-| `auto_n4_v8.jar` | **bản đang chơi** — viết lại Auto Ngã 4 theo 4 bước cố định (B1 về (588,564) → B2 nói chuyện → B3 chờ hướng / ra chỗ đón cố định / đứng đánh trong vòng tròn → B4 đợi 1s rồi lặp) |
+| `auto_n4_v8.jar` | viết lại Auto Ngã 4 theo 4 bước cố định (B1 về (588,564) → B2 nói chuyện → B3 chờ hướng / ra chỗ đón cố định / đứng đánh trong vòng tròn → B4 đợi 1s rồi lặp). Còn dừng gấp giữa đường |
 | `auto_n4_v8.1.jar` | v8 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
+| `auto_n4_v9.jar` | **bản đang chơi** — v8 + **không cắt đường giữa chừng**: engine đi hết đường đã giao, tự dừng, rồi mới xét tới nơi → đợi 0.5s → tương tác. Bỏ hẳn `n4Park`/`n4StandStill` |
+| `auto_n4_v9.1.jar` | v9 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 
 Lệnh dựng dòng `auto_n4_*` (khác dòng `autotrade_*` ở tham số thứ ba):
 

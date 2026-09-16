@@ -2048,11 +2048,9 @@ vùng quái dừng lại đánh thiên thạch (mob_speed 50–200px tuỳ mode,
 
 ### Hai lỗi đã xác nhận, và chỗ chặn
 
-1. *Ra làng, chạy đến gần NPC rồi tự chạy về chỗ cũ* → B1 đi **đường thật, Noclip tắt**
-   (`n4WantNoclip(false)` ép cả cờ bên này và tầng runtime; runtime tự tắt Noclip sau 3 lần
-   bị kéo mà không báo, cờ lệch là đường giao cho engine không khớp va chạm). Tới nơi dừng
-   hẳn 3 tầng và đợi 0.5s rồi mới hỏi NPC. Hỏi không được → về B1, B1 tự thấy còn đứng đúng
-   chỗ thì chỉ dừng hẳn rồi hỏi lại.
+1. *Ra làng, chạy đến gần NPC rồi tự chạy về chỗ cũ* → v8 đoán là Noclip/server kéo về và
+   ép Noclip tắt trong làng. **Người chơi bác**: server không check va chạm, Noclip bình
+   thường. Nguyên nhân thật là cắt đường giữa chừng — xem v9.
 2. *Trong phó bản chạy vòng vòng, không đánh* → không có bước nào vừa đi vừa đọc vừa đổi đích;
    B3a đứng yên cho tới khi có hướng; B3b đi một lần tới toạ độ cố định; B3c đứng. Tầm chọn
    mục tiêu trong phó bản = **vòng tròn mod vẽ** (`tamDanh * 3 / 2` px, mặc định 140 → 210px),
@@ -2063,4 +2061,33 @@ vùng quái dừng lại đánh thiên thạch (mob_speed 50–200px tuỳ mode,
 Khoá 20 giây (v34) chặn được bản sao dòng cũ bị đẩy xuống, nhưng **nuốt mất** thông báo đợt sau
 khi đợt trước giết nhanh (< 20s): dòng đó bị đánh dấu "đã đọc" và không bao giờ được đọc lại.
 Bản sao bị đẩy xuống tới trong **cùng khung hình**, nên 2 giây là đủ.
+
+## auto_n4_v9 — không cắt đường giữa chừng
+
+Người chơi xác nhận nguyên nhân lỗi 1 (ra làng, chạy đến gần NPC, chưa bấm gì đã chạy ngược
+về chỗ cũ): **vừa vào tầm là dừng gấp và tương tác ngay trong khi engine còn đang đi nốt đoạn
+đường đã giao** → nhân vật bị lê đi một đoạn rồi giật ngược lại. Hai bước chồng lên nhau.
+Server không check va chạm, Noclip không liên quan — giải thích Noclip của v8 bị bác.
+
+v8 vẫn còn kiểu đó: `arrived()` (40px) thoả giữa đường → `n4StandStill()` halt 3 tầng + tự gửi
+vị trí → 0.5s → hỏi NPC.
+
+### Luật mới, áp cho cả B1 và B3b
+
+```
+giao đường → engine tự đi hết (player.path == null) → lúc đó mới xét arrived()
+   → chưa tới: giao đường tiếp
+   → tới rồi: đợi thêm (0.5s) → tương tác
+```
+
+Đúng chuỗi người chơi yêu cầu: **đến NPC → delay 0.5s → ấn**, chứ không phải vừa đến gần là ấn.
+
+- `n4EngineIdle()` = `player.path == null` — engine tự đặt khi đi xong.
+- `n4Settled(ms)` chỉ đếm giờ, **không halt, không gửi vị trí**; engine đã tự báo vị trí cuối.
+- Bỏ hẳn `n4Park()` và `n4StandStill()` — test khẳng định hai hàm này không còn tồn tại.
+- `n4WantNoclip()` không `haltWalk` nữa; `n4Start()` không park; hộp thoại mở không park.
+- Trong làng dùng đúng Noclip người chơi chọn (`n4SavedNoclip`), không ép tắt nữa.
+
+Toạ độ (588,564) là tâm ô (24,23) nên đường thật kết thúc đúng tại đó. Bốn chỗ đón lệch tâm ô
+4–12px, nằm trong tolerance 40px của `arrived()`.
 
