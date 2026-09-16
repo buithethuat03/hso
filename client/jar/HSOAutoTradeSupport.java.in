@@ -313,15 +313,6 @@ public final class HSOAutoTradeSupport {
 
     /** Toi gan NPC ngan nay thi bat chuyen duoc. */
     static final int N4_NPC_PX = 60;
-    /**
-     * Chi di toi thien thach neu no nam trong ban kinh nay quanh cho vua roi vao.
-     *
-     * Rao chan co chu dich: mod nhan ra thien thach bang "thuc the loai NPC gan nhat", ma
-     * trong pho ban con co may NPC Linh canh o gan cuoi ban do. Neu doan nhan dang sai thi
-     * khong duoc phep keo nhan vat chay sang tan goc kia - tha dung yen tai cho roi vao,
-     * vi tam danh cua Auto Tu Danh von la ca ban do.
-     */
-    static final int N4_ROCK_PX = 220;
 
     static final long N4_GOTO_TIMEOUT_MS = 120000L;    // 2 phut de toi cho NPC
     static final long N4_TALK_TIMEOUT_MS = 20000L;     // bam menu xong, 20s ma chua vao
@@ -342,12 +333,11 @@ public final class HSOAutoTradeSupport {
     static int n4LastMap = -1;
     static int n4Runs;
     static int n4TalkFails;
-    /** Cho vua roi vao pho ban, dung lam moc cho N4_ROCK_PX. */
-    static int n4EntryX;
-    static int n4EntryY;
     /** Dang bat Auto Tu Danh ho nguoi choi; can nho de con tra lai nguyen trang. */
     static boolean n4AutoOn;
     static boolean n4SavedPlayers;
+    /** Da dung vao giua thien thach roi - chi de bao mot lan, khong bao moi nhip. */
+    static boolean n4AtRock;
     static boolean pendingN4Submenu;
 
     /** Bam dung roi phai lang xuong ngan nay (du de goi bao vi tri toi server) moi dam goi bo. */
@@ -3092,9 +3082,7 @@ public final class HSOAutoTradeSupport {
     static void n4OnEnterDungeon() {
         n4TalkFails = 0;
         n4Runs++;
-        @class.PLAYER@ me = player();
-        n4EntryX = me == null ? 0 : me.@player.x@;
-        n4EntryY = me == null ? 0 : me.@player.y@;
+        n4AtRock = false;
         /*
          * Bat Noclip de dung duoc dung GIUA thien thach. Thien thach chan duong, tim duong
          * that thi chi dung duoc ben canh no.
@@ -3166,16 +3154,46 @@ public final class HSOAutoTradeSupport {
             return;
         }
         if (!n4AutoOn) n4StartAttack();
-        @class.ENTITY@ rock = n4RockEntity();
-        if (rock == null) return;                  // khong nhan ra - dung yen tai cho vao
-        int x = rock.@entity.x@;
-        int y = rock.@entity.y@;
+        int x = n4RockX();
+        int y = n4RockY();
+        if (x < 0 || y < 0) return;                // chua nap xong ban do
         if (within(x, y, ARRIVE_PX)) {
-            @class.PLAYER@ me = player();
-            if (me != null && me.@player.path@ == null) haltWalk(me);
+            if (!n4AtRock) {
+                n4AtRock = true;
+                notice("Đã đứng vào giữa thiên thạch.");
+            }
             return;
         }
+        n4AtRock = false;
         stepToward(x, y, false);
+    }
+
+    /*
+     * Thien thach nam CHINH GIUA ban do pho ban.
+     *
+     * Ban dau cho nay di tim "thuc the loai NPC gan cho vao nhat" va hong - nguoi choi bao
+     * khong duoc. Giua ban do thi tinh thang ra tu bang o, khong phai doan gi ca:
+     *
+     *     giua = so_o * kich_thuoc_o / 2
+     *
+     * So o theo chieu ngang doc thang tu field cua TILEMAP; chieu doc = do dai mang o chia
+     * cho chieu ngang, vi luc nap ban do mang o duoc cap phat dung bang rong * cao.
+     */
+    static int n4RockX() {
+        int w = gridWidth();
+        int tile = @class.TILEMAP@.@tilemap.tileSize@;
+        if (w <= 0 || tile <= 0) return -1;
+        return w * tile / 2;
+    }
+
+    static int n4RockY() {
+        int[] grid = tileGrid();
+        int w = gridWidth();
+        int tile = @class.TILEMAP@.@tilemap.tileSize@;
+        if (grid == null || w <= 0 || tile <= 0) return -1;
+        int h = grid.length / w;
+        if (h <= 0) return -1;
+        return h * tile / 2;
     }
 
     /** Thuc the NPC ten "Phó chỉ huy" tren map dang dung. */
@@ -3194,33 +3212,6 @@ public final class HSOAutoTradeSupport {
             if (e.@entity.name@.toLowerCase().indexOf(needle) >= 0) return e;
         }
         return null;
-    }
-
-    /**
-     * Thien thach: thuc the loai NPC gan cho vua roi vao nhat.
-     *
-     * Khong tra theo ten vi ten cua no chi ve sau khi client hoi rieng. Nhung chi nhan
-     * trong ban kinh N4_ROCK_PX quanh cho vao - trong pho ban con may NPC Linh canh o gan
-     * cuoi ban do, doan sai ma keo nhan vat chay sang tan do thi hong ca luot.
-     */
-    static @class.ENTITY@ n4RockEntity() {
-        @class.VEC@ list = @class.CHARS@.@chars.entities@;
-        if (list == null) return null;
-        @class.ENTITY@ best = null;
-        int bestDist = Integer.MAX_VALUE;
-        for (int i = 0; i < list.@vec.size@(); i++) {
-            Object o = list.@vec.get@(i);
-            if (o == null) continue;
-            @class.ENTITY@ e = (@class.ENTITY@) o;
-            if (e.@entity.kind@ != 2) continue;
-            int dx = Math.abs(e.@entity.x@ - n4EntryX);
-            int dy = Math.abs(e.@entity.y@ - n4EntryY);
-            int d = dx > dy ? dx : dy;
-            if (d > N4_ROCK_PX || d >= bestDist) continue;
-            bestDist = d;
-            best = e;
-        }
-        return best;
     }
 
     /**

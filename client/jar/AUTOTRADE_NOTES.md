@@ -1505,14 +1505,23 @@ và loại 0 — **không chế độ nào nhắm vào nó cả**.
 `persistentAutoAttack = true` để `onCanvasUpdate` tự bật lại mỗi khi engine tự tắt. Tắt auto thì
 trả `autoPlayersEnabled` về đúng giá trị người chơi đang để.
 
-### Nhận diện thiên thạch
+### Chỗ đứng: chính giữa bản đồ (v29)
 
-Không tra theo tên — tên của nó chỉ về sau khi client hỏi riêng. Lấy **thực thể loại NPC gần
-chỗ vừa rơi vào nhất**, và **chỉ nhận trong bán kính `N4_ROCK_PX = 220`**.
+Bản v28 đi tìm thiên thạch bằng "thực thể loại NPC gần chỗ vừa rơi vào nhất" và **hỏng khi chơi
+thật**. Người chơi chỉ ra chỗ đúng: **thiên thạch nằm chính giữa bản đồ phó bản.**
 
-Rào chắn đó có chủ đích: trong phó bản còn mấy NPC Lính canh ở gần cuối bản đồ. Nếu đoán nhầm
-thì không được phép kéo nhân vật chạy sang tận góc kia — thà đứng yên tại chỗ rơi vào, vì **tầm
-đánh của Auto Tự Đánh vốn là cả bản đồ** nên đứng đâu cũng đánh tới.
+Thế thì tính thẳng ra được, không phải đoán gì cả:
+
+```java
+static int n4RockX() { return gridWidth() * tileSize / 2; }
+static int n4RockY() { return (tiles.length / gridWidth()) * tileSize / 2; }
+```
+
+Dùng lại đúng hai ký hiệu đã tra cho phần tìm đường v27 (`tilemap.width`, `tilemap.tiles`).
+Chiều cao = độ dài mảng ô chia cho chiều rộng, vì lúc nạp bản đồ mảng ô được cấp phát đúng bằng
+`rộng * cao`. Định dạng file bản đồ đọc rộng/cao bằng `readByte`, nên cả hai luôn là số ô.
+
+`n4RockEntity()` đã bị bỏ, và test chốt là nó **không được** quay lại.
 
 ### Thứ tự bấm menu
 
@@ -1537,6 +1546,4 @@ nói rõ: gần như chắc chắn đã hết cả vé lẫn ngọc.
 
 ### Chưa xác minh bằng chơi thật
 
-- Client có mô hình hoá thiên thạch thành thực thể loại NPC hay không. Nếu không, nhân vật đứng
-  yên tại chỗ rơi vào — vẫn đánh được, chỉ là không đứng giữa thiên thạch.
 - Câu chữ server trả về khi hết cả vé lẫn ngọc.

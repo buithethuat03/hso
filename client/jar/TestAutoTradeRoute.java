@@ -395,13 +395,11 @@ public final class TestAutoTradeRoute {
                     "action id cua Auto Nga 4 trung voi Auto Di Buon - bam mot muc se chay"
                     + " nham tinh nang kia");
             expect(has(c, "n4Tick") && has(c, "n4StartAttack") && has(c, "n4OnNpcMenu")
-                            && has(c, "n4RockEntity") && has(c, "n4Stop"),
+                            && has(c, "n4RockX") && has(c, "n4RockY") && has(c, "n4Stop"),
                     "thieu mot trong cac ham cua Auto Nga 4");
-            int rockPx = ci(c, "N4_ROCK_PX");
-            expect(rockPx > 0 && rockPx <= 400,
-                    "N4_ROCK_PX = " + rockPx + " - chi nhan thien thach trong ban kinh nay"
-                    + " quanh cho vua roi vao; de qua rong la co the nham sang NPC Linh canh"
-                    + " o cuoi ban do va keo nhan vat chay khoi thien thach");
+            expect(!has(c, "n4RockEntity"),
+                    "support con n4RockEntity() - cach di tim thien thach bang thuc the da"
+                    + " hong khi choi that, thien thach nam chinh giua ban do");
             int talkFails = ci(c, "MAX_N4_TALK_FAILS");
             expect(talkFails >= 2 && talkFails <= 10,
                     "MAX_N4_TALK_FAILS = " + talkFails + " - 1 la mot goi ve cham cung bi coi"
