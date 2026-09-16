@@ -403,6 +403,9 @@ public final class TestAutoTradeRoute {
                             && has(c, "n4StartAttack") && has(c, "autoTargetGate") && has(c, "n4InRange"),
                     "thieu mot ham phu cua Auto Nga 4 (engine ranh / doi / Noclip / cho map /"
                     + " doc huong / menu / tam danh)");
+            expect(has(c, "n4Busy"),
+                    "thieu n4Busy() - khong co luat ban giao thi Auto Tu Danh va Auto Nga 4 lai"
+                    + " cung phat lenh di, ghi de len player.path cua nhau");
             expect(has(c, "autoAttackPath"),
                     "thieu autoAttackPath() - Auto Tu Danh tu tinh duong va ghi player.path de"
                     + " chay toi muc tieu, gianh cung mot bien voi Auto Nga 4; hai ben ghi de"

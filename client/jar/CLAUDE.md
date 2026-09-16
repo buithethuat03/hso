@@ -137,8 +137,10 @@ sang classpath jar HSOSKY, sẽ không compile.
 | `auto_n4_v8.1.jar` | v8 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `auto_n4_v9.jar` | v8 + **không cắt đường giữa chừng**: engine đi hết đường đã giao, tự dừng, rồi mới xét tới nơi → đợi 0.5s → tương tác. Bỏ hẳn `n4Park`/`n4StandStill` |
 | `auto_n4_v9.1.jar` | v9 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
-| `auto_n4_v10.jar` | **bản đang chơi** — chặn Auto Tự Đánh ghi `player.path`. Hai auto cùng giành một biến chính là lỗi "chạy vòng vòng" |
+| `auto_n4_v10.jar` | chặn Auto Tự Đánh ghi `player.path`. Hai auto cùng giành một biến chính là lỗi "chạy vòng vòng". Đứng im đánh nên vật phẩm rơi xa không nhặt được |
 | `auto_n4_v10.1.jar` | v10 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
+| `auto_n4_v11.jar` | **bản đang chơi** — trả lại quyền di chuyển cho Auto Tự Đánh kèm luật bàn giao `n4Busy()`: có mục tiêu thì nó dẫn, hết mục tiêu thì Auto Ngã 4 dẫn về chỗ đón |
+| `auto_n4_v11.1.jar` | v11 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 
 Lệnh dựng dòng `auto_n4_*` (khác dòng `autotrade_*` ở tham số thứ ba):
 

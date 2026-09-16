@@ -2135,3 +2135,30 @@ khác trong cùng hàm.
 
 Patcher có luật `require(hooks == 1, ...)` — jar đổi cấu trúc là dừng, không đoán.
 
+## auto_n4_v11 — luật bàn giao, để nhân vật tới tận chỗ quái
+
+v10 hết chạy vòng vòng nhưng sinh hệ quả: nhân vật đứng im một chỗ đánh, **vật phẩm rơi xa
+không nhặt được**.
+
+Người chơi yêu cầu lấy logic của `Luna (2).jar` — chọn quái trong vòng tròn rồi **đi tới gần
+quái mà đánh**. Kiểm tra lại thì bộ lọc đó **đã có sẵn trong v10**: `autoTargetGate()` siết
+mục tiêu về đúng `tamDanh * 3 / 2` px (tầm đánh mặc định 140 → bán kính 210px), cùng luật mà
+vòng tìm mục tiêu gốc của bản sạch dùng. Nên không phải port gì; chỉ thiếu mỗi quyền đi.
+
+### Luật bàn giao — mỗi lúc chỉ một bên lái
+
+| Tình huống | Ai điều khiển `player.path` |
+|---|---|
+| Auto Tự Đánh **có** mục tiêu | **Auto Tự Đánh** — Auto Ngã 4 im (`n4Busy()` trả true) |
+| Không có mục tiêu | **Auto Ngã 4** — dẫn về chỗ đón |
+| Auto **Đi Buôn** đang chạy | chặn hẳn Auto Tự Đánh (`autoAttackPath` trả null) — dắt bò không cho ai giật tay lái |
+
+`n4Busy()` đọc `CHARS.target != null`. Chặn ở đúng một chỗ như v10, nhưng giờ chỉ chặn cho
+Auto Đi Buôn; Auto Ngã 4 thì cho đi.
+
+Bước `N4_HOLD` thêm một nhịp: hết mục tiêu mà đã trôi khỏi chỗ đón thì quay về `N4_MOVE`, tiện
+đường đi ngang chỗ vật phẩm vừa rơi.
+
+Đoạn đường Auto Tự Đánh kéo đi không bao giờ dài quá 210px vì mục tiêu đã bị siết trong vòng
+tròn — nên nhân vật loanh quanh chỗ đón chứ không lang thang cả bản đồ như base gốc.
+

@@ -3359,6 +3359,10 @@ public final class HSOAutoTradeSupport {
         if (n4FightTooLong()) return;
         if (!n4AutoOn) n4StartAttack();
         n4WantNoclip(true);
+        if (n4Busy()) {
+            n4IdleSince = 0L;                      // Auto Tu Danh dang dan - de yen cho no
+            return;
+        }
         if (!n4EngineIdle()) {
             n4IdleSince = 0L;                      // dang di het duong da giao
             return;
@@ -3390,7 +3394,15 @@ public final class HSOAutoTradeSupport {
         if (n4AimDirty) {
             n4AimDirty = false;
             n4SetState(N4_MOVE);
+            return;
         }
+        /*
+         * Danh xong mot con thi thuong da dung xa cho don (Auto Tu Danh vua keo toi tan cho
+         * con quai do). Con muc tieu thi de yen; het muc tieu ma da troi ra khoi cho don thi
+         * quay ve, san tien di qua cho vat pham vua roi.
+         */
+        if (n4Busy()) return;
+        if (!arrived(n4AimX, n4AimY)) n4SetState(N4_MOVE);
     }
 
     // ------------------------------------------------------------ B4
@@ -3547,8 +3559,23 @@ public final class HSOAutoTradeSupport {
      * xu ly duoc - chinh no cung gan null o bon cho khac trong cung ham do.
      */
     public static short[] autoAttackPath(short[] path) {
-        if (n4State == N4_OFF && state == OFF) return path;
-        return null;
+        /*
+         * AUTO DI BUON: chan han. No dat mot con bo chi bam theo khi minh di dung nhip, nen
+         * khong the de ai khac giat tay lai.
+         */
+        if (state != OFF) return null;
+        /*
+         * AUTO NGA 4: CHO DI. Nguoi choi can nhan vat toi tan cho quai chet de nhat do roi -
+         * dung im mot cho thi vat pham roi xa qua, khong voi toi.
+         *
+         * Khong con so gianh nhau nua vi da co luat BAN GIAO ro rang, xem n4Busy(): he Auto
+         * Tu Danh co muc tieu la Auto Nga 4 thoi phat lenh di, de yen cho no dan; muc tieu
+         * chet roi thi Auto Nga 4 moi dan nhan vat ve cho don. Moi luc chi mot ben lai.
+         *
+         * Va tam chon muc tieu da bi autoTargetGate() siet ve dung vong tron tam danh, nen
+         * doan duong no keo di khong bao gio dai qua ban kinh do.
+         */
+        return path;
     }
 
     /**
@@ -3590,6 +3617,24 @@ public final class HSOAutoTradeSupport {
     }
 
     // ------------------------------------------------------------ HUD
+
+    /**
+     * Auto Tu Danh dang dan nhan vat hay khong.
+     *
+     * Co muc tieu = no dang lo viec di toi va danh con do. Luc nay Auto Nga 4 phai IM: hai
+     * ben cung phat lenh di la ghi de len player.path cua nhau, nhan vat khong di het duong
+     * nao - dung loi "chay vong vong" da mat ca chuc ban moi tim ra.
+     *
+     * Muc tieu bi siet trong vong tron tam danh (autoTargetGate), nen no chi keo nhan vat di
+     * loanh quanh ban kinh do roi dung lai canh xac quai - vua dep de nhat do roi.
+     */
+    static boolean n4Busy() {
+        try {
+            return @class.CHARS@.@chars.target@ != null;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
 
     /** Vi tri hien tai, dang "x,y" - de bao ra cho de doi chieu. */
     static String n4Pos() {
