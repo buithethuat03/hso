@@ -314,6 +314,18 @@ public final class HSOAutoTradeSupport {
     /** Toi gan NPC ngan nay thi bat chuyen duoc. */
     static final int N4_NPC_PX = 60;
 
+    /**
+     * Cua quai ra nam cach vien ban do ngan nay.
+     *
+     * Doc tu chinh cho server de quai: mot ban do rong 1368px thi quai de o x = 1308, tuc
+     * 60px tinh tu vien. Bon cua nam o bon huong, tren dung hai duong thang di qua tam.
+     */
+    static final int N4_GATE_EDGE_PX = 60;
+    /** Toi gan quai ngan nay thi thoi khong duoi nua - de engine danh. */
+    static final int N4_MELEE_PX = 24;
+    /** Chuoi nhan ra dong bao "Bay quai vat se xuat hien o cua phia ...". */
+    static final String LBL_N4_GATE = "cửa phía";
+
     static final long N4_GOTO_TIMEOUT_MS = 120000L;    // 2 phut de toi cho NPC
     static final long N4_TALK_TIMEOUT_MS = 20000L;     // bam menu xong, 20s ma chua vao
     static final long N4_FIGHT_TIMEOUT_MS = 1800000L;  // 30 phut cho ca 20 hiep
@@ -336,8 +348,14 @@ public final class HSOAutoTradeSupport {
     /** Dang bat Auto Tu Danh ho nguoi choi; can nho de con tra lai nguyen trang. */
     static boolean n4AutoOn;
     static boolean n4SavedPlayers;
-    /** Da dung vao giua thien thach roi - chi de bao mot lan, khong bao moi nhip. */
+    /** Da dung vao cho doi roi - chi de bao mot lan, khong bao moi nhip. */
     static boolean n4AtRock;
+    /**
+     * Cua ma dot quai toi se vao, doc tu dong thong bao chay tren dau man hinh.
+     * 0/0 = chua biet -> ve dung giua ban do, tuc cach deu ca bon cua.
+     */
+    static int n4GateX;
+    static int n4GateY;
     static boolean pendingN4Submenu;
 
     /** Bam dung roi phai lang xuong ngan nay (du de goi bao vi tri toi server) moi dam goi bo. */
@@ -801,6 +819,7 @@ public final class HSOAutoTradeSupport {
         if (text == null || text == infoSeen[slot]) return;
         infoSeen[slot] = text;
         lastInfoText = text.toLowerCase();
+        if (n4State != N4_OFF) n4ReadGate(lastInfoText);
     }
 
     /** Dong thong bao noi mon dang mua da het hang. */
@@ -3083,6 +3102,8 @@ public final class HSOAutoTradeSupport {
         n4TalkFails = 0;
         n4Runs++;
         n4AtRock = false;
+        n4GateX = 0;
+        n4GateY = 0;
         /*
          * Bat Noclip de dung duoc dung GIUA thien thach. Thien thach chan duong, tim duong
          * that thi chi dung duoc ben canh no.
@@ -3154,18 +3175,100 @@ public final class HSOAutoTradeSupport {
             return;
         }
         if (!n4AutoOn) n4StartAttack();
-        int x = n4RockX();
-        int y = n4RockY();
+
+        /*
+         * Auto Tu Danh CHON duoc muc tieu ca ban do, nhung no khong tu di.
+         *
+         * Nen dung yen giua thien thach la dung nhin quai di tu tu vao - dung loi nguoi choi
+         * bao "quai xa qua khong danh duoc". Phai tu mang nhan vat toi cho quai:
+         *
+         *   1. Thay quai thi di toi con gan nhat. Cai nay tu sua duoc moi truong hop, ke ca
+         *      khi khong doc duoc dong thong bao.
+         *   2. Chua co quai thi ra dung san o cua ma dot toi se vao (doc tu thong bao,
+         *      bao truoc 15 giay - thua de di toi noi).
+         *   3. Khong biet cua nao thi ve giua ban do: cho do cach deu ca bon cua.
+         */
+        int x;
+        int y;
+        IllIllIIlllIIIllIIlllIIlIIlllIIIllIIIlllIIllIIIlIIIlIIIllIIllIlIIIllIlIIlllIIIlllIlIIlIIIlIIlIIlllIlIIlIlllIIllIIllIIllIIIlIIIlIIllIIllIllIIlIIIlllIllIIlIIIllIIllIIlIllIIIlllIIIllIIIllIIllIIlIIIllIIlllIIlllIIIlllIIIllIllIIlIIIlllIIlIIIllIIllIll mob = n4NearestMob();
+        if (mob != null) {
+            x = mob.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll;
+            y = mob.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll;
+        } else if (n4GateX != 0 || n4GateY != 0) {
+            x = n4GateX;
+            y = n4GateY;
+        } else {
+            x = n4RockX();
+            y = n4RockY();
+        }
         if (x < 0 || y < 0) return;                // chua nap xong ban do
-        if (within(x, y, ARRIVE_PX)) {
+
+        if (within(x, y, mob != null ? N4_MELEE_PX : ARRIVE_PX)) {
             if (!n4AtRock) {
                 n4AtRock = true;
-                notice("Đã đứng vào giữa thiên thạch.");
+                notice(mob != null ? "Đã bám được quái." : "Đã vào chỗ đợi.");
             }
             return;
         }
         n4AtRock = false;
         stepToward(x, y, false);
+    }
+
+    /**
+     * Cua ma dot quai toi se vao, doc tu dong thong bao chay tren dau man hinh:
+     *
+     *     "Bầy quái vật sẽ xuất hiện ở cửa phía Tây sau 15 giây nữa..."
+     *
+     * Bon cua nam tren hai duong thang di qua tam ban do, cach vien N4_GATE_EDGE_PX. Doi
+     * phai co ca cum "cửa phía" chu khong chi mot tu huong - de mot dong chat bat ky co chu
+     * "nam" hay "đông" khong keo nhan vat chay ra goc ban do.
+     *
+     * Khong doc duoc cung khong sao: buoc danh van bam theo con quai gan nhat.
+     */
+    static void n4ReadGate(String lower) {
+        if (lower == null || lower.indexOf(LBL_N4_GATE) < 0) return;
+        int cx = n4RockX();
+        int cy = n4RockY();
+        if (cx < 0 || cy < 0) return;
+        int gx = 0;
+        int gy = 0;
+        String where = null;
+        if (lower.indexOf("tây") >= 0) {
+            gx = N4_GATE_EDGE_PX;         gy = cy;        where = "Tây";
+        } else if (lower.indexOf("đông") >= 0) {
+            gx = cx * 2 - N4_GATE_EDGE_PX; gy = cy;       where = "Đông";
+        } else if (lower.indexOf("bắc") >= 0) {
+            gx = cx;                      gy = N4_GATE_EDGE_PX; where = "Bắc";
+        } else if (lower.indexOf("nam") >= 0) {
+            gx = cx;                      gy = cy * 2 - N4_GATE_EDGE_PX; where = "Nam";
+        }
+        if (where == null) return;
+        n4GateX = gx;
+        n4GateY = gy;
+        n4AtRock = false;
+        notice(join("Quái vào cửa phía ", join(where, ", ra đón.")));
+    }
+
+    /** Con quai gan nhan vat nhat tren ban do, hoac null. */
+    static IllIllIIlllIIIllIIlllIIlIIlllIIIllIIIlllIIllIIIlIIIlIIIllIIllIlIIIllIlIIlllIIIlllIlIIlIIIlIIlIIlllIlIIlIlllIIllIIllIIllIIIlIIIlIIllIIllIllIIlIIIlllIllIIlIIIllIIllIIlIllIIIlllIIIllIIIllIIllIIlIIIllIIlllIIlllIIIlllIIIllIllIIlIIIlllIIlIIIllIIllIll n4NearestMob() {
+        IIlIIlIIlIIlIIllIlIIlIIlIIllIIlIIIlIllIIllIlIIIlIIIlIIIlIIlIIIllIIlIlIIlIllIIlllIIIlIIlllIIlIIlIIllIllIlllIIIllIIllIIlllIIIlIIIlIIlIIlllIllIIIlIllIllIIlIllIllIllIIllIllIIllIIlIllIIIlllIlIIlIlIllIIllIlllIIlllIIIll list = IIllIIIllIllIIIlllIIIlllIIllIIlllIlIIIllIllIlIIlIIIlllIIlIIllIIllIlIllIIllIIIllIIlIllIIlIIlIIllIIlIlIIllIllIIlIlIIlIIIllIIlIllIllIIlllIllIIlIlllIIllIlIlllIIlllIIIlIIlIIllIlllIlIIllIIIllIlIlIIlIIllIllIlIllIIIllIIll.IIlIlllIIllIllIlllIIlIlIllIIlIIllIIllIIIllIlIIlllIIIllIIllIIlllIlllIIllIlllIllIIIlIIllIIllIIlllIIIllIIIlIIllIllIIlIIlIIlllIlIIlIllIlllIIlllIIIlIIIllIIllIIlIIIllIlllIIlIlIlllIIlIIllIIlIllIIlIIlllIIIlllIIlllIIlllIllIIlIllIIIlIIll;
+        IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl me = player();
+        if (list == null || me == null) return null;
+        IllIllIIlllIIIllIIlllIIlIIlllIIIllIIIlllIIllIIIlIIIlIIIllIIllIlIIIllIlIIlllIIIlllIlIIlIIIlIIlIIlllIlIIlIlllIIllIIllIIllIIIlIIIlIIllIIllIllIIlIIIlllIllIIlIIIllIIllIIlIllIIIlllIIIllIIIllIIllIIlIIIllIIlllIIlllIIIlllIIIllIllIIlIIIlllIIlIIIllIIllIll best = null;
+        int bestDist = Integer.MAX_VALUE;
+        for (int i = 0; i < list.IlllIIlIIIlllIIIlIIllIlIllIIIlIIIllIlllIIIllIIlIIllIIllIlllIIllIIllIIllIIllIIlllIIlllIllIIllIlllIlIllIIlllIllIllIIlllIIllIIIlllIIIllIIIllIlllIIlllIIlIlIlIlIllIIIlllIIlIllIIllIIlllIIlIIIllIIIllIIlIIlllIlIllIllIIlIIIllIllIIlIIllIll(); i++) {
+            Object o = list.IIllIIlIllIIlIlllIIllIIIllIIIllIlIIlIIIllIIlllIIllIllIlIIlllIIlllIlIlIIlllIIlllIIIllIIllIIlIIIllIIIlllIIIllIllIIIlllIIllIllIlllIIIllIIIllIIlIlIIllIIlIIIlllIIllIIllIllIlllIIIlIIlIIIlIIllIlIIllIlllIlIIIllIIIlIIIllIIIlIlIllIIllIlIll(i);
+            if (o == null) continue;
+            IllIllIIlllIIIllIIlllIIlIIlllIIIllIIIlllIIllIIIlIIIlIIIllIIllIlIIIllIlIIlllIIIlllIlIIlIIIlIIlIIlllIlIIlIlllIIllIIllIIllIIIlIIIlIIllIIllIllIIlIIIlllIllIIlIIIllIIllIIlIllIIIlllIIIllIIIllIIllIIlIIIllIIlllIIlllIIIlllIIIllIllIIlIIIlllIIlIIIllIIllIll e = (IllIllIIlllIIIllIIlllIIlIIlllIIIllIIIlllIIllIIIlIIIlIIIllIIllIlIIIllIlIIlllIIIlllIlIIlIIIlIIlIIlllIlIIlIlllIIllIIllIIllIIIlIIIlIIllIIllIllIIlIIIlllIllIIlIIIllIIllIIlIllIIIlllIIIllIIIllIIllIIlIIIllIIlllIIlllIIIlllIIIllIllIIlIIIlllIIlIIIllIIllIll) o;
+            if (e.IlIllIIIllIIIlIIIlIIlIIIlIIlllIIllIIllIlllIlIIlIllIIIlIIlIllIIllIllIIllIIllIIlllIllIllIIlllIIIlIIIllIIlIlIIIllIIIlIIlIllIIlIIllIIIllIIllIlIIlllIIlIIIlIllIIIlIIIllIIlllIIllIIlllIllIIIlllIIIlllIllIllIllIIlIIlllIIIlllIIlllIIIlllIllIIll != 1) continue;     // 1 = quai, 0 = nguoi, 2 = NPC
+            int dx = Math.abs(e.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll - me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll);
+            int dy = Math.abs(e.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll - me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll);
+            int d = dx > dy ? dx : dy;
+            if (d >= bestDist) continue;
+            bestDist = d;
+            best = e;
+        }
+        return best;
     }
 
     /*

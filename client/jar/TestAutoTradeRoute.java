@@ -397,6 +397,15 @@ public final class TestAutoTradeRoute {
             expect(has(c, "n4Tick") && has(c, "n4StartAttack") && has(c, "n4OnNpcMenu")
                             && has(c, "n4RockX") && has(c, "n4RockY") && has(c, "n4Stop"),
                     "thieu mot trong cac ham cua Auto Nga 4");
+            expect(has(c, "n4NearestMob") && has(c, "n4ReadGate"),
+                    "thieu buoc bam theo quai / doc cua quai ra - dung yen giua thien thach"
+                    + " thi Auto Tu Danh chon duoc muc tieu nhung khong voi toi");
+            int edge = ci(c, "N4_GATE_EDGE_PX");
+            expect(edge > 0 && edge < 400,
+                    "N4_GATE_EDGE_PX = " + edge + " - cua quai ra cach vien ban do ngan nay;"
+                    + " 0 la dung ra ngoai ban do, qua lon la dung khong toi cua");
+            expect(ci(c, "N4_MELEE_PX") > 0 && ci(c, "N4_MELEE_PX") <= 60,
+                    "N4_MELEE_PX phai du sat de engine danh toi con quai");
             expect(!has(c, "n4RockEntity"),
                     "support con n4RockEntity() - cach di tim thien thach bang thuc the da"
                     + " hong khi choi that, thien thach nam chinh giua ban do");

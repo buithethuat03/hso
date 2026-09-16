@@ -1547,3 +1547,43 @@ nói rõ: gần như chắc chắn đã hết cả vé lẫn ngọc.
 ### Chưa xác minh bằng chơi thật
 
 - Câu chữ server trả về khi hết cả vé lẫn ngọc.
+
+---
+
+## v30 — ra đón quái ở cửa, thay vì đứng giữa nhìn
+
+Bản v29 đứng đúng giữa thiên thạch và **vẫn không đánh được**. Người chơi mô tả: *"quái xa quá"*.
+
+Lý do, và nó mâu thuẫn với giả định ban đầu: **Auto Tự Đánh chọn được mục tiêu cả bản đồ, nhưng
+nó KHÔNG tự di chuyển.** Nên đứng giữa là đứng nhìn quái đi từ từ vào — chọn được mục tiêu mà
+không với tới. Phải tự mang nhân vật tới chỗ quái.
+
+### Bốn cửa
+
+Vào mỗi đợt có một dòng thông báo chạy trên đầu màn hình:
+
+> Bầy quái vật sẽ xuất hiện ở cửa **phía Tây/Bắc/Đông/Nam** sau 15 giây nữa...
+
+Khớp đúng mã server: quái sinh ở một cửa rồi **đi thẳng vào thiên thạch** (`from_gate` 1..4, mỗi
+hướng một trục). Bốn cửa nằm trên hai đường thẳng đi qua tâm bản đồ, cách viền
+`N4_GATE_EDGE_PX = 60` — đọc từ chính chỗ server đẻ quái: bản đồ rộng 1368px thì quái đẻ ở
+x = 1308, tức 60px tính từ viền.
+
+### Thứ tự chọn chỗ đứng
+
+1. **Thấy quái → đi tới con gần nhất.** Cái này tự sửa được mọi trường hợp, kể cả khi không đọc
+   được dòng thông báo.
+2. **Chưa có quái, biết cửa → ra đứng sẵn ở cửa đó.** Báo trước 15 giây, thừa để đi tới nơi.
+3. **Không biết cửa → về giữa bản đồ,** chỗ cách đều cả bốn cửa.
+
+Tầng 1 là tầng bảo hiểm: nếu dòng thông báo không nằm ở hộp info mà mod đang đọc thì chỉ mất 15
+giây chạy trước, chứ tính năng vẫn chạy.
+
+Nhận dạng đòi có cả cụm `"cửa phía"` chứ không chỉ một từ hướng — để một dòng chat bất kỳ có chữ
+"nam" hay "đông" không kéo nhân vật chạy ra góc bản đồ.
+
+### Chốt trong verify / test
+
+- Phải còn `n4NearestMob()` và `n4ReadGate()`.
+- `0 < N4_GATE_EDGE_PX < 400`; `0 < N4_MELEE_PX <= 60`.
+- `n4RockEntity()` vẫn không được quay lại.
