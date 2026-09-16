@@ -1688,3 +1688,30 @@ Dòng HUD giờ ghi rõ đang đón ở đâu: `Auto Ngã 4: đánh phó bản [
 
 - Phải còn `n4ReadGate()` và `n4StandPx()`.
 - `n4NearestMob()` **không được** quay lại — đuổi theo quái đang đi đã hỏng khi chơi thật.
+
+---
+
+## v33 — chỗ đón sát cửa hơn (người chơi chốt)
+
+`N4_GATE_BACK_PX` **350 → 20**. Khoảng cách thật tới tường là
+`N4_GATE_EDGE_PX + N4_GATE_BACK_PX` = **60 + 20 = 80px**, thay vì 410px như trước.
+
+Người chơi chạy thử rồi chốt: 410px là đứng xa quá, quái đi gần hết đường mới tới nơi.
+
+Chốt trong test nới từ `>= 150` xuống `>= 0` cho đúng khoảng người chơi thực sự dùng, và câu
+báo lỗi nói rõ đây là phần **cộng thêm** vào `N4_GATE_EDGE_PX` chứ không phải khoảng cách tới
+tường — chính chỗ dễ nhầm.
+
+### Dòng thông báo: đọc được rồi
+
+Nghi ngờ trước đó là thừa. Ảnh chụp của người chơi cho thấy HUD ghi `[lượt 1 - đón Bắc]`, tức
+`n4ReadGate()` đã bắt được hướng.
+
+Phân biệt hai loại thông báo trong phó bản:
+
+| Câu | Dạng | Mod đọc được | Có hướng |
+|---|---|---|---|
+| "Đợt x bắt đầu" | banner mờ giữa đỉnh màn hình | **không** | không |
+| "Bầy quái vật sẽ xuất hiện ở cửa phía X sau 15 giây" | dòng chữ chạy (hộp info) | **có** | có |
+
+Chỉ câu thứ hai mới chứa hướng, nên không cần đọc banner.

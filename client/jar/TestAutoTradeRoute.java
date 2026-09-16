@@ -411,9 +411,10 @@ public final class TestAutoTradeRoute {
                     "thieu bo loc tam chon muc tieu - trong pho ban se khoa vao con quai o"
                     + " tan dang xa va bao \"Muc tieu o qua xa\"");
             int gateBack = ci(c, "N4_GATE_BACK_PX");
-            expect(gateBack >= 150 && gateBack <= 700,
-                    "N4_GATE_BACK_PX = " + gateBack + " - dung lui ra khoi cua ngan nay cho quai"
-                    + " chay lai; 0 la dam vao tuong, qua lon la ve gan nhu dung giua");
+            expect(gateBack >= 0 && gateBack <= 700,
+                    "N4_GATE_BACK_PX = " + gateBack + " - lui ra khoi cua ngan nay cho quai"
+                    + " chay lai; cong voi N4_GATE_EDGE_PX moi ra khoang cach that toi tuong."
+                    + " Qua lon la ve gan nhu dung giua map");
             expect(!has(c, "n4RockEntity"),
                     "support con n4RockEntity() - cach di tim thien thach bang thuc the da"
                     + " hong khi choi that, thien thach nam chinh giua ban do");

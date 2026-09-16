@@ -324,10 +324,13 @@ public final class HSOAutoTradeSupport {
     /**
      * Dung LUI RA khoi cua ngan nay, chu khong dung sat tuong.
      *
-     * De quai chay lai cho minh thay vi minh dam vao tuong dung cho. Cung la de khong bo
-     * lo doan duong quai di: dung giua cua va tam thi bat duoc chung o giua duong.
+     * De quai chay lai cho minh thay vi minh dam vao tuong dung cho.
+     *
+     * Cong voi N4_GATE_EDGE_PX moi ra khoang cach THAT toi tuong: 60 + 20 = 80px. Con so
+     * nay do nguoi choi chot sau khi chay thu - de 350 (tuc 410px) thi dung xa qua, quai
+     * di gan het duong roi moi toi noi.
      */
-    static final int N4_GATE_BACK_PX = 350;
+    static final int N4_GATE_BACK_PX = 20;
     /** Chuoi nhan ra dong bao "Bay quai vat se xuat hien o cua phia ...". */
     static final String LBL_N4_GATE = "cửa";
 
