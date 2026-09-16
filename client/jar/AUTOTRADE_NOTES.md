@@ -1768,3 +1768,40 @@ nhân vật đâm vào tường, mỗi nhịp lại giao một đường mới, 
 
 - `N4_GATE_HOLD_MS >= 5000`.
 - Phải còn `n4Park()`.
+
+---
+
+## v35 — về đúng chỗ cũ, đừng đọc toạ độ NPC
+
+Xong một lượt phó bản, nhân vật ra làng nhưng **không về chỗ Phó chỉ huy** — nó chạy ra một chỗ
+khác, đứng đó "bắt chuyện", hết hạn ba lần rồi tự tắt kèm câu *"nhiều khả năng đã hết đồng tiền
+Horae và hết ngọc"* — một lý do hoàn toàn sai.
+
+### Nguyên nhân
+
+`n4StepGoto()` đọc `entity.x` / `entity.y` của thực thể NPC. Đó là thứ **chưa từng được kiểm
+chứng**: Auto Đi Buôn chạy cả trăm chuyến mà **chưa bao giờ** đọc toạ độ của một NPC — nó chỉ đọc
+`entity.npcId` (`npcIdOf`), còn đường đi thì luôn tới một **toạ độ cố định**:
+
+```java
+if (!within(START_X, START_Y, NPC_TALK_PX)) { stepToward(START_X, START_Y, true); return; }
+```
+
+Có sẵn khuôn đã chạy thật mà không dùng, lại đi dùng một trường chưa ai đọc bao giờ.
+
+### Cách sửa
+
+Ghi lại **chỗ người chơi đang đứng lúc bật auto** (`n4HomeX/n4HomeY`) — theo đúng cách dùng đã
+thống nhất: *"đứng gần npc Phó chỉ huy ở làng sói trắng"* rồi mới bật. Sau mỗi lượt thì về đúng
+chỗ đó. Id NPC vẫn tra bằng `npcIdOf()` — cơ chế đã chạy thật — với `NPC_CHIHUY_ID = -37` làm dự
+phòng.
+
+Hai hàm `n4NpcEntity()` / `n4FindNpc()` bị xoá, và test chốt chúng **không được** quay lại.
+
+### Báo sai lý do cũng là một lỗi
+
+Câu *"hết đồng tiền Horae và hết ngọc"* được in cho cả trường hợp **chưa bao giờ mở được menu** —
+đúng thứ khiến người chơi đi tìm nhầm chỗ. Giờ tách hai nguyên nhân bằng cờ `n4MenuSeen`:
+
+- chưa từng thấy menu → *"Không mở được menu Phó chỉ huy - hãy đứng sát NPC rồi bật lại."*
+- đã thấy menu mà vẫn không vào được → mới là hết vé và hết ngọc.

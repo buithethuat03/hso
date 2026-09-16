@@ -306,6 +306,8 @@ public final class HSOAutoTradeSupport {
 
     /** Ten NPC mo phó bản, viet thuong (indexOf tren ten thuc the). */
     static final String NPC_CHIHUY = "chỉ huy";
+    /** Id du phong khi khong thay NPC trong danh sach thuc the. */
+    static final int NPC_CHIHUY_ID = -37;
     /** Nhan menu, viet thuong. Xem ghi chu o n4OnNpcMenu ve thu tu uu tien. */
     static final String LBL_N4_ENTER = "ngã tư";
     static final String LBL_N4_HORAE = "horae";
@@ -381,6 +383,19 @@ public final class HSOAutoTradeSupport {
     static String n4GateName;
     /** Luc doi cua gan nhat - xem N4_GATE_HOLD_MS. */
     static long n4GateAt;
+    /**
+     * Cho nguoi choi dang dung luc bat auto - tuc la ngay canh Pho chi huy.
+     *
+     * Day la diem quay ve sau moi luot, va la ly do auto doi phai thay NPC ngay luc bat.
+     * KHONG doc toa do tu thuc the NPC: Auto Di Buon chay ca tram chuyen ma chua bao gio
+     * doc entity.x/entity.y cua mot NPC - no luon di toi mot toa do co dinh. Doc thu chua
+     * duoc kiem chung do chinh la loi da gap: nhan vat chay ra mot cho khong phai cho NPC
+     * roi dung do bat chuyen voi khong khi.
+     */
+    static int n4HomeX;
+    static int n4HomeY;
+    /** Da tung mo duoc menu cua Pho chi huy trong luot nay chua. */
+    static boolean n4MenuSeen;
     static boolean pendingN4Submenu;
 
     /** Bam dung roi phai lang xuong ngan nay (du de goi bao vi tri toi server) moi dam goi bo. */
@@ -3013,7 +3028,7 @@ public final class HSOAutoTradeSupport {
          * ve dung cai lang co Pho chi huy. Neu luc bat ma dang o map khac thi khong co gi
          * dua nguoi choi toi do ca - bao ngay con hon dung im mot luc roi moi bao.
          */
-        if (n4NpcEntity() == null) {
+        if (npcIdOf(NPC_CHIHUY, 0) == 0) {
             notice("Không thấy Phó chỉ huy ở đây - hãy đứng gần NPC rồi bật lại.");
             return;
         }
@@ -3022,6 +3037,10 @@ public final class HSOAutoTradeSupport {
         n4AutoOn = false;
         n4Runs = 0;
         n4TalkFails = 0;
+        n4MenuSeen = false;
+        @class.PLAYER@ me0 = player();
+        n4HomeX = me0 == null ? 0 : me0.@player.x@;
+        n4HomeY = me0 == null ? 0 : me0.@player.y@;
         n4TownMap = mapId();
         n4LastMap = n4TownMap;
         clearPlan();
@@ -3149,27 +3168,30 @@ public final class HSOAutoTradeSupport {
         notice("Xong phó bản, đi vòng mới.");
     }
 
+    /**
+     * Ve dung cho da dung luc bat auto, roi bat chuyen.
+     *
+     * Quay ve CHO DA DUNG chu khong phai toa do cua thuc the NPC. Auto Di Buon chay ca tram
+     * chuyen ma chua bao gio doc entity.x/entity.y cua mot NPC - no luon di toi mot toa do
+     * co dinh, va do la ly do. Ban truoc doc thu do va hong dung kieu nay: het luot pho ban,
+     * nhan vat chay ra mot cho khong phai cho NPC, dung do bat chuyen voi khong khi, het han
+     * ba lan roi tu tat.
+     */
     static void n4StepGoto() {
-        @class.ENTITY@ npc = n4NpcEntity();
-        if (npc == null) {
-            if (now() - n4StateSince > N4_GOTO_TIMEOUT_MS) {
-                n4Stop("Không thấy Phó chỉ huy trên map này.");
-            }
+        if (n4HomeX == 0 && n4HomeY == 0) {
+            n4Stop("Không nhớ được chỗ đứng ban đầu, hãy bật lại cạnh Phó chỉ huy.");
             return;
         }
-        int x = npc.@entity.x@;
-        int y = npc.@entity.y@;
-        if (!within(x, y, N4_NPC_PX)) {
+        if (!within(n4HomeX, n4HomeY, N4_NPC_PX)) {
             if (now() - n4StateSince > N4_GOTO_TIMEOUT_MS) {
-                n4Stop("Đi mãi không tới được chỗ Phó chỉ huy.");
+                n4Stop("Đi mãi không về được chỗ Phó chỉ huy.");
                 return;
             }
-            stepToward(x, y, false);
+            stepToward(n4HomeX, n4HomeY, false);
             return;
         }
-        @class.PLAYER@ me = player();
-        if (me != null) haltWalk(me);
-        sender().@sender.requestNpcMenu@((byte) npc.@entity.npcId@);
+        n4Park();                       // dung han lai roi moi bat chuyen
+        sender().@sender.requestNpcMenu@((byte) npcIdOf(NPC_CHIHUY, NPC_CHIHUY_ID));
         n4SetState(N4_TALK);
     }
 
@@ -3183,7 +3205,16 @@ public final class HSOAutoTradeSupport {
     static void n4StepTalk() {
         if (now() - n4StateSince < N4_TALK_TIMEOUT_MS) return;
         if (++n4TalkFails >= MAX_N4_TALK_FAILS) {
-            n4Stop("Không vào được phó bản - nhiều khả năng đã hết đồng tiền Horae và hết ngọc.");
+            /*
+             * Phan biet hai nguyen nhan hoan toan khac nhau. Ban truoc bao "het ve va het
+             * ngoc" cho ca truong hop chua bao gio mo duoc menu - ly do sai lam nguoi choi
+             * di tim nham cho.
+             */
+            if (!n4MenuSeen) {
+                n4Stop("Không mở được menu Phó chỉ huy - hãy đứng sát NPC rồi bật lại.");
+            } else {
+                n4Stop("Không vào được phó bản - nhiều khả năng đã hết đồng tiền Horae và hết ngọc.");
+            }
             return;
         }
         notice("Chưa vào được phó bản, thử lại.");
@@ -3382,24 +3413,6 @@ public final class HSOAutoTradeSupport {
         return h * tile / 2;
     }
 
-    /** Thuc the NPC ten "Phó chỉ huy" tren map dang dung. */
-    static @class.ENTITY@ n4NpcEntity() {
-        return n4FindNpc(NPC_CHIHUY);
-    }
-
-    static @class.ENTITY@ n4FindNpc(String needle) {
-        @class.VEC@ list = @class.CHARS@.@chars.entities@;
-        if (list == null) return null;
-        for (int i = 0; i < list.@vec.size@(); i++) {
-            Object o = list.@vec.get@(i);
-            if (o == null) continue;
-            @class.ENTITY@ e = (@class.ENTITY@) o;
-            if (e.@entity.kind@ != 2 || e.@entity.name@ == null) continue;
-            if (e.@entity.name@.toLowerCase().indexOf(needle) >= 0) return e;
-        }
-        return null;
-    }
-
     /**
      * Chon dong menu cua Pho chi huy.
      *
@@ -3415,6 +3428,7 @@ public final class HSOAutoTradeSupport {
         if (pick < 0) pick = indexOfLabel(items, LBL_N4_HORAE);
         if (pick < 0) pick = indexOfLabel(items, LBL_N4_GEM);
         if (pick < 0) return false;
+        n4MenuSeen = true;
         pendNpc = npcId;
         pendMenu = menuId;
         pendRow = pick;

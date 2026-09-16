@@ -402,6 +402,12 @@ public final class TestAutoTradeRoute {
                     "N4_GATE_HOLD_MS = " + hold + "ms - hop thong bao co ba dong, dong cu bi"
                     + " day xuong se bi doc lai nhu dong moi; khoa qua ngan la cua nhay qua"
                     + " nhay lai va nhan vat chay di chay lai giua hai diem don");
+            expect(!has(c, "n4NpcEntity") && !has(c, "n4FindNpc"),
+                    "support con ham doc toa do thuc the NPC - Auto Di Buon chua bao gio doc"
+                    + " entity.x/y cua NPC, va doc thu do da hong: nhan vat chay ra mot cho"
+                    + " khong phai cho NPC roi bat chuyen voi khong khi");
+            expect(ci(c, "NPC_CHIHUY_ID") < 0,
+                    "NPC_CHIHUY_ID phai la id NPC (so am)");
             expect(has(c, "n4Park"),
                     "thieu n4Park() - khong dung han ba tang thi nhan vat troi theo quan tinh");
             expect(has(c, "n4ReadGate") && has(c, "n4StandPx"),
