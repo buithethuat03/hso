@@ -126,8 +126,10 @@ sang classpath jar HSOSKY, sẽ không compile.
 | `autotrade_v37.1.jar` | v37 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `autotrade_v38.jar` | vào phó bản đứng yên chờ hướng; ra làng trả lại Noclip; tầm chọn mục tiêu tính bằng pixel |
 | `autotrade_v38.1.jar` | v38 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
-| `autotrade_v39.jar` | **bản đang chơi** — chỗ đón lùi ra 100px so với tường (60 + 40) |
+| `autotrade_v39.jar` | chỗ đón lùi ra 100px so với tường (60 + 40) |
 | `autotrade_v39.1.jar` | v39 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
+| `autotrade_v40.jar` | **bản đang chơi** — tầm chọn mục tiêu trả lại toàn bản đồ |
+| `autotrade_v40.1.jar` | v40 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `KNIGHT_ONLINE_RL.jar` | V3 → server **"Rồng Lửa"** `27.0.12.133:19129`, MIDlet đổi tên, auto đập đồ giãn 4s |
 | `KNIGHT_ONLINE_RL_V3.jar` | dựng từ V5 (bản chạy thử 1 viên) |
 | `KNIGHT_ONLINE_RL_V5.jar` | dựng từ V7 |

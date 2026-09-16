@@ -3619,44 +3619,59 @@ public final class HSOAutoTradeSupport {
         } catch (Throwable t) {
             return false;
         }
-        if (!ok || n4State == N4_OFF) return ok;
-        return n4InRange(target, me);
+        /*
+         * TAM TOAN BAN DO, khong cat gi ca - nguoi choi chot sau khi chay thu.
+         *
+         * Da thu cat tam chon muc tieu ve dung vong tron tam danh va hong: auto nay KHONG
+         * tu di toi muc tieu, nen cat tam la thanh ra dung im khong chon con nao ca trong
+         * khi quai di ngay canh - dung anh nguoi choi gui, quai vay quanh ma khong chi vao
+         * con nao.
+         *
+         * De nguyen tam toan ban do thi khong mat gi: vong tim muc tieu cua mod lay con
+         * GAN NHAT, nen he co con nao lai gan la no chuyen sang con do ngay. Luc khong co
+         * con nao gan thi no khoa mot con o xa va danh hut - vo hai.
+         *
+         * Van goi n4InRange() o day, nhung chi de GHI NHO "vua roi co quai trong tam danh"
+         * cho n4RescueDue() dung - khong dung no de chan nua.
+         */
+        if (ok && n4State != N4_OFF) n4InRange(target, me);
+        return ok;
     }
 
     /**
      * Muc tieu co nam trong tam danh that khong - tinh bang PIXEL.
      *
-     * Ban truoc tinh ban kinh la tamDanh * 3 / 2 roi con NHAN THEM kich thuoc o, tuong
-     * tamDanh dem bang o. Doc lai ma may cua engine thi khong phai: chinh engine so
-     * tamDanh thang voi khoang cach pixel -
+     * KHONG dung de chan viec chon muc tieu nua (xem autoTargetGate): auto nay khong tu di
+     * toi muc tieu, nen cat tam la dung im khong chon con nao trong khi quai di ngay canh.
+     * Gio no chi de tra loi mot cau duy nhat cho n4RescueDue(): "vua roi co con nao vao
+     * tam danh khong?" - lau qua ma khong co thi lui ve giua thien thach.
+     *
+     * Nguong lay dung con so engine dung de GIU muc tieu, doc tu ma may:
      *
      *     bo qua muc tieu khi   khoangCach >  tamDanh          (vong tim muc tieu goc)
      *     bo muc tieu dang giu  khoangCach >  tamDanh + 20     (vong kiem moi nhip)
      *
-     * Nhan them kich thuoc o lam ban kinh phong len hai chuc lan, tuc la bo loc coi nhu
-     * khong ton tai: auto lai khoa vao con quai gan nhat TREN CA BAN DO - mot con dang o
-     * tan cua ben kia - roi danh vao khong khi suot ca luot, trong khi quai o ngay canh
-     * thi khong dung toi. Dung nhu nguoi choi ta: "co xac suat khong chon vao quai de
-     * danh, khi khong chon duoc thi ca luot do thua, quai pha thien thach".
+     * Luu y tamDanh dem bang PIXEL chu khong phai bang o - mot ban truoc nhan them kich
+     * thuoc o va lam ban kinh phong len hai chuc lan.
      *
-     * Nen lay dung nguong ma engine dung de GIU muc tieu: tamDanh + 20 pixel. Chon dung
-     * nguong do thi moi con da chon deu la con engine chiu danh, khong co canh chon xong
-     * bi bo ngay khung hinh sau.
-     *
-     * Doc khong duoc thi tra ve true - tha nhan thua con hon tu nhien khong danh gi ca.
+     * Doc khong duoc thi coi nhu co quai o gan, de khong tu nhien lui ve giua ban do.
      */
     static boolean n4InRange(Object target, Object me) {
         try {
             @class.ENTITY@ t = (@class.ENTITY@) target;
             @class.PLAYER@ p = (@class.PLAYER@) me;
             int reach = p.@player.atkRange@ + N4_REACH_SLACK_PX;
-            if (reach <= N4_REACH_SLACK_PX) return true;     // khong doc duoc tam danh
+            if (reach <= N4_REACH_SLACK_PX) {                 // khong doc duoc tam danh
+                n4SeenAt = now();
+                return true;
+            }
             int dx = t.@entity.x@ - p.@player.x@;
             int dy = t.@entity.y@ - p.@player.y@;
             if (dx * dx + dy * dy > reach * reach) return false;
             n4SeenAt = now();
             return true;
         } catch (Throwable th) {
+            n4SeenAt = now();
             return true;
         }
     }

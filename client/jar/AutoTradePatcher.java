@@ -916,6 +916,18 @@ public final class AutoTradePatcher implements Opcodes {
         require(readsField(gate, "HSOAutoTradeSupport", "n4State"),
                 "autoTargetGate() khong xet n4State - se siet tam chon muc tieu ca khi khong"
                 + " chay Auto Nga 4");
+        /*
+         * Tam chon muc tieu phai la TOAN BAN DO - nguoi choi chot sau khi chay thu.
+         *
+         * Da thu cat tam ve dung vong tron tam danh va hong: auto nay khong tu di toi muc
+         * tieu, nen cat tam la thanh ra dung im khong chi vao con nao trong khi quai vay
+         * quanh. n4InRange() van duoc goi, nhung ket qua phai bi BO DI (POP) - no chi de
+         * ghi moc thoi gian cho n4RescueDue().
+         */
+        require(resultDiscarded(gate, "HSOAutoTradeSupport", "n4InRange"),
+                "autoTargetGate() dung ket qua n4InRange() lam gia tri tra ve - tam chon muc"
+                + " tieu phai la toan ban do, khong duoc cat. Auto nay khong tu di toi muc"
+                + " tieu nen cat tam la dung im khong chi vao con quai nao ca");
 
         MethodNode atk = null;
         MethodNode n4tick = null;
@@ -974,6 +986,25 @@ public final class AutoTradePatcher implements Opcodes {
     }
 
     /** Method nay co doc mot field cua lop khac khong (khop ca owner lan ten). */
+    /**
+     * Ham nay co duoc goi trong method do va ket qua bi bo di ngay (POP) khong.
+     *
+     * Dung de khang dinh mot lan goi chi de lam viec phu (ghi moc thoi gian), khong tham
+     * gia vao gia tri tra ve. Khong co lan goi nao cung tinh la dat - luc do no khong the
+     * anh huong gi ca.
+     */
+    static boolean resultDiscarded(MethodNode m, String owner, String name) {
+        for (AbstractInsnNode n = m.instructions.getFirst(); n != null; n = n.getNext()) {
+            if (!(n instanceof MethodInsnNode)) continue;
+            MethodInsnNode call = (MethodInsnNode) n;
+            if (!owner.equals(call.owner) || !name.equals(call.name)) continue;
+            AbstractInsnNode next = n.getNext();
+            while (next != null && next.getOpcode() < 0) next = next.getNext();
+            if (next == null || next.getOpcode() != Opcodes.POP) return false;
+        }
+        return true;
+    }
+
     static boolean readsOwnerField(MethodNode m, String owner, String name) {
         if (m.instructions == null) return false;
         for (AbstractInsnNode n = m.instructions.getFirst(); n != null; n = n.getNext()) {

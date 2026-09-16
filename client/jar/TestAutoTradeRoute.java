@@ -427,15 +427,13 @@ public final class TestAutoTradeRoute {
                     "N4_GATE_EDGE_PX = " + edge + " - cua quai ra cach vien ban do ngan nay;"
                     + " 0 la dung ra ngoai ban do, qua lon la dung khong toi cua");
             expect(has(c, "autoTargetGate") && has(c, "n4InRange"),
-                    "thieu bo loc tam chon muc tieu - trong pho ban se khoa vao con quai o"
-                    + " tan dang xa va bao \"Muc tieu o qua xa\"");
+                    "thieu moc quan sat tam danh - n4RescueDue() khong biet da bao lau khong"
+                    + " co quai vao tam de ma lui ve giua thien thach");
             int slack = ci(c, "N4_REACH_SLACK_PX");
             expect(slack >= 0 && slack <= 60,
                     "N4_REACH_SLACK_PX = " + slack + " - engine bo muc tieu dang giu khi xa"
-                    + " hon tamDanh + 20 PIXEL; nguong chon phai bam sat con so do. Ban truoc"
-                    + " con nhan them kich thuoc o, ban kinh phong len hai chuc lan va bo loc"
-                    + " coi nhu khong ton tai - auto khoa vao con quai o tan cua ben kia roi"
-                    + " danh vao khong khi ca luot, thien thach vo");
+                    + " hon tamDanh + 20 PIXEL (tamDanh dem bang pixel, khong phai bang o)");
+
             expect(has(c, "n4SyncNoclip"),
                     "thieu n4SyncNoclip() - runtime tu tat Noclip sau ba lan bi server keo vi"
                     + " tri ve ma khong bao ai; co ben nay khong doi theo thi van giao duong"

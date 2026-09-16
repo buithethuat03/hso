@@ -1936,3 +1936,20 @@ HUD hiện `[lượt N - chờ hướng]` / `[lượt N - đón Tây]` / `[lư�
 `N4_GATE_BACK_PX` 20 → 40. Khoảng cách thật tới tường: `N4_GATE_EDGE_PX` 60 + 40 = **100px**
 (bản trước là 80px). Người chơi chốt sau khi chạy thử.
 
+## v40 — tầm chọn mục tiêu trả lại toàn bản đồ
+
+v38 siết tầm chọn mục tiêu về đúng vòng tròn tầm đánh. **Hỏng**: auto này *không tự đi tới
+mục tiêu*, nên siết tầm là thành ra đứng im không chỉ vào con nào trong khi quái vây quanh —
+đúng ảnh người chơi gửi.
+
+Người chơi chốt: để tầm toàn bản đồ.
+
+Để nguyên thì không mất gì. Vòng tìm mục tiêu của mod lấy con **gần nhất**, nên hễ có con
+nào lại gần là nó chuyển sang con đó ngay. Lúc không có con nào gần thì nó khoá một con ở
+xa và đánh hụt — vô hại.
+
+`n4InRange()` vẫn còn nhưng **đổi vai**: không chặn nữa, chỉ ghi mốc "vừa rồi có quái trong
+tầm đánh" cho `n4RescueDue()` dùng. Kết quả của nó bị bỏ đi ngay (POP), và `AutoTradePatcher`
+có luật `resultDiscarded()` khẳng định đúng điều đó — để lần sau không ai vô tình nối nó trở
+lại vào giá trị trả về.
+
