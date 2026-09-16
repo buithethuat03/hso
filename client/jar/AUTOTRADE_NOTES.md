@@ -1715,3 +1715,56 @@ Phân biệt hai loại thông báo trong phó bản:
 | "Bầy quái vật sẽ xuất hiện ở cửa phía X sau 15 giây" | dòng chữ chạy (hộp info) | **có** | có |
 
 Chỉ câu thứ hai mới chứa hướng, nên không cần đọc banner.
+
+---
+
+## v34 — ba chỗ làm nhân vật không chịu đứng yên
+
+Người chơi báo v33 vẫn *"chạy vòng vòng không đứng yên để đánh"*, và thêm một lỗi: bật menu Auto
+Ngã 4 mà chưa tắt menu thì nhân vật **trôi thẳng xuống cuối bản đồ**.
+
+Trước hết, loại bỏ một giả thiết: **Auto Tự Đánh KHÔNG điều khiển di chuyển.** Bằng chứng là
+chính bản v29 — nhân vật đứng giữa bản đồ và không hề tự đi tới quái, chỉ báo "Mục tiêu ở quá
+xa". Vậy thứ làm nó chạy là code của mod này, không phải engine.
+
+### 1. Hộp thông báo có ba dòng, và dòng cũ bị đọc lại
+
+`pollInfo()` đọc `text1/text2/text3`, còn `takeInfo()` chỉ so *"dòng này có khác lần trước
+không"*. Khi có dòng mới, các dòng cũ **bị đẩy xuống dưới** — thế là mỗi lần đẩy, các dòng cũ
+cũng khác chỗ cũ của chúng và **được đọc lại như dòng mới**.
+
+Hậu quả: thông báo cửa của đợt **trước** lại đặt cửa thêm một lần nữa. Cửa nhảy qua nhảy lại
+giữa hai hướng, nhân vật chạy đi chạy lại giữa hai điểm đón. Đúng triệu chứng.
+
+Chặn bằng `N4_GATE_HOLD_MS = 20000`: đổi cửa xong thì khoá 20 giây. Thông báo thật cách nhau cả
+một đợt quái (hàng chục giây), còn bản sao bị đẩy xuống thì tới **ngay trong cùng khung hình** —
+20 giây tách được hẳn hai loại.
+
+### 2. Không dừng hẳn — thiếu đúng cơ chế Auto Đi Buôn đã có
+
+Bỏ tay ra không làm nhân vật dừng: engine vẫn đi hết đường đã giao. Phải đủ **ba tầng**, y như
+`standStill()`:
+
+```java
+haltWalk(me);                       // bỏ đoạn đường còn lại
+me.stepDestX = me.x;                // kéo điểm đến về chỗ đang đứng
+me.stepDestY = me.y;
+sender().move((short) me.x, (short) me.y);   // báo vị trí cho server
+```
+
+`n4Park()` làm đúng thế, và được gọi **mỗi nhịp** khi đã ở trong vùng đón (tự nó là lệnh rỗng
+khi đã thật sự đứng yên), **và** ngay lúc bật auto — đó là lỗi trôi xuống cuối bản đồ khi menu
+còn mở.
+
+### 3. Noclip có thể đã bị tắt mà bên này không biết
+
+Tầng runtime **tự tắt Noclip sau ba lần bị server kéo vị trí về**. Nếu nó tắt mà `noclipOn` bên
+này vẫn true thì đường giao cho engine đi xuyên tường trong khi engine đã kiểm va chạm trở lại —
+nhân vật đâm vào tường, mỗi nhịp lại giao một đường mới, nhìn y hệt đang chạy vòng vòng.
+
+`n4StepFight()` giờ bật lại Noclip mỗi nhịp nếu thấy nó tắt.
+
+### Chốt trong test
+
+- `N4_GATE_HOLD_MS >= 5000`.
+- Phải còn `n4Park()`.

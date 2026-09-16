@@ -114,8 +114,10 @@ sang classpath jar HSOSKY, sẽ không compile.
 | `autotrade_v31.1.jar` | v31 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `autotrade_v32.jar` | Auto Ngã 4 đứng đón một chỗ, thôi đuổi theo quái; HUD ghi rõ đang đón cửa nào |
 | `autotrade_v32.1.jar` | v32 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
-| `autotrade_v33.jar` | **bản đang chơi** — chỗ đón sát cửa hơn: cách tường **80px** (`N4_GATE_BACK_PX` 350 → 20) |
+| `autotrade_v33.jar` | chỗ đón sát cửa hơn: cách tường **80px** — nhưng vẫn chạy vòng vòng |
 | `autotrade_v33.1.jar` | v33 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
+| `autotrade_v34.jar` | **bản đang chơi** — khoá đổi cửa 20s (dòng thông báo cũ bị đọc lại), dừng hẳn ba tầng, giữ Noclip trong phó bản |
+| `autotrade_v34.1.jar` | v34 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `KNIGHT_ONLINE_RL.jar` | V3 → server **"Rồng Lửa"** `27.0.12.133:19129`, MIDlet đổi tên, auto đập đồ giãn 4s |
 | `KNIGHT_ONLINE_RL_V3.jar` | dựng từ V5 (bản chạy thử 1 viên) |
 | `KNIGHT_ONLINE_RL_V5.jar` | dựng từ V7 |

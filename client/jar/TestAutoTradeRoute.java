@@ -397,6 +397,13 @@ public final class TestAutoTradeRoute {
             expect(has(c, "n4Tick") && has(c, "n4StartAttack") && has(c, "n4OnNpcMenu")
                             && has(c, "n4RockX") && has(c, "n4RockY") && has(c, "n4Stop"),
                     "thieu mot trong cac ham cua Auto Nga 4");
+            long hold = cl(c, "N4_GATE_HOLD_MS");
+            expect(hold >= 5000L,
+                    "N4_GATE_HOLD_MS = " + hold + "ms - hop thong bao co ba dong, dong cu bi"
+                    + " day xuong se bi doc lai nhu dong moi; khoa qua ngan la cua nhay qua"
+                    + " nhay lai va nhan vat chay di chay lai giua hai diem don");
+            expect(has(c, "n4Park"),
+                    "thieu n4Park() - khong dung han ba tang thi nhan vat troi theo quan tinh");
             expect(has(c, "n4ReadGate") && has(c, "n4StandPx"),
                     "thieu buoc doc cua quai ra - dung yen giua thien thach thi Auto Tu Danh"
                     + " chon duoc muc tieu nhung khong voi toi");

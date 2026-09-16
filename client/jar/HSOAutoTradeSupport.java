@@ -333,6 +333,19 @@ public final class HSOAutoTradeSupport {
     static final int N4_GATE_BACK_PX = 20;
     /** Chuoi nhan ra dong bao "Bay quai vat se xuat hien o cua phia ...". */
     static final String LBL_N4_GATE = "cửa";
+    /**
+     * Doi cua xong thi khoa ngan nay, khong nhan dong bao cua nao nua.
+     *
+     * Ly do la mot loi da kiem chung: hop thong bao co BA dong, va khi co dong moi thi cac
+     * dong cu bi day xuong o duoi. Ham doc chi so sanh "dong nay co khac lan truoc khong",
+     * nen moi lan day la cac dong CU cung duoc coi la moi va duoc doc lai. The la dong bao
+     * cua dot TRUOC lai dat cua mot lan nua, cua nhay qua nhay lai giua hai huong, va nhan
+     * vat chay di chay lai giua hai diem don - dung loi "chay vong vong khong dung yen".
+     *
+     * Dong bao that cach nhau it nhat ca mot dot quai (hang chuc giay), con ban sao do bi
+     * day xuong thi toi ngay trong cung mot khung hinh, nen khoa 20 giay la tach duoc han.
+     */
+    static final long N4_GATE_HOLD_MS = 20000L;
 
     static final long N4_GOTO_TIMEOUT_MS = 120000L;    // 2 phut de toi cho NPC
     static final long N4_TALK_TIMEOUT_MS = 20000L;     // bam menu xong, 20s ma chua vao
@@ -366,6 +379,8 @@ public final class HSOAutoTradeSupport {
     static int n4GateY;
     /** Ten cua, chi de hien len HUD cho nguoi choi doi chieu. */
     static String n4GateName;
+    /** Luc doi cua gan nhat - xem N4_GATE_HOLD_MS. */
+    static long n4GateAt;
     static boolean pendingN4Submenu;
 
     /** Bam dung roi phai lang xuong ngan nay (du de goi bao vi tri toi server) moi dam goi bo. */
@@ -3010,6 +3025,7 @@ public final class HSOAutoTradeSupport {
         n4TownMap = mapId();
         n4LastMap = n4TownMap;
         clearPlan();
+        n4Park();          // dang mo menu ma van troi thi dung han lai da
         n4SetState(N4_GOTO);
         notice("Auto Ngã 4: BẬT.");
     }
@@ -3115,6 +3131,7 @@ public final class HSOAutoTradeSupport {
         n4GateX = 0;
         n4GateY = 0;
         n4GateName = null;
+        n4GateAt = 0L;
         /*
          * Bat Noclip de dung duoc dung GIUA thien thach. Thien thach chan duong, tim duong
          * that thi chi dung duoc ben canh no.
@@ -3186,6 +3203,17 @@ public final class HSOAutoTradeSupport {
             return;
         }
         if (!n4AutoOn) n4StartAttack();
+        /*
+         * Giu Noclip BAT suot trong pho ban.
+         *
+         * Tang runtime tu TAT Noclip sau ba lan bi server keo vi tri ve. Bat lai o day vi
+         * neu no tat ma ben nay van tuong la dang bat thi duong di giao cho engine se di
+         * xuyen tuong trong khi engine da kiem va cham tro lai - nhan vat dam vao tuong,
+         * moi nhip lai giao mot duong moi, nhin y het dang chay vong vo.
+         */
+        if (!HSOSKYRuntimeSupport.isNoClipEnabled()) {
+            HSOSKYRuntimeSupport.setNoClipEnabled(true);
+        }
 
         /*
          * DUNG DON MOT CHO, khong duoi theo quai.
@@ -3213,16 +3241,43 @@ public final class HSOAutoTradeSupport {
         if (x < 0 || y < 0) return;                // chua nap xong ban do
 
         if (within(x, y, n4StandPx())) {
+            /*
+             * Goi moi nhip chu khong chi mot lan: bo tay ra khong lam nhan vat dung lai,
+             * engine van di het duong da giao (cai nguoi choi goi la "di theo quan tinh").
+             * n4Park() tu no la lenh rong khi da that su dung yen.
+             */
+            n4Park();
             if (!n4AtRock) {
                 n4AtRock = true;
-                IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl me = player();
-                if (me != null) haltWalk(me);
                 notice("Đã vào chỗ đợi, đứng đón quái.");
             }
             return;
         }
         n4AtRock = false;
         stepToward(x, y, false);
+    }
+
+    /**
+     * Dung HAN lai: bo doan duong con lai, keo diem den ve cho dang dung, va bao vi tri.
+     *
+     * Ba tang deu can, giong het standStill() cua Auto Di Buon:
+     *   - bo duong con lai   -> engine thoi giao buoc moi
+     *   - keo diem den ve    -> thoi luon buoc dang di do dang
+     *   - bao vi tri         -> server biet minh dung o dau
+     *
+     * Khong lam du ba tang thi nhan vat "troi" theo quan tinh - dung loi nguoi choi gap khi
+     * bat menu Auto Nga 4 ma chua tat menu: no troi thang xuong cuoi ban do.
+     */
+    static void n4Park() {
+        IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl me = player();
+        if (me == null) return;
+        if (me.IlllIIIlIlIlllIIIlIIlIIlIIIlIIlIIlIIllIlllIlIIlllIIllIIlllIlllIlllIIlllIIllIlllIIllIlIllIIlIIIlIIIlllIIlllIIIllIIllIIlllIlllIllIIllIIIlllIIlIIllIllIIlIIllIIllIIlllIIIlllIIlIIllIIIlllIlIIllIllIIlllIIlIIlIllIIllIIlllIllIllIllIlIl == null
+                && me.IIIlIIIllIIIllIlllIIllIlllIIlIIIllIIIlIIIllIIlllIIlllIIIlIlIllIlIIllIIlIllIIIlIlIIlllIIllIIIllIIllIIIlIIllIlIIllIIIllIlIIlllIIllIIIlIIlIIIllIlIIlllIIIllIllIlllIllIlIllIIIllIIlIllIIlIIlllIIllIlllIllIIlIllIIlIIllIlIllIIllIIl == me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll
+                && me.IllIlllIIllIIlIIlIlIIIllIIllIIlllIIIlIIlIIlllIIlIlIIIlIlIIIlIIllIlllIIIlllIIllIllIllIIlllIlIllIIlIlIIIlIlIlllIIIlIlllIIlIIllIIlIIllIllIIllIlllIIIllIllIlIIIllIIllIIllIIlIIIlIIlIlIIIllIIllIllIlllIIIllIIIllIIIlllIIlIIIlIlll == me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll) return;
+        haltWalk(me);
+        me.IIIlIIIllIIIllIlllIIllIlllIIlIIIllIIIlIIIllIIlllIIlllIIIlIlIllIlIIllIIlIllIIIlIlIIlllIIllIIIllIIllIIIlIIllIlIIllIIIllIlIIlllIIllIIIlIIlIIIllIlIIlllIIIllIllIlllIllIlIllIIIllIIlIllIIlIIlllIIllIlllIllIIlIllIIlIIllIlIllIIllIIl = me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll;
+        me.IllIlllIIllIIlIIlIlIIIllIIllIIlllIIIlIIlIIlllIIlIlIIIlIlIIIlIIllIlllIIIlllIIllIllIllIIlllIlIllIIlIlIIIlIlIlllIIIlIlllIIlIIllIIlIIllIllIIllIlllIIIllIllIlIIIllIIllIIllIIlIIIlIIlIlIIIllIIllIllIlllIIIllIIIllIIIlllIIlIIIlIlll = me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll;
+        sender().IIllIIlIllIIlIlllIIllIIIllIIIllIlIIlIIIllIIlllIIllIllIlIIlllIIlllIlIlIIlllIIlllIIIllIIllIIlIIIllIIIlllIIIllIllIIIlllIIllIllIlllIIIllIIIllIIlIlIIllIIlIIIlllIIllIIllIllIlllIIIlIIlIIIlIIllIlIIllIlllIlIIIllIIIlIIIllIIIlIlIllIIllIlIll((short) me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll, (short) me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll);
     }
 
     /**
@@ -3277,8 +3332,10 @@ public final class HSOAutoTradeSupport {
          * duoi day co chu "hướng" chu khong phai "cửa".
          */
         if (nx == n4GateX && ny == n4GateY) return;
+        if (n4GateAt != 0L && now() - n4GateAt < N4_GATE_HOLD_MS) return;
         n4GateX = nx;
         n4GateY = ny;
+        n4GateAt = now();
         n4GateName = where;
         n4AtRock = false;
         notice(join("Đợt quái tới từ hướng ", join(where, ", ra đón.")));
