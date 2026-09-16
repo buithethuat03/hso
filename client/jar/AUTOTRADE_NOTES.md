@@ -1461,3 +1461,82 @@ một đường một phần tử lên ô bị chặn thì nhân vật chỉ đ�
 - `realPath()` và `plannedPath()` **phải** gọi `nearestOnPath()`.
 - `neighbourPath()` và `approachPath()` **không được** còn trong support.
 - Test chốt `ENGINE_PATH_MAX <= 126` và `1 <= GATE_APPROACH_TILES <= 8`.
+
+---
+
+## v28 — Auto Ngã 4 (Ngã tư tử thần)
+
+Mục menu thứ hai, ngay dưới "Auto Đi Buôn". Dùng chung lớp support, chung móc `tick()` /
+`perform()` / `onNpcMenuOpened()` / `paintHud()` — không thêm móc ASM nào.
+
+### Vì sao nó ngắn hơn Auto Đi Buôn rất nhiều
+
+- **Không có con bò.** Phần khó nhất của Auto Đi Buôn không tồn tại ở đây.
+- **Không phải định tuyến.** Hết phó bản, server đá người chơi về đúng cái làng có NPC Phó
+  chỉ huy, nên vòng lặp khép kín trên **hai** bản đồ.
+- **Không phải tự đánh nhau.** Mod đã có Auto Tự Đánh; ở đây chỉ bật nó lên đúng chế độ.
+
+### Cơ chế phó bản
+
+Tower-defense: quái đẻ ở một đầu bản đồ rồi đi thẳng về phía **"Thiên thạch"**; thiên thạch vỡ
+là thua. Chỗ đứng tốt nhất là **ngay giữa thiên thạch** — kiểu gì quái cũng đi vào đó. Phải bật
+Noclip mới đứng được lên trên nó.
+
+### Chế độ đánh: 7 "Chỉ Quái"
+
+`HSOSKYPetFeedSupport` giữ cả hai:
+
+```java
+public static String getAutoAttackStatusText() {
+    if (autoPlayersEnabled) return "Auto Đánh: Quái & PK [6]";
+    return "Auto Đánh: Chỉ Quái [7]";
+}
+public static boolean isAutoTargetType(int n) {
+    if (n == 1) return true;                    // quái
+    return autoPlayersEnabled && n == 0;        // người, chỉ ở chế độ 6
+}
+```
+
+Nên **chế độ 7 = `setAutoPlayersEnabled(false)`**, gọi thẳng được vì hàm là `public static`.
+
+Và thiên thạch thì không phải lo: nó là thực thể **loại 2**, mà bộ lọc mục tiêu chỉ nhận loại 1
+và loại 0 — **không chế độ nào nhắm vào nó cả**.
+
+`persistentAutoAttack = true` để `onCanvasUpdate` tự bật lại mỗi khi engine tự tắt. Tắt auto thì
+trả `autoPlayersEnabled` về đúng giá trị người chơi đang để.
+
+### Nhận diện thiên thạch
+
+Không tra theo tên — tên của nó chỉ về sau khi client hỏi riêng. Lấy **thực thể loại NPC gần
+chỗ vừa rơi vào nhất**, và **chỉ nhận trong bán kính `N4_ROCK_PX = 220`**.
+
+Rào chắn đó có chủ đích: trong phó bản còn mấy NPC Lính canh ở gần cuối bản đồ. Nếu đoán nhầm
+thì không được phép kéo nhân vật chạy sang tận góc kia — thà đứng yên tại chỗ rơi vào, vì **tầm
+đánh của Auto Tự Đánh vốn là cả bản đồ** nên đứng đâu cũng đánh tới.
+
+### Thứ tự bấm menu
+
+1. `"ngã tư"` → "Vào Ngã Tư Tử Thần" (menu chính)
+2. `"horae"` → "Đồng tiền horae" — **vé, dùng trước**
+3. `"ngọc"` → "5 ngọc" — hết vé mới mua lượt
+
+Menu trả phí chỉ hiện khi **hôm nay đã đi rồi**; hôm chưa đi thì sau bước 1 là một hộp xác nhận,
+và hộp đó do `n4Tick()` bấm. Hộp chào của NPC cũng vậy: dòng đầu là "Giao tiếp", dòng sau là
+"Đóng", nên bấm dòng đầu là đúng.
+
+Bấm hết các dòng mà **`MAX_N4_TALK_FAILS = 3`** lần liên tiếp vẫn không đổi map thì dừng hẳn và
+nói rõ: gần như chắc chắn đã hết cả vé lẫn ngọc.
+
+### Chốt trong verify
+
+- Menu chính phải có **cả hai** dòng "Auto Đi Buôn" và "Auto Ngã 4".
+- `n4StartAttack()` phải gọi `setAutoPlayersEnabled` **và** `setModAutoAttack`.
+- `n4OnNpcMenu()` phải còn hằng `"horae"` — mất là tiêu ngọc trong khi còn vé.
+- Test chốt: action id hai tính năng không trùng nhau, `N4_ROCK_PX <= 400`,
+  `2 <= MAX_N4_TALK_FAILS <= 10`, hạn ở trong phó bản `>= 15` phút.
+
+### Chưa xác minh bằng chơi thật
+
+- Client có mô hình hoá thiên thạch thành thực thể loại NPC hay không. Nếu không, nhân vật đứng
+  yên tại chỗ rơi vào — vẫn đánh được, chỉ là không đứng giữa thiên thạch.
+- Câu chữ server trả về khi hết cả vé lẫn ngọc.

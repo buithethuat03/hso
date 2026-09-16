@@ -384,6 +384,33 @@ public final class TestAutoTradeRoute {
                     + ci(c, "MAX_PATH_FAILS") + " lan that bai la auto tu tat");
 
             System.out.println();
+            System.out.println("-- Auto Nga 4 --");
+            int a1 = ci(c, "ACT_N4_SUBMENU");
+            int a2 = ci(c, "ACT_N4_TOGGLE");
+            expect(a1 != ci(c, "ACT_SUBMENU") && a1 != ci(c, "ACT_TOGGLE")
+                            && a1 != ci(c, "ACT_BOOST") && a1 != ci(c, "ACT_NOCLIP")
+                            && a2 != ci(c, "ACT_SUBMENU") && a2 != ci(c, "ACT_TOGGLE")
+                            && a2 != ci(c, "ACT_BOOST") && a2 != ci(c, "ACT_NOCLIP")
+                            && a1 != a2,
+                    "action id cua Auto Nga 4 trung voi Auto Di Buon - bam mot muc se chay"
+                    + " nham tinh nang kia");
+            expect(has(c, "n4Tick") && has(c, "n4StartAttack") && has(c, "n4OnNpcMenu")
+                            && has(c, "n4RockEntity") && has(c, "n4Stop"),
+                    "thieu mot trong cac ham cua Auto Nga 4");
+            int rockPx = ci(c, "N4_ROCK_PX");
+            expect(rockPx > 0 && rockPx <= 400,
+                    "N4_ROCK_PX = " + rockPx + " - chi nhan thien thach trong ban kinh nay"
+                    + " quanh cho vua roi vao; de qua rong la co the nham sang NPC Linh canh"
+                    + " o cuoi ban do va keo nhan vat chay khoi thien thach");
+            int talkFails = ci(c, "MAX_N4_TALK_FAILS");
+            expect(talkFails >= 2 && talkFails <= 10,
+                    "MAX_N4_TALK_FAILS = " + talkFails + " - 1 la mot goi ve cham cung bi coi"
+                    + " la het ve, qua nhieu la bam mai vao mat nguoi choi");
+            expect(ci(c, "N4_NPC_PX") > 0 && ci(c, "N4_NPC_PX") <= 120,
+                    "N4_NPC_PX phai la mot khoang cach bat chuyen hop ly");
+            expect(cl(c, "N4_FIGHT_TIMEOUT_MS") >= 900000L,
+                    "han o trong pho ban phai >= 15 phut - 20 hiep quai khong nhanh");
+
             System.out.println("-- Het hang / cho NPC nhap hang --");
             expect(gems.length == 3 && "kim cương".equals(gems[0]) && "ruby".equals(gems[1])
                             && "saphia".equals(gems[2]),

@@ -102,8 +102,10 @@ sang classpath jar HSOSKY, sẽ không compile.
 | `autotrade_v25_x3.jar` | v25 nhân ba — **vẫn không vào được cổng** khi tắt Noclip |
 | `autotrade_v26.jar` | v25 + **ép bước cuối lên ô cổng** (đường một phần tử, con trỏ 0) như `GhostMod.forcePortalStep` |
 | `autotrade_v26_x3.jar` | v26 nhân ba — **tắt Noclip: map lớn không tìm được đường, map nhỏ tới gần cổng thì quay đầu** |
-| `autotrade_v27.jar` | **bản đang chơi** — v26 + **tự dò rộng (BFS) trên bản đồ ô thật** khi engine chịu thua, bám kế hoạch lệch tối đa một ô |
+| `autotrade_v27.jar` | v26 + **tự dò rộng (BFS) trên bản đồ ô thật** khi engine chịu thua, bám kế hoạch lệch tối đa một ô |
 | `autotrade_v27.1.jar` | v27 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
+| `autotrade_v28.jar` | **bản đang chơi** — v27 + mục menu **"Auto Ngã 4"**: tự đi Ngã tư tử thần, ưu tiên vé Horae rồi mới tới ngọc |
+| `autotrade_v28.1.jar` | v28 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `KNIGHT_ONLINE_RL.jar` | V3 → server **"Rồng Lửa"** `27.0.12.133:19129`, MIDlet đổi tên, auto đập đồ giãn 4s |
 | `KNIGHT_ONLINE_RL_V3.jar` | dựng từ V5 (bản chạy thử 1 viên) |
 | `KNIGHT_ONLINE_RL_V5.jar` | dựng từ V7 |

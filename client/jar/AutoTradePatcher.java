@@ -66,8 +66,10 @@ public final class AutoTradePatcher implements Opcodes {
     static final String SUPPORT = "HSOAutoTradeSupport";
     static final String RUNTIME_SUPPORT = "HSOSKYRuntimeSupport";
     static final String MENU_LABEL = "Auto Đi Buôn";
+    static final String MENU_LABEL_N4 = "Auto Ngã 4";
     static final String ANCHOR_LABEL = "Auto Nuôi Pet";
     static final int ACT_SUBMENU = 9;
+    static final int ACT_N4_SUBMENU = 10;
 
     /** Nhip tu dang nhap lai cua CHINH CLIENT sau khi rot mang. */
     static final long OLD_RETRY_MS = 30000L;
@@ -192,20 +194,34 @@ public final class AutoTradePatcher implements Opcodes {
         }
         if (after == null) throw new RuntimeException("Khong thay addElement sau \"" + ANCHOR_LABEL + "\"");
 
+        AbstractInsnNode cursor = after;
+        cursor = addMenuRow(m, cursor, engine, MENU_LABEL, ACT_SUBMENU);
+        cursor = addMenuRow(m, cursor, engine, MENU_LABEL_N4, ACT_N4_SUBMENU);
+        System.out.println("[2] Them dong menu \"" + MENU_LABEL + "\" (action " + ACT_SUBMENU
+                + ") va \"" + MENU_LABEL_N4 + "\" (action " + ACT_N4_SUBMENU + ")");
+    }
+
+    /** Chen mot dong menu ngay sau {@code after}; tra ve lenh cuoi cung vua chen. */
+    static AbstractInsnNode addMenuRow(MethodNode m, AbstractInsnNode after, ClassNode engine,
+            String label, int action) {
+        String vecName = sym("class.VEC");
+        String vecAdd = sym("vec.add");
         String cmdName = sym("class.CMD");
         String cmdCtor = "(Ljava/lang/String;IL" + sym("class.LISTENER") + ";)V";
         InsnList add = new InsnList();
         add.add(new VarInsnNode(ALOAD, 0));                       // Vector cuc bo
         add.add(new TypeInsnNode(NEW, cmdName));
         add.add(new InsnNode(DUP));
-        add.add(new LdcInsnNode(MENU_LABEL));
-        add.add(new IntInsnNode(BIPUSH, ACT_SUBMENU));
+        add.add(new LdcInsnNode(label));
+        add.add(new IntInsnNode(BIPUSH, action));
         add.add(new FieldInsnNode(GETSTATIC, engine.name, sym("engine.field.INSTANCE"),
                 "L" + engine.name + ";"));
         add.add(new MethodInsnNode(INVOKESPECIAL, cmdName, "<init>", cmdCtor, false));
-        add.add(new MethodInsnNode(INVOKEVIRTUAL, vecName, vecAdd, "(Ljava/lang/Object;)V", false));
+        AbstractInsnNode last = new MethodInsnNode(INVOKEVIRTUAL, vecName, vecAdd,
+                "(Ljava/lang/Object;)V", false);
+        add.add(last);
         m.instructions.insert(after, add);
-        System.out.println("[2] Them dong menu \"" + MENU_LABEL + "\" (action " + ACT_SUBMENU + ")");
+        return last;
     }
 
     /** perform(int,int) la method instance -> tham so nam o local 1 va 2. */
@@ -547,6 +563,8 @@ public final class AutoTradePatcher implements Opcodes {
 
         require(hasLdc(method(engine, sym("engine.method.showMainMenu"), "()V"), MENU_LABEL),
                 "menu chinh khong co dong \"" + MENU_LABEL + "\"");
+        require(hasLdc(method(engine, sym("engine.method.showMainMenu"), "()V"), MENU_LABEL_N4),
+                "menu chinh khong co dong \"" + MENU_LABEL_N4 + "\"");
         require(hasLdc(method(engine, sym("engine.method.showMainMenu"), "()V"), ANCHOR_LABEL),
                 "menu chinh mat dong \"" + ANCHOR_LABEL + "\"");
         require(callsSupport(method(engine, sym("engine.method.perform"), "(II)V"), "handleMenuAction"),
@@ -839,6 +857,32 @@ public final class AutoTradePatcher implements Opcodes {
          * toa do hien tai cua nhan vat, ma di duong that thi toa do do doi ca hai truc moi
          * buoc - goc truot theo chan, duoi mai khong kip.
          */
+        /*
+         * Auto Nga 4 phai bat Auto Tu Danh o dung che do 7 "Chỉ Quái".
+         *
+         * Che do 7 la autoPlayersEnabled = false. De nham sang che do 6 thi trong pho ban
+         * nhan vat se di danh ca nguoi choi khac, va quan trong hon la doi muc tieu lien
+         * tuc thay vi don quai dang lao vao thien thach.
+         */
+        MethodNode atk = null;
+        MethodNode n4tick = null;
+        MethodNode n4menu = null;
+        for (MethodNode m : support.methods) {
+            if ("n4StartAttack".equals(m.name)) atk = m;
+            if ("n4Tick".equals(m.name)) n4tick = m;
+            if ("n4OnNpcMenu".equals(m.name)) n4menu = m;
+        }
+        require(atk != null, "support khong con ham n4StartAttack()");
+        require(n4tick != null, "support khong con ham n4Tick()");
+        require(n4menu != null, "support khong con ham n4OnNpcMenu()");
+        require(callsOwner(atk, "HSOSKYPetFeedSupport", "setAutoPlayersEnabled"),
+                "n4StartAttack() khong dat che do danh - phai tat autoPlayersEnabled de ve"
+                + " dung che do 7 \"Chỉ Quái\"");
+        require(callsOwner(atk, "HSOSKYPetFeedSupport", "setModAutoAttack"),
+                "n4StartAttack() khong bat Auto Tu Danh - vao pho ban se dung im");
+        require(hasLdc(n4menu, "horae"),
+                "n4OnNpcMenu() khong con nhan \"horae\" - se tieu ngoc trong khi con ve");
+
         MethodNode rt = null;
         for (MethodNode m : support.methods) if ("routeTowards".equals(m.name)) rt = m;
         require(rt != null, "support khong con ham routeTowards()");
