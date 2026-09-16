@@ -2091,3 +2091,47 @@ giao đường → engine tự đi hết (player.path == null) → lúc đó m�
 Toạ độ (588,564) là tâm ô (24,23) nên đường thật kết thúc đúng tại đó. Bốn chỗ đón lệch tâm ô
 4–12px, nằm trong tolerance 40px của `arrived()`.
 
+## auto_n4_v10 — hai auto cùng giành `player.path`
+
+Người chơi tìm ra nguyên nhân thật: **Auto Đánh và Auto Ngã 4 cùng điều khiển `player.path`.**
+
+Auto Tự Đánh không chỉ chọn mục tiêu. Khi mục tiêu ở xa, nó **tự gọi `findPath` rồi ghi thẳng
+kết quả vào `player.path`** để chạy tới. Auto Ngã 4 cũng ghi `player.path` để ra chỗ đón. Hai
+bên ghi đè lên nhau mỗi nhịp, nên nhân vật không bao giờ đi hết đường nào — nhìn ra ngoài đúng
+là "chạy vòng vòng, không chịu đứng im, không đánh".
+
+Đây là lý do mọi bản từ v29 tới v9 đều thất bại: tất cả đều sửa phía Auto Ngã 4, trong khi bên
+kia vẫn ghi đè.
+
+### Chỗ chặn
+
+Quét cả client tìm mọi lệnh ghi `player.path`:
+
+| Nơi ghi | Giá trị |
+|---|---|
+| 1 chỗ trong lớp **PLAYER**, ngay sau `findPath(IIIII)[S` | đường đi thật ← **chặn ở đây** |
+| 4 chỗ khác trong PLAYER | `null` (xoá đường) |
+| 8 chỗ trong các lớp thực thể khác (quái, pet) | đường của chúng, không liên quan |
+
+Nên chỉ cần chặn **đúng một lệnh**. Patcher chèn `HSOAutoTradeSupport.autoAttackPath([S)[S`
+ngay trước lệnh gán đó:
+
+```java
+public static short[] autoAttackPath(short[] path) {
+    if (n4State == N4_OFF && state == OFF) return path;
+    return null;
+}
+```
+
+Trả về `null` = không giao đường nào. Auto Tự Đánh **vẫn chọn mục tiêu và vẫn đánh**, chỉ mất
+quyền di chuyển. `null` là trạng thái engine xử lý được — chính nó cũng gán `null` ở bốn chỗ
+khác trong cùng hàm.
+
+### Hai cái bẫy khi tìm chỗ chặn
+
+- `player.path` khai báo trên **ENTITY** (lớp cha), không phải PLAYER — giống hệt `atkRange`.
+- Tên obfuscate của `path` bị dùng lại trên nhiều lớp: lọc theo tên + kiểu vẫn ra **9 chỗ**.
+  Phải giới hạn trong lớp PLAYER mới còn đúng 1.
+
+Patcher có luật `require(hooks == 1, ...)` — jar đổi cấu trúc là dừng, không đoán.
+

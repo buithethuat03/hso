@@ -3529,6 +3529,29 @@ public final class HSOAutoTradeSupport {
     // ------------------------------------------------------------ tam chon muc tieu
 
     /**
+     * Bo loc DUONG DI ma Auto Tu Danh giao cho nhan vat - patcher chen vao truoc luc gan.
+     *
+     * DAY LA CHO HAI BEN GIANH NHAU.
+     *
+     * Auto Tu Danh khong chi chon muc tieu: khi muc tieu o xa no con TU TINH DUONG va ghi
+     * thang vao player.path de chay toi. Auto Nga 4 cung ghi player.path de ra cho don. Hai
+     * ben ghi de len nhau moi nhip, nen nhan vat khong bao gio di het duong nao ca - nhin ra
+     * ngoai dung la "chay vong vong, khong chiu dung im, khong danh".
+     *
+     * Quet ca client thi chi co DUNG MOT cho gan duong di that vao player.path (ket qua cua
+     * findPath, nam trong chinh vong auto danh); moi cho khac deu chi gan null de xoa duong.
+     * Nen chan dung cho do la du, va khong dung toi gi khac.
+     *
+     * Khi auto cua minh dang chay: tra ve null = khong giao duong nao. Auto Tu Danh van chon
+     * muc tieu va van danh binh thuong, chi mat quyen di chuyen. null la trang thai engine
+     * xu ly duoc - chinh no cung gan null o bon cho khac trong cung ham do.
+     */
+    public static short[] autoAttackPath(short[] path) {
+        if (n4State == N4_OFF && state == OFF) return path;
+        return null;
+    }
+
+    /**
      * Bo loc muc tieu cua Auto Tu Danh - patcher noi thay cho cho goi isValidAutoTarget.
      *
      * Ban mod chon muc tieu tren CA BAN DO. Trong pho ban thi khong duoc: quai vao tung dot

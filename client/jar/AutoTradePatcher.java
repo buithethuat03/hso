@@ -155,6 +155,7 @@ public final class AutoTradePatcher implements Opcodes {
         patchCanvasTick(entries);
         patchShop(entries);
         patchAutoTarget(entries);
+        patchAutoAttackPath(entries);
         patchReconnectDelay(entries);
         patchFrameRate(entries);
         lowerClassVersions(entries);
@@ -295,6 +296,62 @@ public final class AutoTradePatcher implements Opcodes {
      * trong lop PLAYER sang ham cua mod nay. Ham do goi lai dung ham cu, chi them mot dieu
      * kien tam danh va CHI khi Auto Nga 4 dang chay - moi thu khac giu nguyen hanh vi.
      */
+    /**
+      * Chan Auto Tu Danh ghi duong di vao player.path.
+      *
+      * Hai tinh nang cung ghi player.path thi nhan vat chay vong vong, khong di het duong
+      * nao. Quet ca client: chi co DUNG MOT cho gan duong di that (ket qua findPath) vao
+      * player.path, nam trong vong auto danh; moi cho khac chi gan null de xoa duong. Chen
+      * mot loi goi loc ngay truoc lenh gan do - dung mot cho, khong dung gi khac.
+      *
+      * player.path khai bao tren ENTITY (lop cha) chu khong phai PLAYER, nen phai tim theo
+      * ten + kieu chu khong theo lop so huu.
+      */
+    static void patchAutoAttackPath(Map<String, byte[]> entries) {
+        String pathField = sym("player.path");
+        String pathOwner = sym("class.ENTITY");     // path khai bao tren lop cha
+        String findPath = sym("screen.findPath");
+        int hooks = 0;
+        /*
+         * CHI trong lop PLAYER. Cac thuc the khac (quai, pet) cung duoc gan duong tu findPath
+         * vao cung field do - toan jar co 9 cho - nhung do la viec cua chung, khong dinh gi
+         * toi quyen di chuyen cua nguoi choi.
+         */
+        String playerName = sym("class.PLAYER");
+        for (Map.Entry<String, byte[]> e : entries.entrySet()) {
+            if (!e.getKey().equals(playerName + ".class")) continue;
+            ClassNode cn = new ClassNode();
+            new ClassReader(e.getValue()).accept(cn, 0);
+            boolean touched = false;
+            for (MethodNode m : cn.methods) {
+                if (m.instructions == null) continue;
+                for (AbstractInsnNode n = m.instructions.getFirst(); n != null; n = n.getNext()) {
+                    if (n.getOpcode() != PUTFIELD) continue;
+                    FieldInsnNode f = (FieldInsnNode) n;
+                    // Ten obfuscate bi dung lai tren nhieu lop -> phai xet ca lop so huu.
+                    if (!pathField.equals(f.name) || !"[S".equals(f.desc)
+                            || !pathOwner.equals(f.owner)) continue;
+                    AbstractInsnNode prev = n.getPrevious();
+                    while (prev != null && prev.getOpcode() < 0) prev = prev.getPrevious();
+                    if (!(prev instanceof MethodInsnNode)) continue;   // gan null -> bo qua
+                    MethodInsnNode call = (MethodInsnNode) prev;
+                    if (!findPath.equals(call.name) || !"(IIIII)[S".equals(call.desc)) continue;
+                    m.instructions.insertBefore(n, new MethodInsnNode(
+                            INVOKESTATIC, SUPPORT, "autoAttackPath", "([S)[S", false));
+                    hooks++;
+                    touched = true;
+                }
+            }
+            if (!touched) continue;
+            ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+            cn.accept((ClassVisitor) cw);
+            e.setValue(cw.toByteArray());
+        }
+        require(hooks == 1, "mong doi DUNG MOT cho auto danh gan duong di vao player.path,"
+                + " tim thay " + hooks + " - cau truc jar da khac, dung doan");
+        System.out.println("[6g] Chan Auto Tu Danh gianh quyen di chuyen (" + hooks + " cho gan)");
+    }
+
     static void patchAutoTarget(Map<String, byte[]> entries) {
         String playerName = sym("class.PLAYER");
         ClassNode player = new ClassNode();
@@ -1032,6 +1089,12 @@ public final class AutoTradePatcher implements Opcodes {
         require(callsOwner(gate, "HSOSKYPetFeedSupport", "isValidAutoTarget"),
                 "autoTargetGate() khong goi lai bo loc goc - moi che do khac Auto Nga 4 se"
                 + " doi hanh vi chon muc tieu, khong chi rieng pho ban");
+        MethodNode apath = null;
+        for (MethodNode m : support.methods) if ("autoAttackPath".equals(m.name)) apath = m;
+        require(apath != null, "support khong con ham autoAttackPath()");
+        require(anyClassCalls(entries, SUPPORT, "autoAttackPath"),
+                "chua chan Auto Tu Danh ghi player.path - hai ben cung ghi thi nhan vat chay"
+                + " vong vong, khong di het duong nao");
         require(readsField(gate, "HSOAutoTradeSupport", "n4InDungeon"),
                 "autoTargetGate() khong xet n4InDungeon - se siet tam chon muc tieu ca khi khong"
                 + " o trong pho ban");
