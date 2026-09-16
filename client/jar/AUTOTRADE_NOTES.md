@@ -1587,3 +1587,62 @@ Nhận dạng đòi có cả cụm `"cửa phía"` chứ không chỉ một từ
 - Phải còn `n4NearestMob()` và `n4ReadGate()`.
 - `0 < N4_GATE_EDGE_PX < 400`; `0 < N4_MELEE_PX <= 60`.
 - `n4RockEntity()` vẫn không được quay lại.
+
+---
+
+## v31 — lùi ra khỏi cửa, và trả lại tầm chọn mục tiêu gốc
+
+Hai chỗ người chơi chỉ ra sau khi chạy v30.
+
+### 1. Đứng lùi ra khỏi cửa 350px
+
+Đứng sát tường thì đâm vào tường đúng chỗ quái ra. Lùi về phía tâm
+`N4_GATE_BACK_PX = 350` để **quái chạy lại chỗ mình**, và để bắt được chúng ở giữa đường thay
+vì dính vào một điểm. Không bao giờ lùi quá tâm.
+
+Nhận dạng cửa nới từ `"cửa phía"` xuống `"cửa"` — server có thể viết "cửa Tây" hay "cửa phía
+Tây", và dòng này chỉ được đọc khi **đang ở trong phó bản** (`N4_FIGHT`) nên không sợ một dòng
+chat ngoài đời lọt vào.
+
+### 2. Tầm chọn mục tiêu: trả về đúng vòng tròn gốc
+
+Bản mod để Auto Tự Đánh chọn mục tiêu **trên cả bản đồ**. Đây là bytecode thật trong jar:
+
+```java
+public static boolean isValidAutoTarget(Object t, Object me) {
+    if (t == null || me == null || t == me) return false;
+    if (t.dead) return false;
+    if (t.kind == 1) return true;            // quái -> nhận, KHÔNG xét khoảng cách
+    ...
+}
+```
+
+Ngoài phó bản thì tiện. Trong Ngã tư tử thần thì hỏng: quái vào từng đợt từ **một cửa ở rìa bản
+đồ**, nên nó khoá ngay vào con ở tận đằng xa và nhận lại **"Mục tiêu ở quá xa"**, trong khi con
+ngay cạnh thì không đánh.
+
+Không sửa `HSOSKYPetFeedSupport` (nguồn trên đĩa cũ hơn class trong jar). Thay vào đó patcher
+**đổi chỗ gọi** trong lớp `PLAYER` — cả **4 chỗ** — sang `HSOAutoTradeSupport.autoTargetGate`:
+
+```java
+public static boolean autoTargetGate(Object target, Object me) {
+    boolean ok = HSOSKYPetFeedSupport.isValidAutoTarget(target, me);
+    if (!ok || n4State == N4_OFF) return ok;        // ngoài Auto Ngã 4: y nguyên
+    return n4InRange(target, me);
+}
+```
+
+Bán kính lấy **đúng công thức của hàm vẽ vòng tròn**: `player.atkRange * 3 / 2` ô. Ký hiệu
+`player.atkRange` tra bằng `AddAtkRangeSymbol` — neo vào chính hàm vẽ vòng tròn, lấy field `int`
+đứng ngay trước cặp lệnh `iconst_3, imul`. Nó **không** khai báo trên `PLAYER` mà trên lớp cha,
+nên tra theo tên là hỏng — lại đúng cái bẫy quen thuộc của jar này.
+
+Đọc không được thì `n4InRange` trả `true`: thà nhận thừa còn hơn tự nhiên không đánh gì cả.
+
+### Chốt trong verify / test
+
+- `autoTargetGate()` **phải** gọi lại `isValidAutoTarget` — không thì mọi chế độ khác cũng đổi
+  hành vi chọn mục tiêu, chứ không riêng phó bản.
+- `autoTargetGate()` **phải** đọc `n4State` — không thì siết tầm cả khi không chạy Auto Ngã 4.
+- Patcher phải nối được ít nhất một chỗ gọi (thực tế 4).
+- `150 <= N4_GATE_BACK_PX <= 700`.

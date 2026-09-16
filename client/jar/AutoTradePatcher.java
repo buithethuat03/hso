@@ -147,6 +147,7 @@ public final class AutoTradePatcher implements Opcodes {
 
         patchCanvasTick(entries);
         patchShop(entries);
+        patchAutoTarget(entries);
         patchReconnectDelay(entries);
         lowerClassVersions(entries);
 
@@ -267,6 +268,44 @@ public final class AutoTradePatcher implements Opcodes {
      * MakeAutoTradeCompileJar mo dung hai field nay tren jar dung de bien dich, nen luc
      * chay va luc bien dich khop nhau.
      */
+    /**
+     * Noi bo loc muc tieu cua Auto Tu Danh qua ham cua minh.
+     *
+     * Ban mod de Auto Tu Danh chon muc tieu tren CA BAN DO. Ngoai pho ban thi tien, nhung
+     * trong Nga tu tu than thi hong: quai vao tung dot tu mot cua o ria ban do, nen no khoa
+     * ngay vao con o tan dang xa va nhan lai "Muc tieu o qua xa", trong khi con ngay canh
+     * thi khong danh.
+     *
+     * Khong sua HSOSKYPetFeedSupport (nguon tren dia cu hon class trong jar), ma doi CHO GOI
+     * trong lop PLAYER sang ham cua mod nay. Ham do goi lai dung ham cu, chi them mot dieu
+     * kien tam danh va CHI khi Auto Nga 4 dang chay - moi thu khac giu nguyen hanh vi.
+     */
+    static void patchAutoTarget(Map<String, byte[]> entries) {
+        String playerName = sym("class.PLAYER");
+        ClassNode player = new ClassNode();
+        new ClassReader(entries.get(playerName + ".class")).accept(player, 0);
+        int hooks = 0;
+        for (MethodNode m : player.methods) {
+            if (m.instructions == null) continue;
+            for (AbstractInsnNode n = m.instructions.getFirst(); n != null; n = n.getNext()) {
+                if (n.getOpcode() != INVOKESTATIC) continue;
+                MethodInsnNode c = (MethodInsnNode) n;
+                if (!"HSOSKYPetFeedSupport".equals(c.owner)) continue;
+                if (!"isValidAutoTarget".equals(c.name)) continue;
+                if (!"(Ljava/lang/Object;Ljava/lang/Object;)Z".equals(c.desc)) continue;
+                c.owner = SUPPORT;
+                c.name = "autoTargetGate";
+                hooks++;
+            }
+        }
+        require(hooks > 0, "khong tim thay cho goi isValidAutoTarget trong PLAYER");
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        player.accept((ClassVisitor) cw);
+        entries.put(playerName + ".class", cw.toByteArray());
+        System.out.println("[6e] Noi bo loc muc tieu Auto Tu Danh qua autoTargetGate ("
+                + hooks + " cho goi)");
+    }
+
     static void patchShop(Map<String, byte[]> entries) {
         String shopName = sym("class.SHOP");
         ClassNode shop = new ClassNode();
@@ -864,6 +903,20 @@ public final class AutoTradePatcher implements Opcodes {
          * nhan vat se di danh ca nguoi choi khac, va quan trong hon la doi muc tieu lien
          * tuc thay vi don quai dang lao vao thien thach.
          */
+        require(!anyClassCalls(entries, "HSOSKYPetFeedSupport", "isValidAutoTarget")
+                        || anyClassCalls(entries, SUPPORT, "autoTargetGate"),
+                "bo loc muc tieu chua duoc noi qua autoTargetGate - trong pho ban se khoa vao"
+                + " con quai o tan dang xa va bao \"Muc tieu o qua xa\"");
+        MethodNode gate = null;
+        for (MethodNode m : support.methods) if ("autoTargetGate".equals(m.name)) gate = m;
+        require(gate != null, "support khong con ham autoTargetGate()");
+        require(callsOwner(gate, "HSOSKYPetFeedSupport", "isValidAutoTarget"),
+                "autoTargetGate() khong goi lai bo loc goc - moi che do khac Auto Nga 4 se"
+                + " doi hanh vi chon muc tieu, khong chi rieng pho ban");
+        require(readsField(gate, "HSOAutoTradeSupport", "n4State"),
+                "autoTargetGate() khong xet n4State - se siet tam chon muc tieu ca khi khong"
+                + " chay Auto Nga 4");
+
         MethodNode atk = null;
         MethodNode n4tick = null;
         MethodNode n4menu = null;

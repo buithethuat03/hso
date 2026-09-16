@@ -108,8 +108,10 @@ sang classpath jar HSOSKY, sẽ không compile.
 | `autotrade_v28.1.jar` | v28 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `autotrade_v29.jar` | Auto Ngã 4 đứng vào chính giữa bản đồ — **đứng nhìn, quái xa quá không đánh được** |
 | `autotrade_v29.1.jar` | v29 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
-| `autotrade_v30.jar` | **bản đang chơi** — Auto Ngã 4 **ra đón quái ở cửa** và bám theo con gần nhất |
+| `autotrade_v30.jar` | Auto Ngã 4 ra đón quái ở cửa — nhưng đứng sát tường, và vẫn khoá mục tiêu ở tận xa |
 | `autotrade_v30.1.jar` | v30 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
+| `autotrade_v31.jar` | **bản đang chơi** — lùi ra khỏi cửa 350px, và trong Auto Ngã 4 trả tầm chọn mục tiêu về đúng vòng tròn gốc |
+| `autotrade_v31.1.jar` | v31 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `KNIGHT_ONLINE_RL.jar` | V3 → server **"Rồng Lửa"** `27.0.12.133:19129`, MIDlet đổi tên, auto đập đồ giãn 4s |
 | `KNIGHT_ONLINE_RL_V3.jar` | dựng từ V5 (bản chạy thử 1 viên) |
 | `KNIGHT_ONLINE_RL_V5.jar` | dựng từ V7 |

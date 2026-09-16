@@ -321,10 +321,17 @@ public final class HSOAutoTradeSupport {
      * 60px tinh tu vien. Bon cua nam o bon huong, tren dung hai duong thang di qua tam.
      */
     static final int N4_GATE_EDGE_PX = 60;
+    /**
+     * Dung LUI RA khoi cua ngan nay, chu khong dung sat tuong.
+     *
+     * De quai chay lai cho minh thay vi minh dam vao tuong dung cho. Cung la de khong bo
+     * lo doan duong quai di: dung giua cua va tam thi bat duoc chung o giua duong.
+     */
+    static final int N4_GATE_BACK_PX = 350;
     /** Toi gan quai ngan nay thi thoi khong duoi nua - de engine danh. */
     static final int N4_MELEE_PX = 24;
     /** Chuoi nhan ra dong bao "Bay quai vat se xuat hien o cua phia ...". */
-    static final String LBL_N4_GATE = "cửa phía";
+    static final String LBL_N4_GATE = "cửa";
 
     static final long N4_GOTO_TIMEOUT_MS = 120000L;    // 2 phut de toi cho NPC
     static final long N4_TALK_TIMEOUT_MS = 20000L;     // bam menu xong, 20s ma chua vao
@@ -819,7 +826,7 @@ public final class HSOAutoTradeSupport {
         if (text == null || text == infoSeen[slot]) return;
         infoSeen[slot] = text;
         lastInfoText = text.toLowerCase();
-        if (n4State != N4_OFF) n4ReadGate(lastInfoText);
+        if (n4State == N4_FIGHT) n4ReadGate(lastInfoText);
     }
 
     /** Dong thong bao noi mon dang mua da het hang. */
@@ -3243,13 +3250,27 @@ public final class HSOAutoTradeSupport {
             gx = cx;                      gy = cy * 2 - N4_GATE_EDGE_PX; where = "Nam";
         }
         if (where == null) return;
-        n4GateX = gx;
-        n4GateY = gy;
+        // Lui ve phia tam mot doan cho quai chay lai, thay vi dung dinh vao tuong.
+        n4GateX = n4PullBack(gx, cx);
+        n4GateY = n4PullBack(gy, cy);
         n4AtRock = false;
         notice(join("Quái vào cửa phía ", join(where, ", ra đón.")));
     }
 
-    /** Con quai gan nhan vat nhat tren ban do, hoac null. */
+    /** Keo mot toa do ve phia tam N4_GATE_BACK_PX, nhung khong duoc qua tam. */
+    static int n4PullBack(int at, int centre) {
+        if (at > centre) {
+            int v = at - N4_GATE_BACK_PX;
+            return v < centre ? centre : v;
+        }
+        if (at < centre) {
+            int v = at + N4_GATE_BACK_PX;
+            return v > centre ? centre : v;
+        }
+        return at;
+    }
+
+    /** Con quai gan nhat nhan vat tren ban do, hoac null. */
     static @class.ENTITY@ n4NearestMob() {
         @class.VEC@ list = @class.CHARS@.@chars.entities@;
         @class.PLAYER@ me = player();
@@ -3337,6 +3358,50 @@ public final class HSOAutoTradeSupport {
         pendRow = pick;
         pendAt = now();
         return true;
+    }
+
+    /**
+     * Bo loc muc tieu cua Auto Tu Danh - duoc patcher noi thay cho cho goi cu.
+     *
+     * Ban mod de Auto Tu Danh chon muc tieu TREN CA BAN DO: isValidAutoTarget nhan moi con
+     * quai, khong xet khoang cach. Ngoai pho ban thi tien, nhung trong Nga tu tu than thi
+     * hong: quai vao tung dot tu mot cua o ria ban do, nen no khoa ngay vao mot con con o
+     * tan dang xa va nhan lai "Mục tiêu ở quá xa", trong khi con ngay canh thi khong danh.
+     *
+     * Nen khi va CHI KHI Auto Nga 4 dang chay, tra lai dung tam chon muc tieu goc - dung
+     * cai vong tron mod ve tren man hinh.
+     */
+    public static boolean autoTargetGate(Object target, Object me) {
+        boolean ok;
+        try {
+            ok = HSOSKYPetFeedSupport.isValidAutoTarget(target, me);
+        } catch (Throwable t) {
+            return false;
+        }
+        if (!ok || n4State == N4_OFF) return ok;
+        return n4InRange(target, me);
+    }
+
+    /**
+     * Muc tieu co nam trong vong tron tam danh khong.
+     *
+     * Ban kinh lay dung cong thuc cua ham ve vong tron: tamDanh * 3 / 2, tinh bang O.
+     * Doc khong duoc thi tra ve true - tha nhan thua con hon tu nhien khong danh gi ca.
+     */
+    static boolean n4InRange(Object target, Object me) {
+        try {
+            @class.ENTITY@ t = (@class.ENTITY@) target;
+            @class.PLAYER@ p = (@class.PLAYER@) me;
+            int tile = @class.TILEMAP@.@tilemap.tileSize@;
+            int tiles = p.@player.atkRange@ * 3 / 2;
+            if (tile <= 0 || tiles <= 0) return true;
+            int reach = tiles * tile;
+            int dx = Math.abs(t.@entity.x@ - p.@player.x@);
+            int dy = Math.abs(t.@entity.y@ - p.@player.y@);
+            return dx <= reach && dy <= reach;
+        } catch (Throwable th) {
+            return true;
+        }
     }
 
     static String n4IdleReason() {
