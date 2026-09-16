@@ -349,6 +349,16 @@ public final class HSOAutoTradeSupport {
     /** Vua bi da ra lang, doi ngan nay roi moi lam gi. */
     static final long N4_LEAVE_WAIT_MS = 1000L;
     /**
+     * Bam sat muc tieu toi khoang nay thi thoi, du tam danh voi duoc tu xa hon.
+     *
+     * Ly do khong phai de danh - de NHAT DO. Vat pham roi ngay cho con quai chet, ma Auto Tu
+     * Danh thi dung lai ngay khi vao tam (tam danh mac dinh 140px) roi danh voi tu do, nen
+     * do roi cach ca tram pixel va khong ai nhat. Bam sat mot o la do roi ngay duoi chan.
+     */
+    static final int N4_LOOT_PX = 30;
+    /** Quai chet roi thi nan lai ngan nay cho kip nhat do, roi hay ve cho don. */
+    static final long N4_LOOT_WAIT_MS = 1500L;
+    /**
      * Khong nghe duoc huong quai ra trong ngan nay thi ra cho thien thach.
      *
      * Thong bao bao truoc 15 giay, nen 30 giay ma chua thay dong nao la chac chan da lo.
@@ -413,6 +423,8 @@ public final class HSOAutoTradeSupport {
     static boolean n4SavedNoclip;
     /** n4Settled(): luc engine bat dau ranh (da di het duong) va nhan vat dung yen. */
     static long n4IdleSince;
+    /** Lan cuoi con co muc tieu - de biet vua giet xong, con nan lai nhat do. */
+    static long n4TargetAt;
     /** Cho don dang nham toi (0/0 = chua co), ten huong, va luc chot. */
     static int n4AimX;
     static int n4AimY;
@@ -3359,10 +3371,7 @@ public final class HSOAutoTradeSupport {
         if (n4FightTooLong()) return;
         if (!n4AutoOn) n4StartAttack();
         n4WantNoclip(true);
-        if (n4Busy()) {
-            n4IdleSince = 0L;                      // Auto Tu Danh dang dan - de yen cho no
-            return;
-        }
+        if (n4ChaseTarget()) return;               // co quai thi bam theo no truoc da
         if (!n4EngineIdle()) {
             n4IdleSince = 0L;                      // dang di het duong da giao
             return;
@@ -3397,11 +3406,11 @@ public final class HSOAutoTradeSupport {
             return;
         }
         /*
-         * Danh xong mot con thi thuong da dung xa cho don (Auto Tu Danh vua keo toi tan cho
-         * con quai do). Con muc tieu thi de yen; het muc tieu ma da troi ra khoi cho don thi
-         * quay ve, san tien di qua cho vat pham vua roi.
+         * Con muc tieu thi bam theo. Vua giet xong thi nan lai N4_LOOT_WAIT_MS cho kip nhat
+         * do roi, roi moi ve cho don - di ngay la bo lai vat pham vua roi duoi chan.
          */
-        if (n4Busy()) return;
+        if (n4ChaseTarget()) return;
+        if (now() - n4TargetAt < N4_LOOT_WAIT_MS) return;
         if (!arrived(n4AimX, n4AimY)) n4SetState(N4_MOVE);
     }
 
@@ -3565,16 +3574,17 @@ public final class HSOAutoTradeSupport {
          */
         if (state != OFF) return null;
         /*
-         * AUTO NGA 4: CHO DI. Nguoi choi can nhan vat toi tan cho quai chet de nhat do roi -
-         * dung im mot cho thi vat pham roi xa qua, khong voi toi.
+         * AUTO NGA 4: cung chan. Quyen di chuyen chi thuoc MOT ben, va o day la Auto Nga 4.
          *
-         * Khong con so gianh nhau nua vi da co luat BAN GIAO ro rang, xem n4Busy(): he Auto
-         * Tu Danh co muc tieu la Auto Nga 4 thoi phat lenh di, de yen cho no dan; muc tieu
-         * chet roi thi Auto Nga 4 moi dan nhan vat ve cho don. Moi luc chi mot ben lai.
+         * Da thu tha cho Auto Tu Danh tu di (v11) va khong du: no dung lai ngay khi muc tieu
+         * vao tam danh roi danh voi tu do, nen vat pham roi cach ca tram pixel va khong ai
+         * nhat. Nguoi choi can nhan vat toi TAN XAC QUAI.
          *
-         * Va tam chon muc tieu da bi autoTargetGate() siet ve dung vong tron tam danh, nen
-         * doan duong no keo di khong bao gio dai qua ban kinh do.
+         * Nen Auto Nga 4 tu bam muc tieu - xem n4ChaseTarget() - va bam sat hon han: toi
+         * N4_LOOT_PX chu khong phai toi tam danh. Auto Tu Danh van lo phan chon muc tieu va
+         * danh, chi khong duoc lai.
          */
+        if (n4State != N4_OFF) return null;
         return path;
     }
 
@@ -3617,6 +3627,35 @@ public final class HSOAutoTradeSupport {
     }
 
     // ------------------------------------------------------------ HUD
+
+    /** Muc tieu Auto Tu Danh dang khoa, hoac null. */
+    static IllIllIIlllIIIllIIlllIIlIIlllIIIllIIIlllIIllIIIlIIIlIIIllIIllIlIIIllIlIIlllIIIlllIlIIlIIIlIIlIIlllIlIIlIlllIIllIIllIIllIIIlIIIlIIllIIllIllIIlIIIlllIllIIlIIIllIIllIIlIllIIIlllIIIllIIIllIIllIIlIIIllIIlllIIlllIIIlllIIIllIllIIlIIIlllIIlIIIllIIllIll n4Target() {
+        try {
+            return IIllIIIllIllIIIlllIIIlllIIllIIlllIlIIIllIllIlIIlIIIlllIIlIIllIIllIlIllIIllIIIllIIlIllIIlIIlIIllIIlIlIIllIllIIlIlIIlIIIllIIlIllIllIIlllIllIIlIlllIIllIlIlllIIlllIIIlIIlIIllIlllIlIIllIIIllIlIlIIlIIllIllIlIllIIIllIIll.IlIIIlIIllIlllIlIIIlIIlllIIlIllIIlIIllIIIlllIIlllIIIlIIIlIIllIlllIIllIllIIIlllIlIllIIIlllIIlllIlIIllIIIllIlIIlIlllIllIIlIIllIllIlIlIIlIIIllIIllIIlIllIIllIIlIIlllIllIIIllIlllIIllIlllIlIIlIllIIlllIIIllIlllIIIllIIlIIllIlllIIll;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /**
+     * Tu bam toi muc tieu Auto Tu Danh dang khoa. Tra ve true = da lo xong viec di nhip nay.
+     *
+     * Bam sat toi N4_LOOT_PX chu khong dung o tam danh: vat pham roi ngay cho con quai chet,
+     * dung tu xa danh voi thi do roi cach ca tram pixel va khong nhat duoc - dung loi nguoi
+     * choi bao sau khi het chay vong vong.
+     *
+     * Van giu luat khong cat duong: engine chua di het duong da giao thi khong giao duong moi.
+     */
+    static boolean n4ChaseTarget() {
+        IllIllIIlllIIIllIIlllIIlIIlllIIIllIIIlllIIllIIIlIIIlIIIllIIllIlIIIllIlIIlllIIIlllIlIIlIIIlIIlIIlllIlIIlIlllIIllIIllIIllIIIlIIIlIIllIIllIllIIlIIIlllIllIIlIIIllIIllIIlIllIIIlllIIIllIIIllIIllIIlIIIllIIlllIIlllIIIlllIIIllIllIIlIIIlllIIlIIIllIIllIll t = n4Target();
+        if (t == null) return false;
+        n4TargetAt = now();
+        if (within(t.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll, t.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll, N4_LOOT_PX)) return true;   // da ap sat
+        if (!n4EngineIdle()) return true;                                  // dang di, de yen
+        n4IdleSince = 0L;
+        stepToward(t.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll, t.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll, false);
+        return true;
+    }
 
     /**
      * Auto Tu Danh dang dan nhan vat hay khong.

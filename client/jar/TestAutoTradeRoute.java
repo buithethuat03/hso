@@ -403,6 +403,16 @@ public final class TestAutoTradeRoute {
                             && has(c, "n4StartAttack") && has(c, "autoTargetGate") && has(c, "n4InRange"),
                     "thieu mot ham phu cua Auto Nga 4 (engine ranh / doi / Noclip / cho map /"
                     + " doc huong / menu / tam danh)");
+            expect(has(c, "n4ChaseTarget") && has(c, "n4Target"),
+                    "thieu n4ChaseTarget() - Auto Tu Danh dung lai ngay khi muc tieu vao tam"
+                    + " danh roi danh voi tu do, vat pham roi cach ca tram pixel khong ai nhat;"
+                    + " phai tu bam toi tan xac quai");
+            int lootPx = ci(c, "N4_LOOT_PX");
+            expect(lootPx > 0 && lootPx <= 60,
+                    "N4_LOOT_PX = " + lootPx + " - bam sat muc tieu ngan nay de do roi ngay"
+                    + " duoi chan; qua lon la lai dung xa nhu cu");
+            expect(cl(c, "N4_LOOT_WAIT_MS") >= 500L,
+                    "N4_LOOT_WAIT_MS qua ngan - giet xong di ngay la bo lai do vua roi");
             expect(has(c, "n4Busy"),
                     "thieu n4Busy() - khong co luat ban giao thi Auto Tu Danh va Auto Nga 4 lai"
                     + " cung phat lenh di, ghi de len player.path cua nhau");

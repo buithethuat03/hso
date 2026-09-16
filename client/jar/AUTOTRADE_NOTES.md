@@ -2162,3 +2162,26 @@ Bước `N4_HOLD` thêm một nhịp: hết mục tiêu mà đã trôi khỏi ch
 Đoạn đường Auto Tự Đánh kéo đi không bao giờ dài quá 210px vì mục tiêu đã bị siết trong vòng
 tròn — nên nhân vật loanh quanh chỗ đón chứ không lang thang cả bản đồ như base gốc.
 
+## auto_n4_v12 — bám tới tận xác quái để nhặt đồ
+
+v11 trả quyền di chuyển lại cho Auto Tự Đánh, nhưng **không đủ**: nó dừng ngay khi mục tiêu
+vào tầm đánh (mặc định 140px) rồi đánh với từ đó. Vật phẩm rơi ngay chỗ con quái chết, tức
+cách cả trăm pixel — không ai nhặt.
+
+Nên quyền di chuyển quay về **một bên duy nhất là Auto Ngã 4**, và nó tự bám mục tiêu:
+
+```
+có mục tiêu  → đi tới nó, bám sát tới N4_LOOT_PX = 30px  (đồ rơi ngay dưới chân)
+giết xong    → nán N4_LOOT_WAIT_MS = 1.5s cho kịp nhặt
+hết mục tiêu → về chỗ đón
+```
+
+`chars.target` đúng là kiểu `ENTITY` nên đọc thẳng `entity.x/y` được — không phải suy đoán.
+
+Bám **mục tiêu engine đang khoá** chứ không phải "con gần nhất tính lại mỗi nhịp" — đây là
+khác biệt với bản v30/v31 hỏng ngày trước: mục tiêu khoá thì ổn định cho tới khi chết, còn
+"con gần nhất" thì đổi liên tục nên nhân vật chạy giật từng nhịp.
+
+Vẫn giữ hai luật cũ: không cắt đường engine đang đi (`n4EngineIdle`), và mục tiêu bị siết
+trong vòng tròn tầm đánh (`autoTargetGate`) nên đoạn bám không bao giờ dài quá 210px.
+
