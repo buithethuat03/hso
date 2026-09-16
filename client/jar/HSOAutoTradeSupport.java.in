@@ -328,8 +328,6 @@ public final class HSOAutoTradeSupport {
      * lo doan duong quai di: dung giua cua va tam thi bat duoc chung o giua duong.
      */
     static final int N4_GATE_BACK_PX = 350;
-    /** Toi gan quai ngan nay thi thoi khong duoi nua - de engine danh. */
-    static final int N4_MELEE_PX = 24;
     /** Chuoi nhan ra dong bao "Bay quai vat se xuat hien o cua phia ...". */
     static final String LBL_N4_GATE = "cửa";
 
@@ -363,6 +361,8 @@ public final class HSOAutoTradeSupport {
      */
     static int n4GateX;
     static int n4GateY;
+    /** Ten cua, chi de hien len HUD cho nguoi choi doi chieu. */
+    static String n4GateName;
     static boolean pendingN4Submenu;
 
     /** Bam dung roi phai lang xuong ngan nay (du de goi bao vi tri toi server) moi dam goi bo. */
@@ -3111,6 +3111,7 @@ public final class HSOAutoTradeSupport {
         n4AtRock = false;
         n4GateX = 0;
         n4GateY = 0;
+        n4GateName = null;
         /*
          * Bat Noclip de dung duoc dung GIUA thien thach. Thien thach chan duong, tim duong
          * that thi chi dung duoc ben canh no.
@@ -3184,24 +3185,22 @@ public final class HSOAutoTradeSupport {
         if (!n4AutoOn) n4StartAttack();
 
         /*
-         * Auto Tu Danh CHON duoc muc tieu ca ban do, nhung no khong tu di.
+         * DUNG DON MOT CHO, khong duoi theo quai.
          *
-         * Nen dung yen giua thien thach la dung nhin quai di tu tu vao - dung loi nguoi choi
-         * bao "quai xa qua khong danh duoc". Phai tu mang nhan vat toi cho quai:
+         * Ban truoc di toi con quai gan nhat va hong: quai thi dang di, moi lan tinh lai
+         * lai ra mot con khac o mot huong khac, the la nhan vat chay lien tuc khong dung -
+         * dung loi nguoi choi bao "no chay vong vong chu khong ra cho quai de danh".
          *
-         *   1. Thay quai thi di toi con gan nhat. Cai nay tu sua duoc moi truong hop, ke ca
-         *      khi khong doc duoc dong thong bao.
-         *   2. Chua co quai thi ra dung san o cua ma dot toi se vao (doc tu thong bao,
-         *      bao truoc 15 giay - thua de di toi noi).
-         *   3. Khong biet cua nao thi ve giua ban do: cho do cach deu ca bon cua.
+         * Duoi theo mot muc tieu dang di von la cach kho nhat; ma o day khong can, vi quai
+         * TU DI VE PHIA MINH - chung di tu cua vao thien thach, va cho dung cua auto nam
+         * ngay tren duong do. Cu dung yen la chung toi.
+         *
+         *   - Biet cua  -> ra dung o diem don cua cua do roi DUNG YEN.
+         *   - Chua biet -> ve giua ban do, cho cach deu ca bon cua.
          */
         int x;
         int y;
-        @class.ENTITY@ mob = n4NearestMob();
-        if (mob != null) {
-            x = mob.@entity.x@;
-            y = mob.@entity.y@;
-        } else if (n4GateX != 0 || n4GateY != 0) {
+        if (n4GateX != 0 || n4GateY != 0) {
             x = n4GateX;
             y = n4GateY;
         } else {
@@ -3210,15 +3209,28 @@ public final class HSOAutoTradeSupport {
         }
         if (x < 0 || y < 0) return;                // chua nap xong ban do
 
-        if (within(x, y, mob != null ? N4_MELEE_PX : ARRIVE_PX)) {
+        if (within(x, y, n4StandPx())) {
             if (!n4AtRock) {
                 n4AtRock = true;
-                notice(mob != null ? "Đã bám được quái." : "Đã vào chỗ đợi.");
+                @class.PLAYER@ me = player();
+                if (me != null) haltWalk(me);
+                notice("Đã vào chỗ đợi, đứng đón quái.");
             }
             return;
         }
         n4AtRock = false;
         stepToward(x, y, false);
+    }
+
+    /**
+     * Sai so chap nhan duoc khi da toi cho don.
+     *
+     * Duong di ket thuc o TAM MOT O nen phai nong nguong ra bang kich thuoc o, khong thi
+     * nhan vat khong bao gio "toi noi" va cu di lai mai.
+     */
+    static int n4StandPx() {
+        int tile = @class.TILEMAP@.@tilemap.tileSize@;
+        return ARRIVE_PX + (tile > 0 ? tile : 0);
     }
 
     /**
@@ -3251,10 +3263,22 @@ public final class HSOAutoTradeSupport {
         }
         if (where == null) return;
         // Lui ve phia tam mot doan cho quai chay lai, thay vi dung dinh vao tuong.
-        n4GateX = n4PullBack(gx, cx);
-        n4GateY = n4PullBack(gy, cy);
+        int nx = n4PullBack(gx, cx);
+        int ny = n4PullBack(gy, cy);
+        /*
+         * Cua khong doi thi im.
+         *
+         * Hai ly do, ca hai deu that: dong thong bao nam tren man hinh nhieu khung hinh lien
+         * nen se doc lai nhieu lan; va chinh dong bao cua auto cung chay qua cho do, neu no
+         * chua chu "cửa" thi se tu kich hoat lai chinh minh thanh vong lap. Vi the cau bao
+         * duoi day co chu "hướng" chu khong phai "cửa".
+         */
+        if (nx == n4GateX && ny == n4GateY) return;
+        n4GateX = nx;
+        n4GateY = ny;
+        n4GateName = where;
         n4AtRock = false;
-        notice(join("Quái vào cửa phía ", join(where, ", ra đón.")));
+        notice(join("Đợt quái tới từ hướng ", join(where, ", ra đón.")));
     }
 
     /** Keo mot toa do ve phia tam N4_GATE_BACK_PX, nhung khong duoc qua tam. */
@@ -3268,28 +3292,6 @@ public final class HSOAutoTradeSupport {
             return v > centre ? centre : v;
         }
         return at;
-    }
-
-    /** Con quai gan nhat nhan vat tren ban do, hoac null. */
-    static @class.ENTITY@ n4NearestMob() {
-        @class.VEC@ list = @class.CHARS@.@chars.entities@;
-        @class.PLAYER@ me = player();
-        if (list == null || me == null) return null;
-        @class.ENTITY@ best = null;
-        int bestDist = Integer.MAX_VALUE;
-        for (int i = 0; i < list.@vec.size@(); i++) {
-            Object o = list.@vec.get@(i);
-            if (o == null) continue;
-            @class.ENTITY@ e = (@class.ENTITY@) o;
-            if (e.@entity.kind@ != 1) continue;     // 1 = quai, 0 = nguoi, 2 = NPC
-            int dx = Math.abs(e.@entity.x@ - me.@player.x@);
-            int dy = Math.abs(e.@entity.y@ - me.@player.y@);
-            int d = dx > dy ? dx : dy;
-            if (d >= bestDist) continue;
-            bestDist = d;
-            best = e;
-        }
-        return best;
     }
 
     /*
@@ -3407,7 +3409,10 @@ public final class HSOAutoTradeSupport {
     static String n4IdleReason() {
         if (dialogOpen()) return " [chờ đóng hộp thoại]";
         if (pendRow >= 0) return " [chờ bấm menu]";
-        if (n4State == N4_FIGHT) return join(join(" [lượt ", String.valueOf(n4Runs)), "]");
+        if (n4State == N4_FIGHT) {
+            String at = n4GateName == null ? "giữa map" : n4GateName;
+            return join(join(" [lượt ", String.valueOf(n4Runs)), join(" - đón ", join(at, "]")));
+        }
         return "";
     }
 }

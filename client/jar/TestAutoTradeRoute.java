@@ -397,15 +397,16 @@ public final class TestAutoTradeRoute {
             expect(has(c, "n4Tick") && has(c, "n4StartAttack") && has(c, "n4OnNpcMenu")
                             && has(c, "n4RockX") && has(c, "n4RockY") && has(c, "n4Stop"),
                     "thieu mot trong cac ham cua Auto Nga 4");
-            expect(has(c, "n4NearestMob") && has(c, "n4ReadGate"),
-                    "thieu buoc bam theo quai / doc cua quai ra - dung yen giua thien thach"
-                    + " thi Auto Tu Danh chon duoc muc tieu nhung khong voi toi");
+            expect(has(c, "n4ReadGate") && has(c, "n4StandPx"),
+                    "thieu buoc doc cua quai ra - dung yen giua thien thach thi Auto Tu Danh"
+                    + " chon duoc muc tieu nhung khong voi toi");
+            expect(!has(c, "n4NearestMob"),
+                    "support con n4NearestMob() - duoi theo quai dang di lam nhan vat chay"
+                    + " lien tuc khong dung, da hong khi choi that");
             int edge = ci(c, "N4_GATE_EDGE_PX");
             expect(edge > 0 && edge < 400,
                     "N4_GATE_EDGE_PX = " + edge + " - cua quai ra cach vien ban do ngan nay;"
                     + " 0 la dung ra ngoai ban do, qua lon la dung khong toi cua");
-            expect(ci(c, "N4_MELEE_PX") > 0 && ci(c, "N4_MELEE_PX") <= 60,
-                    "N4_MELEE_PX phai du sat de engine danh toi con quai");
             expect(has(c, "autoTargetGate") && has(c, "n4InRange"),
                     "thieu bo loc tam chon muc tieu - trong pho ban se khoa vao con quai o"
                     + " tan dang xa va bao \"Muc tieu o qua xa\"");

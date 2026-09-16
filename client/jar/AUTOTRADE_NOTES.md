@@ -1646,3 +1646,45 @@ nên tra theo tên là hỏng — lại đúng cái bẫy quen thuộc của jar
 - `autoTargetGate()` **phải** đọc `n4State` — không thì siết tầm cả khi không chạy Auto Ngã 4.
 - Patcher phải nối được ít nhất một chỗ gọi (thực tế 4).
 - `150 <= N4_GATE_BACK_PX <= 700`.
+
+---
+
+## v32 — đứng đón một chỗ, thôi đuổi theo quái
+
+Bản v31 vào phó bản, ra giữa map đúng, rồi khi có thông báo cửa Bắc thì **chạy vòng vòng liên
+tục không dừng**, không tới chỗ quái.
+
+Nguyên nhân: v31 **đuổi theo con quái gần nhất**. Quái thì đang đi, nên mỗi lần tính lại là ra
+một con khác ở một hướng khác — nhân vật quay đầu liên tục và không bao giờ tới nơi. Đuổi theo
+một mục tiêu đang di chuyển vốn là cách khó nhất, và ở đây **không cần**: quái tự đi về phía
+mình, và điểm đón đã nằm ngay trên đường chúng đi.
+
+Nên bỏ hẳn `n4NearestMob()`:
+
+- **Biết cửa** → ra điểm đón của cửa đó rồi **đứng yên** (gọi `haltWalk` một lần cho chắc).
+- **Chưa biết** → về giữa bản đồ, chỗ cách đều cả bốn cửa.
+
+Ngưỡng "đã tới nơi" là `ARRIVE_PX + kích thước ô` chứ không phải `ARRIVE_PX`: đường đi kết thúc
+ở **tâm một ô**, để nguyên 16px thì nhân vật không bao giờ "tới nơi" và cứ đi lại mãi — đúng
+cái luật đã ghi ở `arrived()` của Auto Đi Buôn.
+
+### Vòng lặp tự kích hoạt của dòng thông báo
+
+Một lỗi thứ hai, âm thầm: dòng thông báo nằm trên màn hình nhiều khung hình liền nên bị đọc lại
+nhiều lần, **và chính dòng báo của auto cũng chạy qua chỗ đó**. Câu cũ là *"Quái vào cửa phía
+Bắc, ra đón."* — có chữ **"cửa"**, tức là nó tự khớp lại chính mình thành vòng lặp.
+
+Chặn hai lớp:
+
+- Cửa không đổi thì im, không báo lại.
+- Câu báo đổi thành *"Đợt quái tới từ **hướng** Bắc, ra đón."* — không còn chữ "cửa".
+
+### HUD
+
+Dòng HUD giờ ghi rõ đang đón ở đâu: `Auto Ngã 4: đánh phó bản [lượt 2 - đón Bắc]`, hoặc
+`[lượt 2 - đón giữa map]` khi chưa đọc được thông báo. Nhìn một cái là biết nó hiểu đúng hay sai.
+
+### Chốt trong test
+
+- Phải còn `n4ReadGate()` và `n4StandPx()`.
+- `n4NearestMob()` **không được** quay lại — đuổi theo quái đang đi đã hỏng khi chơi thật.
