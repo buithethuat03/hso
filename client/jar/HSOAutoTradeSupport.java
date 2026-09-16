@@ -348,6 +348,32 @@ public final class HSOAutoTradeSupport {
      * day xuong thi toi ngay trong cung mot khung hinh, nen khoa 20 giay la tach duoc han.
      */
     static final long N4_GATE_HOLD_MS = 20000L;
+    /**
+     * Dung YEN doi thong bao cua bao nhieu lau truoc khi danh lieu ra giua ban do.
+     *
+     * Vao pho ban la chua biet quai se ra cua nao. Ban truoc di ngay ra giua ban do roi
+     * nghe thong bao thi lai quay dau chay ra cua - nguoi choi thay dung nhu "chay vong
+     * vong ca hai chuc giay roi moi den cho can dung, luc do quai ra mat roi". Dung yen
+     * khong mat gi ca: thong bao bao truoc 15 giay, dung tai cho nghe xong roi di MOT lan
+     * la toi noi som hon nhieu.
+     */
+    static final long N4_WAIT_GATE_MS = 30000L;
+    /**
+     * Phan cong them vao tam danh khi chon muc tieu, bang pixel.
+     *
+     * Doc thang tu ma may cua engine: moi nhip no bo muc tieu dang giu khi khoang cach
+     * vuot qua tamDanh + 20. Lay dung con so do lam nguong CHON thi khong bao gio chon
+     * phai con ma engine se bo ngay.
+     */
+    static final int N4_REACH_SLACK_PX = 20;
+    /**
+     * Lau nay khong co con quai nao vao tam danh thi lui ve giua thien thach.
+     *
+     * Luoi an toan cho truong hop doc nham cua hoac khong doc duoc dong nao: quai bao gio
+     * cung keo ve thien thach, nen dung o do thi chac chan gap. Van la DUNG YEN mot cho,
+     * khong phai duoi theo quai.
+     */
+    static final long N4_RESCUE_MS = 25000L;
 
     static final long N4_GOTO_TIMEOUT_MS = 120000L;    // 2 phut de toi cho NPC
     static final long N4_TALK_TIMEOUT_MS = 20000L;     // bam menu xong, 20s ma chua vao
@@ -383,6 +409,12 @@ public final class HSOAutoTradeSupport {
     static String n4GateName;
     /** Luc doi cua gan nhat - xem N4_GATE_HOLD_MS. */
     static long n4GateAt;
+    /** Lan cuoi co mot muc tieu nam trong tam danh - n4InRange() ghi. */
+    static long n4SeenAt;
+    /** Dang lui ve giua thien thach vi doi mai khong thay quai. */
+    static boolean n4AtCentre;
+    /** Noclip cua nguoi choi truoc khi vao pho ban, de ra ngoai con tra lai. */
+    static boolean n4SavedNoclip;
     /**
      * Cho nguoi choi dang dung luc bat auto - tuc la ngay canh Pho chi huy.
      *
@@ -3173,6 +3205,9 @@ public final class HSOAutoTradeSupport {
         n4GateY = 0;
         n4GateName = null;
         n4GateAt = 0L;
+        n4AtCentre = false;
+        n4SeenAt = now();
+        n4SavedNoclip = noclipOn;
         /*
          * Bat Noclip de dung duoc dung GIUA thien thach. Thien thach chan duong, tim duong
          * that thi chi dung duoc ben canh no.
@@ -3187,6 +3222,22 @@ public final class HSOAutoTradeSupport {
     static void n4OnLeaveDungeon() {
         flushInfo();       // thong bao trong pho ban khong con nghia gi o ngoai lang
         n4RestoreAttack();
+        /*
+         * TRA LAI Noclip nhu truoc khi vao, va dong bo lai hai lop co.
+         *
+         * Trong pho ban auto ep Noclip BAT de dung duoc giua thien thach. Ra ngoai lang ma
+         * quen tra lai thi hong theo mot duong rat kin: di xuyen nha trong lang lam server
+         * keo vi tri ve, tang runtime dem du ba lan la TU TAT Noclip, con co ben nay van
+         * bao la dang bat. Tu do moi nhip lai giao cho engine mot duong di xuyen tuong
+         * trong khi engine da kiem va cham tro lai - nhan vat dam tuong, tinh duong moi,
+         * dam tiep. Dung loi "ra lang roi cu di vong vong chu khong toi cho NPC".
+         *
+         * setNoClipEnabled() xoa luon bo dem keo vi tri, nen moi luot bat dau lai tu dau.
+         */
+        noclipOn = n4SavedNoclip;
+        HSOSKYRuntimeSupport.setNoClipEnabled(noclipOn);
+        clearPlan();
+        n4Park();
         n4SetState(N4_GOTO);
         /*
          * Bao ra con so that, khong bao chung chung.
@@ -3215,7 +3266,28 @@ public final class HSOAutoTradeSupport {
      * nhan vat chay ra mot cho khong phai cho NPC, dung do bat chuyen voi khong khi, het han
      * ba lan roi tu tat.
      */
+    /**
+     * Cho co Noclip ben nay khop voi tang runtime.
+     *
+     * Runtime TU TAT Noclip sau ba lan bi server keo vi tri ve, va no khong bao ai ca. Neu
+     * ben nay van tuong la dang bat thi ham tim duong se cu giao duong di THANG xuyen
+     * tuong trong khi engine da kiem va cham tro lai: nhan vat dam vao tuong, moi nhip lai
+     * tinh mot duong moi, nhin y het dang chay vong vong.
+     *
+     * Doi co thi phai bo luon duong da giao, vi duong do tinh theo che do cu.
+     */
+    static boolean n4SyncNoclip() {
+        boolean real = HSOSKYRuntimeSupport.isNoClipEnabled();
+        if (real == noclipOn) return false;
+        noclipOn = real;
+        clearPlan();
+        IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl me = player();
+        if (me != null) haltWalk(me);
+        return true;
+    }
+
     static void n4StepGoto() {
+        n4SyncNoclip();
         if (n4HomeX == 0 && n4HomeY == 0) {
             n4Stop("Không nhớ được chỗ đứng ban đầu, hãy bật lại cạnh Phó chỉ huy.");
             return;
@@ -3300,14 +3372,35 @@ public final class HSOAutoTradeSupport {
          *   - Biet cua  -> ra dung o diem don cua cua do roi DUNG YEN.
          *   - Chua biet -> ve giua ban do, cho cach deu ca bon cua.
          */
+        /*
+         * CHUA BIET HUONG THI DUNG YEN.
+         *
+         * Ban truoc vao la di ngay ra giua ban do, roi nghe thong bao xong lai quay dau
+         * chay ra cua - hai chuyen di cho mot cho dung. Nguoi choi thay dung nhu no ta:
+         * "chay vong vong roi moi di den do, co luc den 20 giay, quai ra va di xa lam roi".
+         *
+         * Thong bao bao truoc 15 giay, ma tu cho vao toi cua chi mat vai giay, nen dung yen
+         * nghe xong roi di MOT lan la toi som hon han. Chi khi doi qua lau ma van khong
+         * nghe duoc dong nao (N4_WAIT_GATE_MS) moi danh lieu ra giua thien thach.
+         */
         int x;
         int y;
-        if (n4GateX != 0 || n4GateY != 0) {
+        boolean haveGate = n4GateX != 0 || n4GateY != 0;
+        if (haveGate && !n4RescueDue()) {
             x = n4GateX;
             y = n4GateY;
-        } else {
+        } else if (haveGate || now() - n4StateSince > N4_WAIT_GATE_MS) {
+            if (!n4AtCentre) {
+                n4AtCentre = true;
+                n4AtRock = false;
+                notice(haveGate ? "Lâu không thấy quái, lui về giữa thiên thạch."
+                                : "Không nghe được hướng quái ra, về giữa thiên thạch.");
+            }
             x = n4RockX();
             y = n4RockY();
+        } else {
+            n4Park();                              // dung yen cho biet huong
+            return;
         }
         if (x < 0 || y < 0) return;                // chua nap xong ban do
 
@@ -3349,6 +3442,22 @@ public final class HSOAutoTradeSupport {
         me.IIIlIIIllIIIllIlllIIllIlllIIlIIIllIIIlIIIllIIlllIIlllIIIlIlIllIlIIllIIlIllIIIlIlIIlllIIllIIIllIIllIIIlIIllIlIIllIIIllIlIIlllIIllIIIlIIlIIIllIlIIlllIIIllIllIlllIllIlIllIIIllIIlIllIIlIIlllIIllIlllIllIIlIllIIlIIllIlIllIIllIIl = me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll;
         me.IllIlllIIllIIlIIlIlIIIllIIllIIlllIIIlIIlIIlllIIlIlIIIlIlIIIlIIllIlllIIIlllIIllIllIllIIlllIlIllIIlIlIIIlIlIlllIIIlIlllIIlIIllIIlIIllIllIIllIlllIIIllIllIlIIIllIIllIIllIIlIIIlIIlIlIIIllIIllIllIlllIIIllIIIllIIIlllIIlIIIlIlll = me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll;
         sender().IIllIIlIllIIlIlllIIllIIIllIIIllIlIIlIIIllIIlllIIllIllIlIIlllIIlllIlIlIIlllIIlllIIIllIIllIIlIIIllIIIlllIIIllIllIIIlllIIllIllIlllIIIllIIIllIIlIlIIllIIlIIIlllIIllIIllIllIlllIIIlIIlIIIlIIllIlIIllIlllIlIIIllIIIlIIIllIIIlIlIllIIllIlIll((short) me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll, (short) me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll);
+    }
+
+    /**
+     * Da dung o cua kha lau ma khong con quai nao vao tam danh chua.
+     *
+     * Doc nham cua, hoac dot quai di duong khac, thi dung mai o do la thua: het 20 dot
+     * thien thach vo va thua ca luot. Quai bao gio cung keo ve thien thach nen lui ve do
+     * la chac gap. Van DUNG YEN, khong duoi theo con nao ca.
+     *
+     * Moi thong bao cua moi lam moi lai hai moc thoi gian nay, nen moi dot deu duoc ra cua
+     * don truoc da, chi khi dot do that su khong toi moi lui ve.
+     */
+    static boolean n4RescueDue() {
+        if (n4AtCentre) return true;               // da lui roi thi o lai den dot sau
+        if (n4GateAt == 0L) return false;
+        return now() - n4GateAt > N4_RESCUE_MS && now() - n4SeenAt > N4_RESCUE_MS;
     }
 
     /**
@@ -3409,6 +3518,8 @@ public final class HSOAutoTradeSupport {
         n4GateAt = now();
         n4GateName = where;
         n4AtRock = false;
+        n4AtCentre = false;
+        n4SeenAt = now();      // dot moi, cho no ca N4_RESCUE_MS de toi
         notice(join("Đợt quái tới từ hướng ", join(where, ", ra đón.")));
     }
 
@@ -3513,22 +3624,38 @@ public final class HSOAutoTradeSupport {
     }
 
     /**
-     * Muc tieu co nam trong vong tron tam danh khong.
+     * Muc tieu co nam trong tam danh that khong - tinh bang PIXEL.
      *
-     * Ban kinh lay dung cong thuc cua ham ve vong tron: tamDanh * 3 / 2, tinh bang O.
+     * Ban truoc tinh ban kinh la tamDanh * 3 / 2 roi con NHAN THEM kich thuoc o, tuong
+     * tamDanh dem bang o. Doc lai ma may cua engine thi khong phai: chinh engine so
+     * tamDanh thang voi khoang cach pixel -
+     *
+     *     bo qua muc tieu khi   khoangCach >  tamDanh          (vong tim muc tieu goc)
+     *     bo muc tieu dang giu  khoangCach >  tamDanh + 20     (vong kiem moi nhip)
+     *
+     * Nhan them kich thuoc o lam ban kinh phong len hai chuc lan, tuc la bo loc coi nhu
+     * khong ton tai: auto lai khoa vao con quai gan nhat TREN CA BAN DO - mot con dang o
+     * tan cua ben kia - roi danh vao khong khi suot ca luot, trong khi quai o ngay canh
+     * thi khong dung toi. Dung nhu nguoi choi ta: "co xac suat khong chon vao quai de
+     * danh, khi khong chon duoc thi ca luot do thua, quai pha thien thach".
+     *
+     * Nen lay dung nguong ma engine dung de GIU muc tieu: tamDanh + 20 pixel. Chon dung
+     * nguong do thi moi con da chon deu la con engine chiu danh, khong co canh chon xong
+     * bi bo ngay khung hinh sau.
+     *
      * Doc khong duoc thi tra ve true - tha nhan thua con hon tu nhien khong danh gi ca.
      */
     static boolean n4InRange(Object target, Object me) {
         try {
             IllIllIIlllIIIllIIlllIIlIIlllIIIllIIIlllIIllIIIlIIIlIIIllIIllIlIIIllIlIIlllIIIlllIlIIlIIIlIIlIIlllIlIIlIlllIIllIIllIIllIIIlIIIlIIllIIllIllIIlIIIlllIllIIlIIIllIIllIIlIllIIIlllIIIllIIIllIIllIIlIIIllIIlllIIlllIIIlllIIIllIllIIlIIIlllIIlIIIllIIllIll t = (IllIllIIlllIIIllIIlllIIlIIlllIIIllIIIlllIIllIIIlIIIlIIIllIIllIlIIIllIlIIlllIIIlllIlIIlIIIlIIlIIlllIlIIlIlllIIllIIllIIllIIIlIIIlIIllIIllIllIIlIIIlllIllIIlIIIllIIllIIlIllIIIlllIIIllIIIllIIllIIlIIIllIIlllIIlllIIIlllIIIllIllIIlIIIlllIIlIIIllIIllIll) target;
             IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl p = (IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl) me;
-            int tile = IIIllIllIllIllIIllIIlIIllIIIllIlIIIlIIlIlllIlIllIIlllIIIlllIIIllIIlIIllIlllIlIIIllIlllIIllIIlllIIIllIIIlllIIllIlllIIIlIllIIIllIIlllIIlIllIllIllIlIIlllIIllIIlIIIlIIlIllIlIIIllIIIlllIllIlllIlIIlIIIlIIllIIlllIIllIIllIIIllIllIlllIIll.IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl;
-            int tiles = p.IIllIIlIlIIlllIIllIIllIIIlllIIIlllIllIIllIIlllIlIIllIIllIllIIlIIllIIlIlllIIIlIIlIllIIIllIIIlllIIlIIIlllIIIlllIIlIllIIIllIIlIlIllIlIIllIlIIIlllIIllIIlIIIlIIlIIlIlIlllIlIIIlIIlIIlllIllIllIllIIIlllIIllIIIllIIllIIlllIIlIllIlIIll * 3 / 2;
-            if (tile <= 0 || tiles <= 0) return true;
-            int reach = tiles * tile;
-            int dx = Math.abs(t.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll - p.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll);
-            int dy = Math.abs(t.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll - p.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll);
-            return dx <= reach && dy <= reach;
+            int reach = p.IIllIIlIlIIlllIIllIIllIIIlllIIIlllIllIIllIIlllIlIIllIIllIllIIlIIllIIlIlllIIIlIIlIllIIIllIIIlllIIlIIIlllIIIlllIIlIllIIIllIIlIlIllIlIIllIlIIIlllIIllIIlIIIlIIlIIlIlIlllIlIIIlIIlIIlllIllIllIllIIIlllIIllIIIllIIllIIlllIIlIllIlIIll + N4_REACH_SLACK_PX;
+            if (reach <= N4_REACH_SLACK_PX) return true;     // khong doc duoc tam danh
+            int dx = t.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll - p.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll;
+            int dy = t.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll - p.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll;
+            if (dx * dx + dy * dy > reach * reach) return false;
+            n4SeenAt = now();
+            return true;
         } catch (Throwable th) {
             return true;
         }
@@ -3538,7 +3665,8 @@ public final class HSOAutoTradeSupport {
         if (dialogOpen()) return " [chờ đóng hộp thoại]";
         if (pendRow >= 0) return " [chờ bấm menu]";
         if (n4State == N4_FIGHT) {
-            String at = n4GateName == null ? "giữa map" : n4GateName;
+            String at = n4AtCentre ? "thiên thạch"
+                      : n4GateName == null ? "chờ hướng" : n4GateName;
             return join(join(" [lượt ", String.valueOf(n4Runs)), join(" - đón ", join(at, "]")));
         }
         return "";

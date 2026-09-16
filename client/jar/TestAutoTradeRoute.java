@@ -429,6 +429,30 @@ public final class TestAutoTradeRoute {
             expect(has(c, "autoTargetGate") && has(c, "n4InRange"),
                     "thieu bo loc tam chon muc tieu - trong pho ban se khoa vao con quai o"
                     + " tan dang xa va bao \"Muc tieu o qua xa\"");
+            int slack = ci(c, "N4_REACH_SLACK_PX");
+            expect(slack >= 0 && slack <= 60,
+                    "N4_REACH_SLACK_PX = " + slack + " - engine bo muc tieu dang giu khi xa"
+                    + " hon tamDanh + 20 PIXEL; nguong chon phai bam sat con so do. Ban truoc"
+                    + " con nhan them kich thuoc o, ban kinh phong len hai chuc lan va bo loc"
+                    + " coi nhu khong ton tai - auto khoa vao con quai o tan cua ben kia roi"
+                    + " danh vao khong khi ca luot, thien thach vo");
+            expect(has(c, "n4SyncNoclip"),
+                    "thieu n4SyncNoclip() - runtime tu tat Noclip sau ba lan bi server keo vi"
+                    + " tri ve ma khong bao ai; co ben nay khong doi theo thi van giao duong"
+                    + " di xuyen tuong cho engine da bat va cham tro lai - nhan vat dam tuong"
+                    + " roi tinh duong moi, nhin y het dang chay vong vong");
+            expect(has(c, "n4RescueDue"),
+                    "thieu n4RescueDue() - doc nham cua thi dung mai o do den khi thien thach"
+                    + " vo; phai lui ve giua thien thach, cho quai keo ve");
+            long waitGate = cl(c, "N4_WAIT_GATE_MS");
+            expect(waitGate >= 10000L,
+                    "N4_WAIT_GATE_MS = " + waitGate + "ms - vao pho ban phai DUNG YEN cho den"
+                    + " khi nghe duoc huong quai ra; di truoc roi quay dau la hai chuyen di"
+                    + " cho mot cho dung, quai ra mat roi moi toi noi");
+            long rescue = cl(c, "N4_RESCUE_MS");
+            expect(rescue >= 10000L,
+                    "N4_RESCUE_MS = " + rescue + "ms - qua ngan thi vua ra toi cua da lui ve"
+                    + " giua map, thanh ra chay di chay lai");
             int gateBack = ci(c, "N4_GATE_BACK_PX");
             expect(gateBack >= 0 && gateBack <= 700,
                     "N4_GATE_BACK_PX = " + gateBack + " - lui ra khoi cua ngan nay cho quai"

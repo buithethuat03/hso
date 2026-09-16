@@ -122,8 +122,10 @@ sang classpath jar HSOSKY, sẽ không compile.
 | `autotrade_v35.1.jar` | v35 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `autotrade_v36.jar` | tự neo lại chỗ bắt chuyện khi menu NPC mở — nhưng vào phó bản còn chạy sang cửa sai |
 | `autotrade_v36.1.jar` | v36 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
-| `autotrade_v37.jar` | **bản đang chơi** — quên sạch hộp thông báo khi đổi map, hết chạy sang cửa của lượt trước |
+| `autotrade_v37.jar` | quên sạch hộp thông báo khi đổi map, hết chạy sang cửa của lượt trước |
 | `autotrade_v37.1.jar` | v37 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
+| `autotrade_v38.jar` | **bản đang chơi** — vào phó bản đứng yên chờ hướng; ra làng trả lại Noclip; tầm chọn mục tiêu tính bằng pixel |
+| `autotrade_v38.1.jar` | v38 với ô lưu `HSOLUNA_V151` / `Truongbk_V151` / `C_` |
 | `KNIGHT_ONLINE_RL.jar` | V3 → server **"Rồng Lửa"** `27.0.12.133:19129`, MIDlet đổi tên, auto đập đồ giãn 4s |
 | `KNIGHT_ONLINE_RL_V3.jar` | dựng từ V5 (bản chạy thử 1 viên) |
 | `KNIGHT_ONLINE_RL_V5.jar` | dựng từ V7 |

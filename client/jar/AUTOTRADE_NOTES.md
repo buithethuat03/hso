@@ -1860,3 +1860,74 @@ Sau đó thông báo cửa **thật** của đợt đầu là dòng mới đầu
 đi thẳng tới cửa đúng ngay từ đầu.
 
 Khoá 20 giây giữ nguyên — nó vẫn cần cho việc chặn bản sao bị đẩy xuống trong cùng một khung hình.
+
+## v38 — ba lỗi người chơi báo cùng lúc
+
+Ba lỗi khác nhau, ba nguyên nhân khác nhau, không cái nào liên quan cái nào.
+
+### 1. Vào phó bản chạy vòng vòng rồi mới tới chỗ đứng
+
+Vào phó bản là chưa biết quái ra cửa nào, mà bản cũ **đi ngay ra giữa bản đồ**. Vài giây
+sau thông báo cửa chạy qua, thế là quay đầu chạy ra cửa — hai chuyến đi cho một chỗ đứng,
+có lúc mất tới 20 giây, quái ra và đi xa mất rồi.
+
+Sửa: **đứng yên** cho tới khi nghe được hướng, rồi đi **một lần** tới đó. Thông báo báo
+trước 15 giây còn từ chỗ vào tới cửa chỉ mất vài giây, nên đứng chờ không mất gì cả — đi
+một chuyến còn tới sớm hơn hẳn.
+
+Chỉ khi chờ quá `N4_WAIT_GATE_MS` = 30 giây mà vẫn không nghe được dòng nào mới đánh liều
+ra giữa thiên thạch.
+
+### 2. Ra khỏi phó bản thì đi vòng vòng, không tới chỗ NPC
+
+Trong phó bản auto **ép Noclip BẬT** để đứng được giữa thiên thạch. Ra ngoài làng mà quên
+trả lại thì hỏng theo một đường rất kín:
+
+1. Đường đi tính theo Noclip nên xuyên thẳng qua nhà trong làng.
+2. Server kéo vị trí về.
+3. `HSOSKYRuntimeSupport` đếm đủ **ba lần** bị kéo là **tự tắt Noclip** — và không báo ai cả.
+4. Cờ bên `HSOAutoTradeSupport` vẫn là "đang bật", nên mỗi nhịp lại giao cho engine một
+   đường đi xuyên tường, trong khi engine đã kiểm va chạm trở lại. Nhân vật đâm tường,
+   tính đường mới, đâm tiếp.
+
+Sửa hai lớp:
+
+- `n4OnLeaveDungeon()` trả Noclip về đúng trạng thái trước khi vào; `setNoClipEnabled()`
+  xoá luôn bộ đếm kéo vị trí nên mỗi lượt bắt đầu lại từ đầu.
+- `n4SyncNoclip()` gọi mỗi nhịp ở `n4StepGoto()`: cờ bên này luôn bám theo trạng thái thật
+  của tầng runtime, và khi đổi thì bỏ luôn đường đã giao vì đường đó tính theo chế độ cũ.
+
+### 3. Có xác suất cả lượt không chọn quái để đánh
+
+`n4InRange()` tính bán kính là `tamDanh * 3 / 2` rồi **nhân thêm kích thước ô**, vì tưởng
+`tamDanh` đếm bằng ô. Đọc lại mã máy của engine thì không phải — engine so `tamDanh` thẳng
+với khoảng cách **pixel**:
+
+| Chỗ | Luật |
+|---|---|
+| Vòng tìm mục tiêu gốc | bỏ qua khi `khoangCach > tamDanh` |
+| Vòng kiểm mỗi nhịp | bỏ mục tiêu đang giữ khi `khoangCach > tamDanh + 20` |
+| Vòng tròn vẽ trên màn hình | bán kính `tamDanh * 3 / 2`, cùng đơn vị pixel |
+
+Nhân thêm kích thước ô làm bán kính phồng lên hai chục lần, tức **bộ lọc coi như không tồn
+tại**: auto lại khoá vào con quái gần nhất **trên cả bản đồ** — một con đang ở tận cửa bên
+kia — rồi đánh vào không khí suốt cả lượt, trong khi quái ngay cạnh thì không đụng tới.
+Thiên thạch vỡ, thua lượt.
+
+Sửa: ngưỡng chọn = `tamDanh + 20` pixel, đúng ngưỡng engine dùng để **giữ** mục tiêu. Chọn
+đúng ngưỡng đó thì mọi con đã chọn đều là con engine chịu đánh, không có cảnh chọn xong bị
+bỏ ngay khung hình sau.
+
+Khoảng cách tính bằng Euclid (`dx*dx + dy*dy > reach*reach`) chứ không phải hộp vuông.
+
+### Lưới an toàn: `n4RescueDue()`
+
+Đọc nhầm cửa, hoặc đợt quái đi đường khác, thì đứng mãi ở cửa là thua cả lượt. Nếu đã quá
+`N4_RESCUE_MS` = 25 giây kể từ thông báo cửa **và** cũng ngần ấy lâu không có con nào vào
+tầm đánh thì lui về giữa thiên thạch — quái bao giờ cũng kéo về đó. Vẫn là **đứng yên một
+chỗ**, không đuổi theo con nào.
+
+Mỗi thông báo cửa mới làm mới lại cả hai mốc, nên đợt nào cũng được ra cửa đón trước đã.
+
+HUD hiện `[lượt N - chờ hướng]` / `[lượt N - đón Tây]` / `[lượt N - đón thiên thạch]`.
+
