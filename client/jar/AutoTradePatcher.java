@@ -39,7 +39,7 @@ import java.util.zip.ZipEntry;
  * Them tinh nang "Auto Di Buon" vao jar mod TruongBk.
  *
  *   javac -encoding UTF-8 -cp ".;asm-9.7.jar;asm-tree-9.7.jar" AutoTradePatcher.java
- *   java  -cp ".;asm-9.7.jar;asm-tree-9.7.jar" AutoTradePatcher [input.jar] [output.jar]
+ *   java  -cp ".;asm-9.7.jar;asm-tree-9.7.jar" AutoTradePatcher [input.jar] [output.jar] [hide-trade-menu]
  *
  * Mac dinh HSOLUNA_TRUONGBK_PERFECT.jar -> HSOLUNA_TRUONGBK_AUTOTRADE.jar.
  * Tu choi ghi de output da ton tai. Tu doc lai jar vua ghi de verify truoc khi bao thanh cong.
@@ -76,14 +76,21 @@ public final class AutoTradePatcher implements Opcodes {
     static final long NEW_RETRY_MS = 15000L;
     static final int EXPECT_RETRY_SITES = 3;
 
+    /** Chu ky vong lap game: 8ms la 125 FPS, 16ms la muc 60 FPS danh nghia. */
+    static final long OLD_FRAME_MS = 8L;
+    static final long NEW_FRAME_MS = 16L;
+    static final int EXPECT_FRAME_SITES = 1;
+
     /** Class version cao nhat duoc phep co trong jar (51 = Java 7). */
     static final int MAX_CLASS_VERSION = 51;
 
     static Properties SYM;
+    static boolean hideTradeMenu;
 
     public static void main(String[] args) throws Exception {
         String inPath = args.length > 0 ? args[0] : "HSOLUNA_TRUONGBK_PERFECT.jar";
         String outPath = args.length > 1 ? args[1] : "HSOLUNA_TRUONGBK_AUTOTRADE.jar";
+        hideTradeMenu = args.length > 2 && "hide-trade-menu".equalsIgnoreCase(args[2]);
 
         File outFile = new File(outPath);
         if (outFile.exists()) {
@@ -149,6 +156,7 @@ public final class AutoTradePatcher implements Opcodes {
         patchShop(entries);
         patchAutoTarget(entries);
         patchReconnectDelay(entries);
+        patchFrameRate(entries);
         lowerClassVersions(entries);
 
         entries.put(SUPPORT + ".class", readAll(supportFile));
@@ -168,7 +176,7 @@ public final class AutoTradePatcher implements Opcodes {
 
     // -------------------------------------------------------------- cac moc
 
-    /** Chen mot dong menu moi ngay sau dong "Auto Nuoi Pet". */
+    /** Chen cac dong menu moi ngay sau dong "Auto Nuoi Pet". */
     static void patchMainMenu(ClassNode engine) {
         MethodNode m = method(engine, sym("engine.method.showMainMenu"), "()V");
         AbstractInsnNode anchor = null;
@@ -196,10 +204,17 @@ public final class AutoTradePatcher implements Opcodes {
         if (after == null) throw new RuntimeException("Khong thay addElement sau \"" + ANCHOR_LABEL + "\"");
 
         AbstractInsnNode cursor = after;
-        cursor = addMenuRow(m, cursor, engine, MENU_LABEL, ACT_SUBMENU);
+        if (!hideTradeMenu) {
+            cursor = addMenuRow(m, cursor, engine, MENU_LABEL, ACT_SUBMENU);
+        }
         cursor = addMenuRow(m, cursor, engine, MENU_LABEL_N4, ACT_N4_SUBMENU);
-        System.out.println("[2] Them dong menu \"" + MENU_LABEL + "\" (action " + ACT_SUBMENU
-                + ") va \"" + MENU_LABEL_N4 + "\" (action " + ACT_N4_SUBMENU + ")");
+        if (hideTradeMenu) {
+            System.out.println("[2] An dong menu \"" + MENU_LABEL + "\"; them \""
+                    + MENU_LABEL_N4 + "\" (action " + ACT_N4_SUBMENU + ")");
+        } else {
+            System.out.println("[2] Them dong menu \"" + MENU_LABEL + "\" (action " + ACT_SUBMENU
+                    + ") va \"" + MENU_LABEL_N4 + "\" (action " + ACT_N4_SUBMENU + ")");
+        }
     }
 
     /** Chen mot dong menu ngay sau {@code after}; tra ve lenh cuoi cung vua chen. */
@@ -500,6 +515,108 @@ public final class AutoTradePatcher implements Opcodes {
         return found;
     }
 
+    /**
+     * Doi rieng chu ky cua vong lap Canvas chinh. Khong thay hang so 8ms toan jar vi
+     * nhieu hang so khac la cooldown / timeout. Moc cau truc la class Canvas implements
+     * Runnable, run() doc mot field long static va goi Thread.sleep(), con <clinit> cua
+     * class do gan field nay bang chu ky cu.
+     */
+    static void patchFrameRate(Map<String, byte[]> entries) {
+        int candidates = 0;
+        int changed = 0;
+        Map<String, byte[]> rewritten = new LinkedHashMap<String, byte[]>();
+
+        for (Map.Entry<String, byte[]> e : entries.entrySet()) {
+            if (!e.getKey().endsWith(".class")) continue;
+            ClassNode cn = new ClassNode();
+            new ClassReader(e.getValue()).accept(cn, 0);
+            if (!"javax/microedition/lcdui/Canvas".equals(cn.superName)) continue;
+            if (cn.interfaces == null || !cn.interfaces.contains("java/lang/Runnable")) continue;
+
+            MethodNode run = null;
+            for (MethodNode m : cn.methods) {
+                if ("run".equals(m.name) && "()V".equals(m.desc)) {
+                    run = m;
+                    break;
+                }
+            }
+            if (run == null || !callsThreadSleep(run)) continue;
+
+            Set<String> frameFields = new HashSet<String>();
+            for (AbstractInsnNode n = run.instructions.getFirst(); n != null; n = n.getNext()) {
+                if (!(n instanceof FieldInsnNode) || n.getOpcode() != GETSTATIC) continue;
+                FieldInsnNode f = (FieldInsnNode) n;
+                if ("J".equals(f.desc)) frameFields.add(fieldKey(f.owner, f.name, f.desc));
+            }
+            if (frameFields.isEmpty()) continue;
+            candidates++;
+
+            int here = 0;
+            for (MethodNode m : cn.methods) {
+                if (!"<clinit>".equals(m.name) || m.instructions == null) continue;
+                for (AbstractInsnNode n = m.instructions.getFirst(); n != null; n = n.getNext()) {
+                    if (!(n instanceof FieldInsnNode) || n.getOpcode() != PUTSTATIC) continue;
+                    FieldInsnNode f = (FieldInsnNode) n;
+                    if (!"J".equals(f.desc)
+                            || !frameFields.contains(fieldKey(f.owner, f.name, f.desc))) continue;
+                    Long value = previousLongConstant(n);
+                    if (value == null) continue;
+                    if (value.longValue() == OLD_FRAME_MS) {
+                        AbstractInsnNode constant = previousMeaningful(n);
+                        ((LdcInsnNode) constant).cst = Long.valueOf(NEW_FRAME_MS);
+                        here++;
+                    } else if (value.longValue() == NEW_FRAME_MS) {
+                        here++;
+                    }
+                }
+            }
+            if (here == 0) continue;
+
+            ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+            cn.accept((ClassVisitor) cw);
+            rewritten.put(e.getKey(), cw.toByteArray());
+            changed += here;
+        }
+
+        require(candidates == EXPECT_FRAME_SITES,
+                "tim thay " + candidates + " class Canvas Runnable co moc FPS, mong doi "
+                        + EXPECT_FRAME_SITES);
+        require(changed == EXPECT_FRAME_SITES,
+                "khong patch du moc FPS " + OLD_FRAME_MS + "ms -> " + NEW_FRAME_MS
+                        + "ms, da xu ly " + changed);
+        entries.putAll(rewritten);
+        System.out.println("[6f] FPS vong lap game " + OLD_FRAME_MS + "ms -> "
+                + NEW_FRAME_MS + "ms (muc 60 FPS, " + changed + " moc)");
+    }
+
+    static boolean callsThreadSleep(MethodNode m) {
+        if (m.instructions == null) return false;
+        for (AbstractInsnNode n = m.instructions.getFirst(); n != null; n = n.getNext()) {
+            if (!(n instanceof MethodInsnNode)) continue;
+            MethodInsnNode c = (MethodInsnNode) n;
+            if ("java/lang/Thread".equals(c.owner) && "sleep".equals(c.name)
+                    && "(J)V".equals(c.desc)) return true;
+        }
+        return false;
+    }
+
+    static String fieldKey(String owner, String name, String desc) {
+        return owner + "#" + name + "#" + desc;
+    }
+
+    static Long previousLongConstant(AbstractInsnNode put) {
+        AbstractInsnNode constant = previousMeaningful(put);
+        if (!(constant instanceof LdcInsnNode)) return null;
+        Object value = ((LdcInsnNode) constant).cst;
+        return value instanceof Long ? (Long) value : null;
+    }
+
+    static AbstractInsnNode previousMeaningful(AbstractInsnNode n) {
+        AbstractInsnNode x = n.getPrevious();
+        while (x != null && x.getOpcode() < 0) x = x.getPrevious();
+        return x;
+    }
+
     /** Nem loi neu file dich cu hon file nguon - tuc la lan bien dich vua roi da hong. */
     static void requireFresh(File built, File source) {
         if (!source.exists()) return;
@@ -600,8 +717,10 @@ public final class AutoTradePatcher implements Opcodes {
         ClassNode engine = new ClassNode();
         new ClassReader(entries.get(engineName + ".class")).accept(engine, 0);
 
-        require(hasLdc(method(engine, sym("engine.method.showMainMenu"), "()V"), MENU_LABEL),
-                "menu chinh khong co dong \"" + MENU_LABEL + "\"");
+        boolean tradeMenuVisible = hasLdc(method(engine, sym("engine.method.showMainMenu"), "()V"), MENU_LABEL);
+        require(tradeMenuVisible == !hideTradeMenu,
+                hideTradeMenu ? "menu Auto Di Buon van dang hien" : "menu chinh khong co dong \""
+                        + MENU_LABEL + "\"");
         require(hasLdc(method(engine, sym("engine.method.showMainMenu"), "()V"), MENU_LABEL_N4),
                 "menu chinh khong co dong \"" + MENU_LABEL_N4 + "\"");
         require(hasLdc(method(engine, sym("engine.method.showMainMenu"), "()V"), ANCHOR_LABEL),

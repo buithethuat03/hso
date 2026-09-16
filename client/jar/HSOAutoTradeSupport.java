@@ -315,6 +315,8 @@ public final class HSOAutoTradeSupport {
 
     /** Toi gan NPC ngan nay thi bat chuyen duoc. */
     static final int N4_NPC_PX = 60;
+    /** Doi sau khi dung han, cho engine/server nhan xong vi tri moi roi moi goi NPC. */
+    static final long N4_NPC_DELAY_MS = 1000L;
 
     /**
      * Cua quai ra nam cach vien ban do ngan nay.
@@ -332,7 +334,7 @@ public final class HSOAutoTradeSupport {
      * nay do nguoi choi chot sau khi chay thu - de 350 (tuc 410px) thi dung xa qua, quai
      * di gan het duong roi moi toi noi; 80px thi hoi sat, 100px la con so hien tai.
      */
-    static final int N4_GATE_BACK_PX = 40;
+    static final int N4_GATE_BACK_PX = 30;
     /** Chuoi nhan ra dong bao "Bay quai vat se xuat hien o cua phia ...". */
     static final String LBL_N4_GATE = "cửa";
     /**
@@ -443,6 +445,8 @@ public final class HSOAutoTradeSupport {
     /** Da tung mo duoc menu cua Pho chi huy trong luot nay chua. */
     static boolean n4MenuSeen;
     static boolean pendingN4Submenu;
+    /** Da dung xong o diem NPC, cho them mot giay truoc khi gui request menu. */
+    static long n4NpcAtSince;
 
     /** Bam dung roi phai lang xuong ngan nay (du de goi bao vi tri toi server) moi dam goi bo. */
     static final long STAND_STILL_MS = 300L;
@@ -3105,6 +3109,7 @@ public final class HSOAutoTradeSupport {
         n4Runs = 0;
         n4TalkFails = 0;
         n4MenuSeen = false;
+        n4NpcAtSince = 0L;
         IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl me0 = player();
         n4HomeX = me0 == null ? 0 : me0.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll;
         n4HomeY = me0 == null ? 0 : me0.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll;
@@ -3164,34 +3169,34 @@ public final class HSOAutoTradeSupport {
             }
 
             /*
-             * DOI MAP: ghi nho lai da, doi client nap xong roi moi xu ly.
+             * DOI MAP: chi doi client nap xong khi RA LANG.
              *
              * Ma so map doi ngay tu goi tin dau tien, con ban do va vi tri moi cua nhan vat
-             * thi toi sau. Ban truoc xu ly ngay tai khung hinh do va hong dung kieu nay: ra
-             * khoi pho ban, doc phai toa do cu, ket luan "da ve toi cho NPC" trong khi nhan
-             * vat con dung tan cho ra, the la bat chuyen voi khong khi ba lan roi tu tat.
+             * thi toi sau. Neu xu ly ngay luc RA khoi pho ban, code co the doc phai toa do
+             * cu, ket luan da ve toi cho NPC trong khi nhan vat con dung tan cho ra, roi bat
+             * chuyen voi khong khi. Vi vay nhanh ve lang phai cho map on dinh.
              *
-             * Cho them vai giay khong mat gi - vao lai khong can voi.
+             * Nhanh VAO Nga 4 giu nguyen hanh vi cu: xu ly ngay de khong lam cham luc bat
+             * dau dot danh. Luc nay chua co viec di ve NPC nen khong bi loi toa do cu.
              */
             int here = mapId();
             if (here >= 0 && here != n4LastMap) {
                 n4LastMap = here;
-                n4MapAt = now();
-                n4MapPending = here != n4TownMap ? 1 : 2;
                 clearPlan();
                 IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl meNow = player();
                 if (meNow != null) haltWalk(meNow);
+                if (here != n4TownMap) {
+                    n4OnEnterDungeon();
+                    return;
+                }
+                n4MapAt = now();
+                n4MapPending = 2;
                 return;
             }
             if (n4MapPending != 0) {
                 if (!n4MapReady()) return;
-                int what = n4MapPending;
                 n4MapPending = 0;
-                if (what == 1) {
-                    n4OnEnterDungeon();
-                } else {
-                    n4OnLeaveDungeon();
-                }
+                n4OnLeaveDungeon();
                 return;
             }
 
@@ -3305,6 +3310,7 @@ public final class HSOAutoTradeSupport {
         clearPlan();
         n4Park();
         n4SetState(N4_GOTO);
+        n4NpcAtSince = 0L;
         /*
          * Bao ra con so that, khong bao chung chung.
          *
@@ -3328,6 +3334,22 @@ public final class HSOAutoTradeSupport {
         int dx = Math.abs(me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll - n4HomeX);
         int dy = Math.abs(me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll - n4HomeY);
         return join(join(String.valueOf(dx), ","), String.valueOf(dy));
+    }
+
+    /**
+     * Ban kinh bat chuyen phai tinh theo khoang cach that, khong phai hinh vuong.
+     *
+     * within() dung cho duong di la hinh vuong, nen lech 48,56 van bi coi la gan vi ca
+     * hai truc deu nho hon 60, trong khi khoang cach that da hon 73px va server khong mo
+     * menu NPC. Rieng diem ve Pho chi huy phai dung ban kinh Euclid.
+     */
+    static boolean n4NearHome() {
+        IllIIllIlIlIllIIllIIIllIIIllIIIllIIIlIlIlIllIlIIllIIlllIlllIIlIIIllIIlIllIIlllIIllIllIIIlIIlIlIlllIIIlllIIlIIIllIIIllIIIllIlIIlllIIlIlIIIlllIIlIlIIIlllIIlllIIlIllIllIIlIIIllIIllIlllIIllIIllIllIIllIIllIIlIIllIllIIllIIlIIl me = player();
+        if (me == null) return false;
+        long dx = (long) me.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll - n4HomeX;
+        long dy = (long) me.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll - n4HomeY;
+        long radius = N4_NPC_PX;
+        return dx * dx + dy * dy <= radius * radius;
     }
 
     /**
@@ -3365,7 +3387,8 @@ public final class HSOAutoTradeSupport {
             n4Stop("Không nhớ được chỗ đứng ban đầu, hãy bật lại cạnh Phó chỉ huy.");
             return;
         }
-        if (!within(n4HomeX, n4HomeY, N4_NPC_PX)) {
+        if (!n4NearHome()) {
+            n4NpcAtSince = 0L;
             if (now() - n4StateSince > N4_GOTO_TIMEOUT_MS) {
                 n4Stop(join(join("Đi mãi không về được chỗ Phó chỉ huy (còn lệch ",
                         n4HomeGap()), ")."));
@@ -3374,7 +3397,13 @@ public final class HSOAutoTradeSupport {
             stepToward(n4HomeX, n4HomeY, false);
             return;
         }
-        n4Park();                       // dung han lai roi moi bat chuyen
+        n4Park();
+        if (n4NpcAtSince == 0L) {
+            n4NpcAtSince = now();
+            return;
+        }
+        if (now() - n4NpcAtSince < N4_NPC_DELAY_MS) return;
+        n4NpcAtSince = 0L;
         notice(join(join("Đã về chỗ NPC (lệch ", n4HomeGap()), "), bắt chuyện."));
         sender().IIllIIlIllIIlIlllIIllIIIllIIIllIlIIlIIIllIIlllIIllIllIlIIlllIIlllIlIlIIlllIIlllIIIllIIllIIlIIIllIIIlllIIIllIllIIIlllIIllIllIlllIIIllIIIllIIlIlIIllIIlIIIlllIIllIIllIllIlllIIIlIIlIIIlIIllIlIIllIlllIlIIIllIIIlIIIllIIIlIlIllIIllIlIll((byte) npcIdOf(NPC_CHIHUY, NPC_CHIHUY_ID));
         n4SetState(N4_TALK);
@@ -3403,8 +3432,15 @@ public final class HSOAutoTradeSupport {
             }
             return;
         }
-        notice("Chưa vào được phó bản, thử lại.");
-        n4SetState(N4_GOTO);
+        /*
+         * Đã tới cạnh Phó chỉ huy thì không được chạy lại theo tọa độ cũ chỉ vì một
+         * request menu bị mất. Giữ nguyên vị trí, hỏi lại đúng NPC tại chỗ; nếu không
+         * làm vậy mỗi lần timeout sẽ tạo ra một vòng đi ra rồi quay lại.
+         */
+        n4Park();
+        notice("Chưa nhận được menu Phó chỉ huy, đứng nguyên và hỏi lại.");
+        sender().IIllIIlIllIIlIlllIIllIIIllIIIllIlIIlIIIllIIlllIIllIllIlIIlllIIlllIlIlIIlllIIlllIIIllIIllIIlIIIllIIIlllIIIllIllIIIlllIIllIllIlllIIIllIIIllIIlIlIIllIIlIIIlllIIllIIllIllIlllIIIlIIlIIIlIIllIlIIllIlllIlIIIllIIIlIIIllIIIlIlIllIIllIlIll((byte) npcIdOf(NPC_CHIHUY, NPC_CHIHUY_ID));
+        n4SetState(N4_TALK);
     }
 
     /**
@@ -3460,10 +3496,12 @@ public final class HSOAutoTradeSupport {
         int x;
         int y;
         boolean haveGate = n4GateX != 0 || n4GateY != 0;
-        if (haveGate && !n4RescueDue()) {
+        // Da biet huong thi giu nguyen diem don trong suot luot, khong lui ve thien thach
+        // chi vi quái chua kip vao tam danh trong cua so 25 giay.
+        if (haveGate) {
             x = n4GateX;
             y = n4GateY;
-        } else if (haveGate || now() - n4StateSince > N4_WAIT_GATE_MS) {
+        } else if (now() - n4StateSince > N4_WAIT_GATE_MS) {
             if (!n4AtCentre) {
                 n4AtCentre = true;
                 n4AtRock = false;
@@ -3557,7 +3595,9 @@ public final class HSOAutoTradeSupport {
      * Khong doc duoc cung khong sao: buoc danh van bam theo con quai gan nhat.
      */
     static void n4ReadGate(String lower) {
-        if (lower == null || lower.indexOf(LBL_N4_GATE) < 0) return;
+        if (lower == null) return;
+        // Mot so ban server dung "huong ..." thay cho cum "cua phia ...".
+        if (lower.indexOf(LBL_N4_GATE) < 0 && lower.indexOf("h\u01b0\u1edbng") < 0) return;
         int cx = n4RockX();
         int cy = n4RockY();
         if (cx < 0 || cy < 0) return;
@@ -3595,6 +3635,68 @@ public final class HSOAutoTradeSupport {
         n4AtCentre = false;
         n4SeenAt = now();      // dot moi, cho no ca N4_RESCUE_MS de toi
         notice(join("Đợt quái tới từ hướng ", join(where, ", ra đón.")));
+    }
+
+    /**
+     * Du phong khi thong bao hien tren man hinh nhung khong nam trong ba dong INFOQ
+     * ma support doc duoc. Quai dau tien luon xuat hien o mot ria ban do, nen co the
+     * suy ra cua truc tiep tu vi tri cua no.
+     */
+    static void n4InferGateFromMob(Object target) {
+        if (n4State != N4_FIGHT || target == null) return;
+        // Neu da nhan dung thong bao thi giu nguyen cua da chon.
+        if (!n4AtCentre && n4GateName != null) return;
+        try {
+            IllIllIIlllIIIllIIlllIIlIIlllIIIllIIIlllIIllIIIlIIIlIIIllIIllIlIIIllIlIIlllIIIlllIlIIlIIIlIIlIIlllIlIIlIlllIIllIIllIIllIIIlIIIlIIllIIllIllIIlIIIlllIllIIlIIIllIIllIIlIllIIIlllIIIllIIIllIIllIIlIIIllIIlllIIlllIIIlllIIIllIllIIlIIIlllIIlIIIllIIllIll mob = (IllIllIIlllIIIllIIlllIIlIIlllIIIllIIIlllIIllIIIlIIIlIIIllIIllIlIIIllIlIIlllIIIlllIlIIlIIIlIIlIIlllIlIIlIlllIIllIIllIIllIIIlIIIlIIllIIllIllIIlIIIlllIllIIlIIIllIIllIIlIllIIIlllIIIllIIIllIIllIIlIIIllIIlllIIlllIIIlllIIIllIllIIlIIIlllIIlIIIllIIllIll) target;
+            int cx = n4RockX();
+            int cy = n4RockY();
+            if (cx < 0 || cy < 0) return;
+            int dx = mob.IIIllIIlllIlIIIllIllIIIlllIIlllIIlllIlIlIIlIIIllIIllIlllIIlllIIlIlllIIlIIlIIllIIlIIIlllIllIIlllIIlIllIIIllIIlIIlIIlIIllIIlIIlIIIllIIllIIlIIlIIlllIIlllIIIllIlIIllIllIIlllIlIIIlllIIllIIlllIIllIlllIIllIIIllIIllIIllIIIlllIlIIlllIIllIIllIIlll - cx;
+            int dy = mob.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll - cy;
+            int adx = Math.abs(dx);
+            int ady = Math.abs(dy);
+            int min = N4_GATE_EDGE_PX + N4_GATE_BACK_PX;
+            if (adx < min && ady < min) return;
+
+            int gx;
+            int gy;
+            String where;
+            if (adx >= ady) {
+                if (dx > 0) {
+                    gx = cx * 2 - N4_GATE_EDGE_PX;
+                    where = "\u0110\u00f4ng";
+                } else {
+                    gx = N4_GATE_EDGE_PX;
+                    where = "T\u00e2y";
+                }
+                gy = cy;
+            } else {
+                gx = cx;
+                if (dy > 0) {
+                    gy = cy * 2 - N4_GATE_EDGE_PX;
+                    where = "Nam";
+                } else {
+                    gy = N4_GATE_EDGE_PX;
+                    where = "B\u1eafc";
+                }
+            }
+
+            int nx = n4PullBack(gx, cx);
+            int ny = n4PullBack(gy, cy);
+            if (nx == n4GateX && ny == n4GateY) return;
+            if (n4GateAt != 0L && now() - n4GateAt < N4_GATE_HOLD_MS) return;
+            n4GateX = nx;
+            n4GateY = ny;
+            n4GateAt = now();
+            n4GateName = where;
+            n4AtCentre = false;
+            n4AtRock = false;
+            n4SeenAt = n4GateAt;
+            notice(join("\u0110\u00e3 nh\u1eadn di\u1ec7n c\u1eeda t\u1eeb v\u1ecb tr\u00ed qu\u00e1i: h\u01b0\u1edbng ",
+                    join(where, ", ra \u0111\u00f3n.")));
+        } catch (Throwable t) {
+            // Khong phai entity quai thi bo qua.
+        }
     }
 
     /** Keo mot toa do ve phia tam N4_GATE_BACK_PX, nhung khong duoc qua tam. */
@@ -3722,7 +3824,10 @@ public final class HSOAutoTradeSupport {
          * Van goi n4InRange() o day, nhung chi de GHI NHO "vua roi co quai trong tam danh"
          * cho n4RescueDue() dung - khong dung no de chan nua.
          */
-        if (ok && n4State != N4_OFF) n4InRange(target, me);
+        if (ok && n4State != N4_OFF) {
+            n4InferGateFromMob(target);
+            n4InRange(target, me);
+        }
         return ok;
     }
 
