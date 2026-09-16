@@ -1931,3 +1931,8 @@ Mỗi thông báo cửa mới làm mới lại cả hai mốc, nên đợt nào 
 
 HUD hiện `[lượt N - chờ hướng]` / `[lượt N - đón Tây]` / `[lượt N - đón thiên thạch]`.
 
+## v39 — chỗ đón lùi ra 100px
+
+`N4_GATE_BACK_PX` 20 → 40. Khoảng cách thật tới tường: `N4_GATE_EDGE_PX` 60 + 40 = **100px**
+(bản trước là 80px). Người chơi chốt sau khi chạy thử.
+
