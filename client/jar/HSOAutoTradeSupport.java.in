@@ -376,6 +376,17 @@ public final class HSOAutoTradeSupport {
     static final long N4_RESCUE_MS = 25000L;
 
     static final long N4_GOTO_TIMEOUT_MS = 120000L;    // 2 phut de toi cho NPC
+    /**
+     * Doi it nhat ngan nay sau khi doi map roi moi tinh toan gi.
+     *
+     * Ma so map doi TRUOC khi client nap xong ban do va nhan duoc vi tri moi cua nhan vat.
+     * Lam viec ngay tai khung hinh do la doc phai toa do cu: bao sai khoang cach, gui sai
+     * vi tri len server, va te nhat la co the ket luan "da toi noi" trong khi that ra dang
+     * o tan dau. Cho thi khong mat gi - vao lai khong can voi.
+     */
+    static final long N4_SETTLE_MS = 3000L;
+    /** Cho mai khong thay ban do dau thi thoi, cu lam - khong treo im lang. */
+    static final long N4_SETTLE_MAX_MS = 30000L;
     static final long N4_TALK_TIMEOUT_MS = 20000L;     // bam menu xong, 20s ma chua vao
     static final long N4_FIGHT_TIMEOUT_MS = 1800000L;  // 30 phut cho ca 20 hiep
     /** Bam vao pho ban may lan lien tiep khong vao duoc thi coi nhu het ve va het ngoc. */
@@ -392,6 +403,9 @@ public final class HSOAutoTradeSupport {
     /** Map dung luc bat auto - tuc la lang. Khac map nay tuc la dang trong pho ban. */
     static int n4TownMap = -1;
     static int n4LastMap = -1;
+    /** Luc doi map gan nhat, va viec con no lai chua lam (1 = vao pho ban, 2 = ra lang). */
+    static long n4MapAt;
+    static int n4MapPending;
     static int n4Runs;
     static int n4TalkFails;
     /** Dang bat Auto Tu Danh ho nguoi choi; can nho de con tra lai nguyen trang. */
@@ -3149,15 +3163,36 @@ public final class HSOAutoTradeSupport {
                 return;
             }
 
+            /*
+             * DOI MAP: ghi nho lai da, doi client nap xong roi moi xu ly.
+             *
+             * Ma so map doi ngay tu goi tin dau tien, con ban do va vi tri moi cua nhan vat
+             * thi toi sau. Ban truoc xu ly ngay tai khung hinh do va hong dung kieu nay: ra
+             * khoi pho ban, doc phai toa do cu, ket luan "da ve toi cho NPC" trong khi nhan
+             * vat con dung tan cho ra, the la bat chuyen voi khong khi ba lan roi tu tat.
+             *
+             * Cho them vai giay khong mat gi - vao lai khong can voi.
+             */
             int here = mapId();
             if (here >= 0 && here != n4LastMap) {
                 n4LastMap = here;
+                n4MapAt = now();
+                n4MapPending = here != n4TownMap ? 1 : 2;
                 clearPlan();
-                if (here != n4TownMap) {
+                @class.PLAYER@ meNow = player();
+                if (meNow != null) haltWalk(meNow);
+                return;
+            }
+            if (n4MapPending != 0) {
+                if (!n4MapReady()) return;
+                int what = n4MapPending;
+                n4MapPending = 0;
+                if (what == 1) {
                     n4OnEnterDungeon();
                 } else {
                     n4OnLeaveDungeon();
                 }
+                return;
             }
 
             pollInfo();
@@ -3194,6 +3229,37 @@ public final class HSOAutoTradeSupport {
             System.out.println("HSOAUTO: n4 tick error " + t.toString());
             n4Stop("Lỗi bất ngờ, đã dừng.");
         }
+    }
+
+    /**
+     * Ban do moi da nap xong chua.
+     *
+     * Ba dieu kien, deu phai that:
+     *   - da qua N4_SETTLE_MS ke tu luc ma so map doi (cho cac goi tin con lai toi noi)
+     *   - co doi tuong nhan vat
+     *   - co bang o cua ban do  (thieu cai nay thi khong tinh duoc duong di, va rieng trong
+     *     pho ban thi cung khong tinh duoc cho thien thach)
+     *
+     * Cho qua N4_SETTLE_MAX_MS ma van thieu thi cu lam - tha lam voi du lieu chua chac con
+     * hon dung im khong bao gi.
+     */
+    static boolean n4MapReady() {
+        if (now() - n4MapAt > N4_SETTLE_MAX_MS) return true;
+        if (now() - n4MapAt < N4_SETTLE_MS) return false;
+        if (player() == null) return false;
+        return tileGrid() != null && gridWidth() > 0;
+    }
+
+    /** Vi tri hien tai, dang "x,y" - de bao ra cho de doi chieu. */
+    static String n4Pos() {
+        @class.PLAYER@ me = player();
+        if (me == null) return "?";
+        return join(join(String.valueOf(me.@player.x@), ","), String.valueOf(me.@player.y@));
+    }
+
+    /** Cho da nho, dang "x,y". */
+    static String n4Home() {
+        return join(join(String.valueOf(n4HomeX), ","), String.valueOf(n4HomeY));
     }
 
     static void n4OnEnterDungeon() {
@@ -3245,7 +3311,14 @@ public final class HSOAutoTradeSupport {
          * Da mat mot ban chi vi cau bao khong noi duoc dang o dau so voi cho can toi. Co hai
          * so nay thi nhin mot cai la biet cho da nho co dung khong.
          */
-        notice(join(join("Xong phó bản, về chỗ NPC (lệch ", n4HomeGap()), ")."));
+        /*
+         * Bao ra CA HAI toa do, khong chi khoang lech.
+         *
+         * Da doan mo ba lan lien cho cung mot loi "ve khong dung cho" vi cau bao khong du
+         * de biet la cho da nho sai, hay la di khong toi. Hai con so nay tra loi ngay.
+         */
+        notice(join(join(join("Xong phó bản, đang ở ", n4Pos()), ", về chỗ NPC "),
+                join(n4Home(), ".")));
     }
 
     /** Khoang cach hien tai toi cho bat chuyen, dang "dx,dy" - de bao ra cho de doc. */
@@ -3302,7 +3375,7 @@ public final class HSOAutoTradeSupport {
             return;
         }
         n4Park();                       // dung han lai roi moi bat chuyen
-        notice("Đã về chỗ NPC, bắt chuyện.");
+        notice(join(join("Đã về chỗ NPC (lệch ", n4HomeGap()), "), bắt chuyện."));
         sender().@sender.requestNpcMenu@((byte) npcIdOf(NPC_CHIHUY, NPC_CHIHUY_ID));
         n4SetState(N4_TALK);
     }
@@ -3325,7 +3398,8 @@ public final class HSOAutoTradeSupport {
             if (!n4MenuSeen) {
                 n4Stop("Không mở được menu Phó chỉ huy - hãy đứng sát NPC rồi bật lại.");
             } else {
-                n4Stop("Không vào được phó bản - nhiều khả năng đã hết đồng tiền Horae và hết ngọc.");
+                n4Stop(join(join("Không vào được phó bản - hết vé và hết ngọc, hoặc chỗ nhớ"
+                        + " sai (đang ở ", n4Pos()), join(join(", nhớ ", n4Home()), ").")));
             }
             return;
         }
@@ -3575,12 +3649,24 @@ public final class HSOAutoTradeSupport {
      * xac nhan, va hop do do n4Tick() bam.
      */
     static boolean n4OnNpcMenu(short npcId, byte menuId, @class.VEC@ items) {
+        /*
+         * "ngã tư" la dong CHI Pho chi huy moi co - thay no la chac chan dang dung menu.
+         *
+         * Con "horae" va nhat la "ngọc" thi chung chung: bat ky NPC nao co dong chua chu
+         * "ngọc" cung khop. Menu tra phi do chi hien ra SAU khi da bam dong "vào ngã tư",
+         * tuc la chi khi dang o buoc N4_TALK - nen chi nhan chung trong buoc do. Khong siet
+         * cho nay thi mot menu la mat cung keo auto di bam lung tung va, te hon, ghi de len
+         * cho da nho.
+         */
         int pick = indexOfLabel(items, LBL_N4_ENTER);
-        if (pick < 0) pick = indexOfLabel(items, LBL_N4_HORAE);
-        if (pick < 0) pick = indexOfLabel(items, LBL_N4_GEM);
+        boolean atChiHuy = pick >= 0;
+        if (pick < 0 && n4State == N4_TALK) {
+            pick = indexOfLabel(items, LBL_N4_HORAE);
+            if (pick < 0) pick = indexOfLabel(items, LBL_N4_GEM);
+        }
         if (pick < 0) return false;
         /*
-         * NEO LAI cho dung, ngay tai day.
+         * NEO LAI cho dung, ngay tai day - nhung CHI khi chac chan la menu Pho chi huy.
          *
          * Server chi mo menu khi nhan vat da du gan NPC, nen cho dang dung LUC NAY chac chan
          * la mot cho bat chuyen duoc. Ghi de len cho da nho luc bat auto: cho do chi la noi
@@ -3588,10 +3674,12 @@ public final class HSOAutoTradeSupport {
          *
          * Nho vay chi can bat chuyen duoc MOT lan la moi luot ve sau deu ve dung cho.
          */
-        @class.PLAYER@ meNow = player();
-        if (meNow != null) {
-            n4HomeX = meNow.@player.x@;
-            n4HomeY = meNow.@player.y@;
+        if (atChiHuy) {
+            @class.PLAYER@ meNow = player();
+            if (meNow != null) {
+                n4HomeX = meNow.@player.x@;
+                n4HomeY = meNow.@player.y@;
+            }
         }
         n4MenuSeen = true;
         pendNpc = npcId;

@@ -1953,3 +1953,54 @@ tầm đánh" cho `n4RescueDue()` dùng. Kết quả của nó bị bỏ đi nga
 có luật `resultDiscarded()` khẳng định đúng điều đó — để lần sau không ai vô tình nối nó trở
 lại vào giá trị trả về.
 
+## v41 — đợi bản đồ nạp xong rồi mới tính
+
+Người chơi báo: ra khỏi phó bản thì **không về chỗ bật auto**, đứng giữa làng rồi bắt chuyện
+với không khí ba lần và tự tắt. Log:
+
+```
+[Auto đi buôn] Xong phó bản, về chỗ NPC (lệch 176,152).
+[Auto đi buôn] Đã về chỗ NPC, bắt chuyện.        <- ngay lập tức, chưa đi đâu cả
+[Auto đi buôn] Chưa vào được phó bản, thử lại.
+```
+
+### Đợi nạp xong
+
+Mã số map đổi **ngay từ gói tin đầu tiên**, còn bản đồ và vị trí mới của nhân vật thì tới
+sau. Bản cũ xử lý ngay tại khung hình đó nên đọc phải toạ độ cũ: báo sai khoảng cách, gửi
+sai vị trí lên server, và tệ nhất là có thể kết luận "đã về tới chỗ NPC" trong khi nhân vật
+còn đứng tận chỗ ra.
+
+Giờ đổi map chỉ **ghi nhớ lại**, rồi đợi `n4MapReady()`:
+
+- qua `N4_SETTLE_MS` = 3 giây kể từ lúc mã số map đổi,
+- có đối tượng nhân vật,
+- có bảng ô của bản đồ (thiếu cái này thì không tính được đường đi, và trong phó bản thì
+  cũng không tính được chỗ thiên thạch).
+
+Quá `N4_SETTLE_MAX_MS` = 30 giây mà vẫn thiếu thì cứ làm — thà làm với dữ liệu chưa chắc
+còn hơn đứng im không báo gì.
+
+### Neo chỗ đứng chặt hơn
+
+`n4OnNpcMenu()` trước đây nhận **bất kỳ** menu nào có dòng chứa `"ngọc"` — chuỗi này chung
+chung, NPC nào cũng có thể có — rồi **ghi đè chỗ đã nhớ** bằng vị trí lúc đó. Một menu lạ là
+đủ để kéo chỗ nhớ đi chỗ khác.
+
+Giờ:
+
+- `"ngã tư"` là dòng **chỉ Phó chỉ huy mới có** → thấy nó mới neo lại chỗ đứng.
+- `"horae"` / `"ngọc"` chỉ được nhận khi đang ở bước `N4_TALK`, tức là đã bấm "vào ngã tư"
+  rồi — đúng lúc menu trả phí hiện ra. Không neo lại chỗ đứng ở bước này.
+
+### Báo ra số thật
+
+Đã đoán mò ba lần cho cùng một lỗi "về không đúng chỗ" vì câu báo không đủ để biết là **chỗ
+nhớ sai** hay **đi không tới**. Giờ nói cả hai toạ độ:
+
+```
+Xong phó bản, đang ở 432,354, về chỗ NPC 610,505.
+Đã về chỗ NPC (lệch 12,8), bắt chuyện.
+Không vào được phó bản - hết vé và hết ngọc, hoặc chỗ nhớ sai (đang ở x,y, nhớ a,b).
+```
+

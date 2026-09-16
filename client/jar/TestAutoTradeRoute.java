@@ -402,6 +402,17 @@ public final class TestAutoTradeRoute {
                     "N4_GATE_HOLD_MS = " + hold + "ms - hop thong bao co ba dong, dong cu bi"
                     + " day xuong se bi doc lai nhu dong moi; khoa qua ngan la cua nhay qua"
                     + " nhay lai va nhan vat chay di chay lai giua hai diem don");
+            expect(has(c, "n4MapReady") && has(c, "n4Pos") && has(c, "n4Home"),
+                    "thieu buoc cho ban do nap xong sau khi doi map - doc phai toa do cu thi"
+                    + " co the ket luan \"da ve toi cho NPC\" trong khi con dung tan cho ra,"
+                    + " roi bat chuyen voi khong khi ba lan va tu tat");
+            long n4Settle = cl(c, "N4_SETTLE_MS");
+            expect(n4Settle >= 1000L && n4Settle <= 15000L,
+                    "N4_SETTLE_MS = " + n4Settle + "ms - doi client nap xong ban do moi; qua"
+                    + " ngan la lai doc phai toa do cu");
+            expect(cl(c, "N4_SETTLE_MAX_MS") > n4Settle,
+                    "N4_SETTLE_MAX_MS phai lon hon N4_SETTLE_MS - het han nay thi cu lam,"
+                    + " khong treo im lang cho mai");
             expect(has(c, "flushInfo"),
                     "thieu flushInfo() - thong bao cua cua luot truoc se chiem mat khoa doi"
                     + " cua, nhan vat chay sang cua sai roi 20 giay sau moi sua duoc");
