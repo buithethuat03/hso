@@ -402,6 +402,9 @@ public final class TestAutoTradeRoute {
                     "N4_GATE_HOLD_MS = " + hold + "ms - hop thong bao co ba dong, dong cu bi"
                     + " day xuong se bi doc lai nhu dong moi; khoa qua ngan la cua nhay qua"
                     + " nhay lai va nhan vat chay di chay lai giua hai diem don");
+            expect(has(c, "flushInfo"),
+                    "thieu flushInfo() - thong bao cua cua luot truoc se chiem mat khoa doi"
+                    + " cua, nhan vat chay sang cua sai roi 20 giay sau moi sua duoc");
             expect(has(c, "n4HomeGap"),
                     "thieu n4HomeGap() - bao chung chung thi khong biet cho da nho co dung"
                     + " khong, da mat mot ban vi chuyen do");

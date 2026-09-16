@@ -1835,3 +1835,28 @@ chính mình chứ không phụ thuộc vào việc người chơi bật auto đ
 
 Hai con số đó tách ngay ba khả năng: chỗ nhớ sai (lệch vô lý), nhân vật không đi (lệch không
 giảm), hay đã về đúng mà server không mở menu.
+
+---
+
+## v37 — quên sạch hộp thông báo khi đổi map
+
+*"Lúc vào phó bản nó cứ đi vòng vòng một lúc rồi mới quay về chỗ cần đứng. Nếu chậm quá thì quái
+ra mất rồi."*
+
+Đây là hậu quả của chính cái khoá 20 giây thêm ở v34, và là một chuỗi ba bước:
+
+1. Vào phó bản, hộp thông báo **vẫn còn các dòng của lượt trước** — trong đó có thông báo cửa.
+2. `takeInfo()` chỉ so *"dòng này có khác lần trước không"*. Đổi map xong, các dòng cũ vẫn khác
+   với lần đọc trước, nên chúng được xử lý **một lần nữa** như dòng mới.
+3. Thông báo cửa cũ đó **chiếm mất khoá 20 giây**. Nhân vật chạy sang cửa sai, còn thông báo
+   **thật** của đợt đầu thì bị chính cái khoá đó chặn lại — 20 giây sau mới sửa được, lúc đó
+   quái đã ra.
+
+`flushInfo()` chép thẳng nội dung hiện tại của hộp vào `infoSeen[]` mà không xử lý gì, tức là
+"coi như đã đọc hết rồi". Gọi ở cả hai chiều đổi map: vào phó bản (bỏ thông báo của lượt trước)
+và ra làng (thông báo trong phó bản không còn nghĩa gì ở ngoài).
+
+Sau đó thông báo cửa **thật** của đợt đầu là dòng mới đầu tiên, không bị khoá chặn, và nhân vật
+đi thẳng tới cửa đúng ngay từ đầu.
+
+Khoá 20 giây giữ nguyên — nó vẫn cần cho việc chặn bản sao bị đẩy xuống trong cùng một khung hình.

@@ -855,6 +855,27 @@ public final class HSOAutoTradeSupport {
         }
     }
 
+    /**
+     * Coi nhu da doc het nhung dong dang co tren hop thong bao.
+     *
+     * Goi luc doi map. Khong lam the thi cac dong con lai tu map TRUOC se duoc coi la moi
+     * va duoc xu ly mot lan nua ngay khi vua sang map moi - voi Auto Nga 4 thi do la thong
+     * bao cua cua luot truoc: no chiem mat khoa doi cua, nhan vat chay sang cua sai, va
+     * thong bao THAT cua dot dau bi khoa chan lai. Dung loi "vao pho ban thi di vong vong
+     * mot luc roi moi quay ve cho can dung, quai ra mat roi khong kip danh".
+     */
+    static void flushInfo() {
+        try {
+            IllIllIIllIIlllIlllIIIlIIllIlIIIlIlllIlIllIIIllIlIlIlllIllIlllIIllIIlIIllIIllIIlIIlIIlIIllIllIIllIIlIIllIIlllIIllIIIlIIlIllIIIllIllIlIIIllIIllIIlllIlllIIllIIIlIllIlIllIIlllIIIllIlllIIllIllIlIlllIIlllIllIIlIIIllIllIIIl box = IIllIIIllIllIIIlllIIIlllIIllIIlllIlIIIllIllIlIIlIIIlllIIlIIllIIllIlIllIIllIIIllIIlIllIIlIIlIIllIIlIlIIllIllIIlIlIIlIIIllIIlIllIllIIlllIllIIlIlllIIllIlIlllIIlllIIIlIIlIIllIlllIlIIllIIIllIlIlIIlIIllIllIlIllIIIllIIll.IllIIlIIllIllIIlllIlllIlIIllIlIllIIllIlllIIllIIIlIIIlllIIllIIllIlIIIlIIllIIlIIIlIllIIllIIlIIllIIIlIIlllIIllIIIlIIlIlIIIlIllIIlIIIllIIlIlIIIlIIIllIIlllIIllIIlllIIlIIIllIIllIIlllIllIllIIlIIllIIlllIIIlllIllIllIIlIIlllIlllIIIlIIIll;
+            if (box == null) return;
+            infoSeen[0] = box.IIIllIIlIIIlIIllIIIlllIIIlIllIllIIllIIlllIlIllIIllIIIlIIlllIIIlllIIlIllIIIllIllIlIlIIIllIllIIllIllIIllIIIlllIlIIllIllIIllIlllIIIllIIlllIlIIIllIIlIIllIlIlllIllIIlllIIllIlllIlIllIIIllIllIIlIIlIIIllIlllIIIlIIllIIllIIlllIlIIIllIlll;
+            infoSeen[1] = box.IIlIllIIlllIIllIIIlllIIIllIIllIIIlIllIIIllIlIIIlIIIlIlllIIllIIIllIIlIlIIlIlllIIIlllIIlIlllIIIllIIlllIIllIllIIIlIIlIIIllIllIlllIIllIIlIIllIlIIIllIIlIIllIIlIIIlIIlllIIIlllIlIIlIIIlIlIIllIllIIllIIlIIllIIllIIIlIIllIIllIlllIIlIIllIIIlll;
+            infoSeen[2] = box.IIllIIllIIIllIIllIIllIllIIllIIllIIlIllIlllIllIlllIIIllIIIlIllIIIlIIIllIIIlIIIlIIlIIllIIlIlIIIlllIIIlIlIIlIIllIlIIllIIlIIlllIIllIIlIIlIIlIlIIIlIllIIlIIlIlIIlllIIlllIIllIIlIlllIIlIIllIIlIllIIlllIIIllIIlIIllIIllIlIIIlIIl;
+        } catch (Throwable t) {
+            // doc khong duoc thi thoi
+        }
+    }
+
     static void takeInfo(int slot, String text) {
         if (text == null || text == infoSeen[slot]) return;
         infoSeen[slot] = text;
@@ -3144,6 +3165,7 @@ public final class HSOAutoTradeSupport {
     }
 
     static void n4OnEnterDungeon() {
+        flushInfo();       // bo het thong bao con sot lai cua luot truoc
         n4TalkFails = 0;
         n4Runs++;
         n4AtRock = false;
@@ -3163,6 +3185,7 @@ public final class HSOAutoTradeSupport {
     }
 
     static void n4OnLeaveDungeon() {
+        flushInfo();       // thong bao trong pho ban khong con nghia gi o ngoai lang
         n4RestoreAttack();
         n4SetState(N4_GOTO);
         /*
