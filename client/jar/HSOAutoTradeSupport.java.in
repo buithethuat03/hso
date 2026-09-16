@@ -408,7 +408,12 @@ public final class HSOAutoTradeSupport {
     static boolean n4MenuSeen;
     /** Dang bat Auto Tu Danh ho nguoi choi; can nho de con tra lai nguyen trang. */
     static boolean n4AutoOn;
-    static boolean n4SavedPlayers;
+    /** Co Auto Tu Danh cua engine truoc khi auto dong vao, de con tra lai. */
+    static boolean n4SavedAttack;
+    /** Cac auto khac cung gianh quyen dieu khien di chuyen - tat khi chay, bat lai khi tat. */
+    static boolean n4SavedNextMap;
+    static boolean n4SavedSell;
+    static boolean n4SavedHorse;
     /** Noclip nguoi choi chon trong menu Auto Di Buon, tra lai khi tat. */
     static boolean n4SavedNoclip;
     /** n4Settled(): luc engine bat dau ranh (da di het duong) va nhan vat dung yen. */
@@ -743,12 +748,11 @@ public final class HSOAutoTradeSupport {
     /**
      * Dang mat ket noi (hoac khong con o man hinh game) hay khong.
      *
-     * KHONG duoc dung HSOSKYPetFeedSupport.isDisconnected hay isPlayerInGame() o day, du
-     * chung nghe rat dung ten: co bat len nhung chi duoc xoa o hai cho, mot cho nam trong
-     * "if (isPlayerInGame())" - ma isPlayerInGame() lai tra ve false ngay khi co bat -, cho
-     * con lai nam trong nhanh auto login va chi chay khi nguoi choi da chon nhan vat auto
-     * login. Nguoi choi khong bat auto login thi co do bat len roi la KHONG BAO GIO tat, va
-     * auto di buon se treo vinh vien.
+     * Ba man hinh (dang chay / game / dang nhap) doc thang tu lop APP. Ban truoc dung
+     * HSOSKYPetFeedSupport.isDisconnected()/isPlayerInGame() va hong: co "mat ket noi" bat
+     * len nhung chi duoc xoa trong nhanh auto login, nen nguoi choi khong bat auto login la
+     * co do khong bao gio tat va auto treo vinh vien. Lop do cung khong co trong ban Luna
+     * sach - bo han la dung.
      *
      * Chi tam dung khi CHUNG MINH duoc la mat ket noi, khong bao gio dung vi "khong
      * chung minh duoc la dang online":
@@ -770,8 +774,8 @@ public final class HSOAutoTradeSupport {
     /** Dang o man hinh dang nhap - dau hieu chac chan la khong con trong game. */
     static boolean onLoginScreen() {
         try {
-            Object cur = HSOSKYPetFeedSupport.getCurrentScreen();
-            Object login = HSOSKYPetFeedSupport.getLoginScreen();
+            Object cur = @class.APP@.@app.currentScreen@;
+            Object login = @class.APP@.@app.loginScreen@;
             return cur != null && login != null && cur == login;
         } catch (Throwable t) {
             return false;
@@ -1170,8 +1174,8 @@ public final class HSOAutoTradeSupport {
      */
     static boolean onGameScreen() {
         try {
-            Object cur = HSOSKYPetFeedSupport.getCurrentScreen();
-            return cur != null && cur == HSOSKYPetFeedSupport.getGameScreen();
+            Object cur = @class.APP@.@app.currentScreen@;
+            return cur != null && cur == @class.APP@.@app.gameScreen@;
         } catch (Throwable t) {
             return true;   // khong biet thi coi nhu binh thuong, khong bao nham
         }
@@ -3083,7 +3087,24 @@ public final class HSOAutoTradeSupport {
             return;
         }
         if (state != OFF) stop("Bật Auto Ngã 4 nên tắt Auto Đi Buôn.");
-        n4SavedPlayers = HSOSKYPetFeedSupport.isAutoPlayersEnabled();
+        /*
+         * Tat cac auto khac CUNG GIANH QUYEN DIEU KHIEN DI CHUYEN.
+         *
+         * Auto Di Buon van lam viec nay tu dau; Auto Nga 4 thi quen, va do la mot nguon loi
+         * "chay vong vong" nua: Auto Next Map tu di ra cong, Auto Ban Rac tu di toi NPC, Auto
+         * Len Ngua doi phuong tien giua duong. Ba cai do keo nhan vat di trong khi buoc cua
+         * minh dang cho no dung yen.
+         *
+         * Auto Tu Danh thi GIU LAI - trong pho ban chinh no la thu danh quai - nhung nho lai
+         * trang thai cu de con tra ve.
+         */
+        n4SavedAttack = @class.ENGINE@.@engine.field.autoAttack@;
+        n4SavedNextMap = @class.ENGINE@.@engine.field.autoNextMap@;
+        n4SavedSell = @class.ENGINE@.@engine.field.autoSell@;
+        n4SavedHorse = @class.ENGINE@.@engine.field.autoHorse@;
+        @class.ENGINE@.@engine.field.autoNextMap@ = false;
+        @class.ENGINE@.@engine.field.autoSell@ = false;
+        @class.ENGINE@.@engine.field.autoHorse@ = false;
         n4SavedNoclip = noclipOn;
         n4AutoOn = false;
         n4InDungeon = false;
@@ -3107,6 +3128,9 @@ public final class HSOAutoTradeSupport {
 
     static void n4Stop(String why) {
         n4RestoreAttack();
+        @class.ENGINE@.@engine.field.autoNextMap@ = n4SavedNextMap;
+        @class.ENGINE@.@engine.field.autoSell@ = n4SavedSell;
+        @class.ENGINE@.@engine.field.autoHorse@ = n4SavedHorse;
         n4State = N4_OFF;
         n4InDungeon = false;
         @class.PLAYER@ me = player();
@@ -3119,29 +3143,38 @@ public final class HSOAutoTradeSupport {
     }
 
     /**
-     * Bat Auto Tu Danh o che do 7 "Chỉ Quái".
+     * Bat Auto Tu Danh GOC cua ban Luna sach.
      *
-     * Che do 7 la autoPlayersEnabled = false. Thien thach thi khong can lo: bo loc muc tieu
-     * cua mod (HSOSKYPetFeedSupport.isAutoTargetType) chi nhan loai 1 (quai) va loai 0
-     * (nguoi, va chi khi dang o che do 6), con thien thach la thuc the loai 2 - khong che do
-     * nao nham vao no ca. Tam chon muc tieu bi autoTargetGate() gioi han trong vong tron.
+     * Ban mod cu them che do 6/7 ("Quái & PK" / "Chỉ Quái") va, de lam duoc cai do, da GO
+     * BO ca hai bo loc khoi vong tim muc tieu goc: khong con xet tam danh, khong con xet
+     * loai thuc the. Ghep voi viec vong auto danh chinh tu ghi player.path de di toi muc
+     * tieu, ket qua la auto khoa vao mot con quai bat ky tren CA ban do roi tu chay toi no -
+     * dung loi "chay vong vong, khong chiu dung im, khong danh" nguoi choi gap suot.
      *
-     * persistentAutoAttack de onCanvasUpdate tu bat lai moi khi engine tu tat.
+     * Ban Luna sach con nguyen ca hai bo loc, nen chi can bat co len la duoc: no tu chi chon
+     * muc tieu trong vong tron tam danh va tu bo qua thuc the khong phai quai (thien thach la
+     * loai 2). Khong can vao HSOSKYPetFeedSupport, khong can vong tron tu ve.
+     *
+     * Goi moi nhip: engine co cho tu tat co nay, bat lai la xong - khong can persistent.
      */
     static void n4StartAttack() {
-        HSOSKYPetFeedSupport.setAutoPlayersEnabled(false);
-        HSOSKYPetFeedSupport.persistentAutoAttack = true;
-        HSOSKYPetFeedSupport.setModAutoAttack(true);
+        @class.ENGINE@.@engine.field.autoAttack@ = true;
         n4AutoOn = true;
+    }
+
+    /** Giu co Auto Tu Danh bat suot trong pho ban - engine co cho tu tat no. */
+    static void n4KeepAttack() {
+        if (!n4AutoOn) n4StartAttack();
+        else if (!@class.ENGINE@.@engine.field.autoAttack@) {
+            @class.ENGINE@.@engine.field.autoAttack@ = true;
+        }
     }
 
     /** Tra Auto Tu Danh ve dung nguyen trang truoc khi auto dong vao. */
     static void n4RestoreAttack() {
         if (!n4AutoOn) return;
         n4AutoOn = false;
-        HSOSKYPetFeedSupport.persistentAutoAttack = false;
-        HSOSKYPetFeedSupport.setModAutoAttack(false);
-        HSOSKYPetFeedSupport.setAutoPlayersEnabled(n4SavedPlayers);
+        @class.ENGINE@.@engine.field.autoAttack@ = n4SavedAttack;
     }
 
     static void n4Tick() {
@@ -3334,7 +3367,7 @@ public final class HSOAutoTradeSupport {
      */
     static void n4StepWait() {
         if (n4FightTooLong()) return;
-        if (!n4AutoOn) n4StartAttack();
+        n4KeepAttack();
         if (n4AimDirty) {
             n4AimDirty = false;
             n4SetState(N4_MOVE);
@@ -3357,7 +3390,7 @@ public final class HSOAutoTradeSupport {
      */
     static void n4StepMove() {
         if (n4FightTooLong()) return;
-        if (!n4AutoOn) n4StartAttack();
+        n4KeepAttack();
         n4WantNoclip(true);
         if (!n4EngineIdle()) {
             n4IdleSince = 0L;                      // dang di het duong da giao
@@ -3385,7 +3418,7 @@ public final class HSOAutoTradeSupport {
      */
     static void n4StepHold() {
         if (n4FightTooLong()) return;
-        if (!n4AutoOn) n4StartAttack();
+        n4KeepAttack();
         n4WantNoclip(true);
         if (n4AimDirty) {
             n4AimDirty = false;
@@ -3524,46 +3557,6 @@ public final class HSOAutoTradeSupport {
         pendRow = pick;
         pendAt = now();
         return true;
-    }
-
-    // ------------------------------------------------------------ tam chon muc tieu
-
-    /**
-     * Bo loc muc tieu cua Auto Tu Danh - patcher noi thay cho cho goi isValidAutoTarget.
-     *
-     * Ban mod chon muc tieu tren CA BAN DO. Trong pho ban thi khong duoc: quai vao tung dot
-     * tu ria ban do, no khoa vao con o tan dang xa va danh hut, con o ngay canh thi khong dung.
-     * Nguoi choi yeu cau: trong pho ban chi danh trong VONG TRON mod ve tren man hinh. Ngoai
-     * pho ban giu nguyen hanh vi cu.
-     */
-    public static boolean autoTargetGate(Object target, Object me) {
-        boolean ok;
-        try {
-            ok = HSOSKYPetFeedSupport.isValidAutoTarget(target, me);
-        } catch (Throwable t) {
-            return false;
-        }
-        if (!ok || !n4InDungeon) return ok;
-        return n4InRange(target, me);
-    }
-
-    /**
-     * Muc tieu co nam trong vong tron tam danh khong - ban kinh DUNG bang vong tron mod ve:
-     * tamDanh * 3 / 2, tinh bang pixel (doc tu ma may cua ham ve; tamDanh mac dinh 140 nen
-     * vong tron la 210px). Doc khong duoc thi cho qua - tha nhan thua con hon dung im.
-     */
-    static boolean n4InRange(Object target, Object me) {
-        try {
-            @class.ENTITY@ t = (@class.ENTITY@) target;
-            @class.PLAYER@ p = (@class.PLAYER@) me;
-            int r = p.@player.atkRange@ * 3 / 2;
-            if (r <= 0) return true;
-            long dx = (long) t.@entity.x@ - p.@player.x@;
-            long dy = (long) t.@entity.y@ - p.@player.y@;
-            return dx * dx + dy * dy <= (long) r * r;
-        } catch (Throwable th) {
-            return true;
-        }
     }
 
     // ------------------------------------------------------------ HUD
