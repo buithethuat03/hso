@@ -1,0 +1,54 @@
+/*
+ * Generated hook facade template.
+ *
+ * Keep this file ABI-only: the patcher calls these names and descriptors.
+ * Feature behavior lives in semantic src/luna classes or in the generated
+ * binary compatibility bridge. Do not put binary field/method lookups here.
+ */
+import luna.core.LunaSemanticHooks;
+
+public final class HSOAutoTradeSupport {
+
+    private HSOAutoTradeSupport() { }
+
+    public static boolean handleMenuAction(int action, int param) {
+        boolean semanticHandled = LunaSemanticHooks.handleMenuAction(action, param);
+        boolean legacyHandled = LunaGeneratedLegacyHooks.handleMenuAction(action, param);
+        return semanticHandled || legacyHandled;
+    }
+
+    public static void tick() {
+        LunaSemanticHooks.tick();
+        LunaGeneratedLegacyHooks.tick();
+    }
+
+    /** Gate the native horse retry; lifecycle code owns the one-shot request. */
+    public static void nativeHorseMountTick() {
+        LunaGeneratedLegacyHooks.nativeHorseMountTick();
+    }
+
+    /** Suppress only the two auto-horse item-use error dialogs. */
+    public static boolean shouldSuppressHorseDialog(String text) {
+        return LunaGeneratedLegacyHooks.shouldSuppressHorseDialog(text);
+    }
+
+    public static void paintHud(@class.GRAPHICS@ graphics) {
+        LunaGeneratedLegacyHooks.paintHud(graphics);
+    }
+
+    public static boolean onNpcMenu(short npcId, byte menuId, @class.VEC@ items) {
+        return LunaGeneratedLegacyHooks.onNpcMenu(npcId, menuId, items);
+    }
+
+    public static void onShopOpened(@class.SHOP@ shop) {
+        LunaGeneratedLegacyHooks.onShopOpened(shop);
+    }
+
+    public static short[] autoAttackPath(short[] path) {
+        return LunaGeneratedLegacyHooks.autoAttackPath(path);
+    }
+
+    public static boolean autoTargetGate(Object target, Object player) {
+        return LunaGeneratedLegacyHooks.autoTargetGate(target, player);
+    }
+}

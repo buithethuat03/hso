@@ -656,52 +656,58 @@ public class Player {
                     bais = new ByteArrayInputStream(Manager.gI().msg_29_xathu);
                     break;
                 }
-            }
-            dis = new DataInputStream(bais);
-            int size = dis.readByte();
-            skills = new Skill[size];
-            for (int i = 0; i < size; i++) {
-                Skill skill = new Skill();
-                skill.id = dis.readByte();
-                skill.iconid = dis.readByte();
-                skill.name = dis.readUTF();
-                skill.type = dis.readByte();
-                skill.range = dis.readShort();
-                skill.detail = dis.readUTF();
-                skill.typeBuff = dis.readByte();
-                skill.subEff = dis.readByte();
-                byte b2 = dis.readByte();
-                skill.mLvSkill = new LvSkill[(int) b2];
-                for (int j = 0; j < (int) b2; j++) {
-                    skill.mLvSkill[j] = new LvSkill();
-                    skill.mLvSkill[j].mpLost = dis.readShort();
-                    skill.mLvSkill[j].LvRe = dis.readShort();
-                    skill.mLvSkill[j].delay = dis.readInt();
-                    skill.mLvSkill[j].timeBuff = dis.readInt();
-                    skill.mLvSkill[j].per_Sub_Eff = dis.readByte();
-                    skill.mLvSkill[j].time_Sub_Eff = dis.readShort();
-                    skill.mLvSkill[j].plus_Hp = dis.readShort();
-                    skill.mLvSkill[j].plus_Mp = dis.readShort();
-                    byte b3 = dis.readByte();
-                    skill.mLvSkill[j].minfo = new Option[(int) b3];
-                    for (int k = 0; k < (int) b3; k++) {
-                        skill.mLvSkill[j].minfo[k] = new Option(dis.readUnsignedByte(), dis.readInt());
-                    }
-                    skill.mLvSkill[j].nTarget = dis.readByte();
-                    skill.mLvSkill[j].range_lan = dis.readShort();
+                default: {
+                    bais = new ByteArrayInputStream(Manager.gI().msg_29_chienbinh);
+                    break;
                 }
-                skill.performDur = dis.readShort();
-                skill.typePaint = dis.readByte();
-                skills[skill.id] = skill;
             }
-        } catch (FileNotFoundException e) {
+            if (bais != null) {
+                dis = new DataInputStream(bais);
+                int size = dis.readByte();
+                skills = new Skill[size];
+                for (int i = 0; i < size; i++) {
+                    Skill skill = new Skill();
+                    skill.id = dis.readByte();
+                    skill.iconid = dis.readByte();
+                    skill.name = dis.readUTF();
+                    skill.type = dis.readByte();
+                    skill.range = dis.readShort();
+                    skill.detail = dis.readUTF();
+                    skill.typeBuff = dis.readByte();
+                    skill.subEff = dis.readByte();
+                    byte b2 = dis.readByte();
+                    skill.mLvSkill = new LvSkill[(int) b2];
+                    for (int j = 0; j < (int) b2; j++) {
+                        skill.mLvSkill[j] = new LvSkill();
+                        skill.mLvSkill[j].mpLost = dis.readShort();
+                        skill.mLvSkill[j].LvRe = dis.readShort();
+                        skill.mLvSkill[j].delay = dis.readInt();
+                        skill.mLvSkill[j].timeBuff = dis.readInt();
+                        skill.mLvSkill[j].per_Sub_Eff = dis.readByte();
+                        skill.mLvSkill[j].time_Sub_Eff = dis.readShort();
+                        skill.mLvSkill[j].plus_Hp = dis.readShort();
+                        skill.mLvSkill[j].plus_Mp = dis.readShort();
+                        byte b3 = dis.readByte();
+                        skill.mLvSkill[j].minfo = new Option[(int) b3];
+                        for (int k = 0; k < (int) b3; k++) {
+                            skill.mLvSkill[j].minfo[k] = new Option(dis.readUnsignedByte(), dis.readInt());
+                        }
+                        skill.mLvSkill[j].nTarget = dis.readByte();
+                        skill.mLvSkill[j].range_lan = dis.readShort();
+                    }
+                    skill.performDur = dis.readShort();
+                    skill.typePaint = dis.readByte();
+                    skills[skill.id] = skill;
+                }
+            }
+        } catch (Exception e) {
             e.printStackTrace();
         } finally {
             if (dis != null) {
-                dis.close();
+                try { dis.close(); } catch (Exception ignored) {}
             }
             if (bais != null) {
-                bais.close();
+                try { bais.close(); } catch (Exception ignored) {}
             }
         }
     }

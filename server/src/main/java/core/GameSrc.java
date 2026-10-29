@@ -50,8 +50,8 @@ public class GameSrc {
             return;
         }
         if (tem == 7) {
-            if (id != 13 && id != 14 && id != 4) {
-                Service.send_notice_box(conn, "Chỉ nên dùng cỏ 4 lá hoặc đá 3 màu");
+            if (id != 13 && id != 14 && id != 12 && id != 4) {
+                Service.send_notice_box(conn, "Chỉ nên dùng cỏ 4 lá, cỏ 3 lá hoặc đá 3 màu");
                 return;
             }
             Message m = new Message(67);
@@ -142,7 +142,8 @@ public class GameSrc {
                         if (it_upgrade.tier < 7) {
                             get_percent += 30;
                         }
-                        if (conn.p.is_use_mayman && (conn.p.id_use_mayman == 14 || conn.p.id_use_mayman == 13)) {
+                        if (conn.p.is_use_mayman
+                                && (conn.p.id_use_mayman == 14 || conn.p.id_use_mayman == 13 || conn.p.id_use_mayman == 12 || conn.p.id_use_mayman == 4)) {
                             percent = (get_percent + 15) > Util.random(0, 120);
                         } else {
                             percent = get_percent > Util.random(0, 120);
@@ -158,24 +159,45 @@ public class GameSrc {
                                 }
                             }
                         } else {
-                            if (conn.p.is_use_mayman && (conn.p.id_use_mayman == 14 || conn.p.id_use_mayman == 13)) {
+                            // Xác định mốc checkpoint của trang bị (+1, +6, +11)
+                            int checkpoint = 0;
+                            if (it_upgrade.tier >= 11) {
+                                checkpoint = 11;
+                            } else if (it_upgrade.tier >= 6) {
+                                checkpoint = 6;
+                            } else if (it_upgrade.tier >= 1) {
+                                checkpoint = 1;
+                            }
+
+                            if (conn.p.is_use_mayman) {
                                 if (conn.p.id_use_mayman == 13) {
-                                    if (it_upgrade.tier > 6 && it_upgrade.tier != 11) {
-                                        it_upgrade.tier -= 1;
+                                    // CỎ 4 LÁ: 15% xác suất không rớt cấp, còn lại bị -1 cấp (không tụt qua checkpoint)
+                                    boolean bao_ho_15 = 15 > Util.random(0, 100);
+                                    if (!bao_ho_15) {
+                                        if (it_upgrade.tier > checkpoint) {
+                                            it_upgrade.tier -= 1;
+                                        }
                                     }
+                                } else if (conn.p.id_use_mayman == 12) {
+                                    // CỎ 3 LÁ: 15% xác suất không rớt cấp, còn lại bị -2 cấp (không tụt qua checkpoint)
+                                    boolean bao_ho_15 = 15 > Util.random(0, 100);
+                                    if (!bao_ho_15) {
+                                        it_upgrade.tier = (byte) Math.max(checkpoint, it_upgrade.tier - 2);
+                                    }
+                                } else if (conn.p.id_use_mayman == 14) {
+                                    // ĐÁ 3 MÀU: 100% không rớt cấp khi thất bại
+                                    // it_upgrade.tier giữ nguyên
+                                } else {
+                                    // Vật phẩm khác / không bảo hiểm: Rớt về checkpoint
+                                    it_upgrade.tier = (byte) checkpoint;
                                 }
                             } else {
-                                if (it_upgrade.tier >= 11) {
-                                    it_upgrade.tier = 11;
-                                } else if (it_upgrade.tier >= 6) {
-                                    it_upgrade.tier = 6;
-                                } else if (it_upgrade.tier >= 1) {
-                                    it_upgrade.tier = 1;
-                                }
+                                // KHÔNG DÙNG BẢO HIỂM: Rớt thẳng về checkpoint
+                                it_upgrade.tier = (byte) checkpoint;
                             }
                         }
                         if (conn.p.is_use_mayman
-                                && (conn.p.id_use_mayman == 14 || conn.p.id_use_mayman == 13 || conn.p.id_use_mayman == 4)) {
+                                && (conn.p.id_use_mayman == 14 || conn.p.id_use_mayman == 13 || conn.p.id_use_mayman == 12 || conn.p.id_use_mayman == 4)) {
                             conn.p.item.remove(7, conn.p.id_use_mayman, 1);
                             conn.p.item.char_inventory(7);
                             if (conn.p.item.total_item_by_id(7, conn.p.id_use_mayman) < 1) {
@@ -831,6 +853,55 @@ public class GameSrc {
         return (2 + tier);
     }
 
+    public static final int[][] MEDAL_TIER_C0_RANGES = new int[][] {
+        {140, 150},   // +0
+        {220, 230},   // +1
+        {330, 340},   // +2
+        {450, 460},   // +3
+        {570, 580},   // +4
+        {700, 710},   // +5
+        {850, 865},   // +6
+        {1100, 1120}, // +7
+        {1450, 1475}, // +8
+        {1950, 1980}, // +9
+        {2500, 2535}, // +10
+        {3050, 3090}, // +11
+        {3600, 3645}, // +12
+        {4200, 4250}, // +13
+        {4800, 4855}, // +14
+        {5500, 5560}  // +15
+    };
+
+    public static int get_random_medal_elemental_dame(int tier, int color) {
+        if (tier < 0) tier = 0;
+        if (tier > 15) tier = 15;
+        int min0 = MEDAL_TIER_C0_RANGES[tier][0];
+        int max0 = MEDAL_TIER_C0_RANGES[tier][1];
+        int min = min0;
+        int max = max0;
+        switch (color) {
+            case 1:
+                min = min0;
+                max = (int) Math.round(max0 * 155.0 / 150.0);
+                break;
+            case 2:
+                min = (int) Math.round(min0 * 150.0 / 140.0);
+                max = (int) Math.round(max0 * 165.0 / 150.0);
+                break;
+            case 3:
+                min = (int) Math.round(min0 * 155.0 / 140.0);
+                max = (int) Math.round(max0 * 180.0 / 150.0);
+                break;
+            case 4:
+                min = (int) Math.round(min0 * 165.0 / 140.0);
+                max = (int) Math.round(max0 * 190.0 / 150.0);
+                break;
+            default:
+                break;
+        }
+        return Util.random(min, max + 1);
+    }
+
     public static void Create_Medal(Session conn, Message m2) throws IOException {
 		byte type = m2.reader().readByte();
 		short id = -1;
@@ -966,7 +1037,19 @@ public class GameSrc {
 						m.writer().writeByte(3);
 						m.writer().writeByte(3);
 						ItemTemplate3 temp = ItemTemplate3.item.get(conn.p.id_medal_is_created + 4587);
-						byte color_ = (byte) Util.random(0, 5);
+						byte color_ = 0;
+						int rand_color = Util.random(0, 200);
+						if (rand_color < 20) {
+							color_ = 0; // Trắng (20/200 = 10%)
+						} else if (rand_color < 60) {
+							color_ = 1; // Xanh lá (40/200 = 20%)
+						} else if (rand_color < 100) {
+							color_ = 2; // Xanh lam (40/200 = 20%)
+						} else if (rand_color < 160) {
+							color_ = 3; // Tím (60/200 = 30%)
+						} else {
+							color_ = 4; // Cam (40/200 = 20%)
+						}
 						m.writer().writeUTF("Chúc mừng bạn nhận được " + temp.getName());
 						m.writer().writeByte(3);
 						m.writer().writeUTF(temp.getName());
@@ -1007,34 +1090,20 @@ public class GameSrc {
 						Option op = new Option(1, 1);
 						op.id = 96;
 						if (color_ == 0) {
-							op.setParam(Util.random(1, 4));
+							op.setParam(5);
 						} else if (color_ == 1) {
-							op.setParam(Util.random(1, 4));
+							op.setParam(Util.random(5, 8)); // 5-7
 						} else if (color_ == 2) {
-							op.setParam(Util.random(4, 6));
+							op.setParam(Util.random(5, 10)); // 5-9
 						} else if (color_ == 3) {
-							op.setParam(Util.random(6, 8));
+							op.setParam(Util.random(6, 10)); // 6-9
 						} else if (color_ == 4) {
-							op.setParam(Util.random(8, 10));
+							op.setParam(Util.random(7, 11)); // 7-10
 						}
 						opnew.add(op);
 						int st = Util.random(1, 5);
-						if (color_ == 0) {
-							int pr = Util.random(10, 100);
-							opnew.add(new Option(st, pr));
-						} else if (color_ == 1) {
-							int pr = Util.random(200, 300);
-							opnew.add(new Option(st, pr));
-						} else if (color_ == 2) {
-							int pr = Util.random(300, 400);
-							opnew.add(new Option(st, pr));
-						} else if (color_ == 3) {
-							int pr = Util.random(400, 500);
-							opnew.add(new Option(st, pr));
-						} else if (color_ == 4) {
-							int pr = Util.random(500, 600);
-							opnew.add(new Option(st, pr));
-						}
+						int pr = get_random_medal_elemental_dame(0, color_);
+						opnew.add(new Option(st, pr));
 						//
 						itbag.op = new ArrayList<>();
 						itbag.op.addAll(opnew);
@@ -1255,6 +1324,13 @@ public class GameSrc {
 					boolean suc = (it_temp.tier < 6) ? true : (100 > Util.random(100 + it_temp.tier * 25));
 					if (suc) {
 						it_temp.tier++;
+						for (int i = 0; i < it_temp.op.size(); i++) {
+							Option op_temp = it_temp.op.get(i);
+							if (op_temp.id >= 1 && op_temp.id <= 4) {
+								op_temp.setParam(get_random_medal_elemental_dame(it_temp.tier, it_temp.color));
+								break;
+							}
+						}
 						byte id_add = (byte) Util.random(39);
 						while (id_add == 5 || id_add == 6 || id_add == 12 || id_add == 13 || id_add == 21 || id_add == 22) {
 							id_add = (byte) Util.random(39);
@@ -1329,7 +1405,7 @@ public class GameSrc {
 						if (it_temp.op.get(i).id == 96) {
 							m.writer().writeInt(it_temp.op.get(i).getParam(0));
 						} else {
-							m.writer().writeInt(it_temp.op.get(i).getParam(it_temp.tier));
+							m.writer().writeInt(it_temp.op.get(i).getParam(it_temp.tier, it_temp.type));
 						}
 					}
 					m.writer().writeInt(0); // time use
@@ -2187,18 +2263,54 @@ public class GameSrc {
                         return;
                     }
                     int vang_total = (GameSrc.get_vang_hopngoc(id_g1) / 50_000) * 1_000_000;
+                    int success_rate = 100;
+                    if (id_g1 >= 382 && id_g1 <= 411) {
+                        // Ngọc ĐÃ tinh luyện: Lv1: 90%, Lv2: 75%, Lv3: 50%, Lv4: 20%, Lv5: 5%
+                        int lv = ((id_g1 - 382) % 5) + 1;
+                        switch (lv) {
+                            case 1: success_rate = 90; break;
+                            case 2: success_rate = 75; break;
+                            case 3: success_rate = 50; break;
+                            case 4: success_rate = 20; break;
+                            case 5: success_rate = 5; break;
+                            default: success_rate = 90; break;
+                        }
+                    } else {
+                        // Ngọc CHƯA tinh luyện: Lv1: 100%, Lv2: 85%, Lv3: 60%, Lv4: 30%, Lv5: 10%
+                        int lv = 1;
+                        if (id_g1 >= 352 && id_g1 <= 381) {
+                            lv = ((id_g1 - 352) % 5) + 1;
+                        } else if (id_g1 >= 23 && id_g1 <= 43) {
+                            lv = ((id_g1 - 23) % 5) + 1;
+                        }
+                        switch (lv) {
+                            case 1: success_rate = 100; break;
+                            case 2: success_rate = 85; break;
+                            case 3: success_rate = 60; break;
+                            case 4: success_rate = 30; break;
+                            case 5: success_rate = 10; break;
+                            default: success_rate = 100; break;
+                        }
+                    }
                     Message m = new Message(-100);
-                    if (45 > Util.random(100)) {
+                    if (success_rate > Util.random(0, 100)) {
                         for (int i = 0; i < it3.op.size(); i++) {
                             if (it3.op.get(i).id == (index_ngoc_kham_vao + 58)) {
                                 it3.op.get(i).setParam(id_g1);
                                 break;
                             }
                         }
-                        int param = Util.random(1, 10);
+                        double bonus_mult = 1.0;
+                        switch (it3.color) {
+                            case 1: bonus_mult = 1.05; break;   // +5%
+                            case 2: bonus_mult = 1.125; break;  // +12.5%
+                            case 3: bonus_mult = 1.20; break;   // +20%
+                            case 4: bonus_mult = 1.30; break;   // +30%
+                            default: bonus_mult = 1.0; break;   // +0%
+                        }
                         switch (id_g1) {
                             case 382:
-                            case 352:{ // hon nguyen
+                            case 352:{ // hon nguyen (khong cong bonus pham chat)
                                 it3.op.add(new Option(100,  Util.random(1, 10)));
                                 break;
                             }case 383:
@@ -2218,7 +2330,7 @@ public class GameSrc {
                                 it3.op.add(new Option(100,  Util.random(40, 50)));
                                 break;
                             }case 387:
-                            case 357:{ // Khai Hoan
+                            case 357:{ // Khai Hoan (khong cong bonus pham chat)
                                 it3.op.add(new Option(101,  Util.random(1, 10)));
                                 break;
                             }case 388:
@@ -2239,94 +2351,94 @@ public class GameSrc {
                                 break;
                             }case 392:
                             case 362:{ // luc bao
-                                it3.op.add(new Option(102,  Util.random(100, 150)));
+                                it3.op.add(new Option(102,  (int) Math.round(Util.random(100, 150) * bonus_mult)));
                                 break;
                             }case 393:
                             case 363:{ // luc bao
-                                it3.op.add(new Option(102,  Util.random(150, 200)));
+                                it3.op.add(new Option(102,  (int) Math.round(Util.random(150, 200) * bonus_mult)));
                                 break;
                             }case 394:
                             case 364:{ // luc bao
-                                it3.op.add(new Option(102,  Util.random(200, 250)));
+                                it3.op.add(new Option(102,  (int) Math.round(Util.random(200, 250) * bonus_mult)));
                                 break;
                             }case 395:
                             case 365:{ // luc bao
-                                it3.op.add(new Option(102,  Util.random(250, 300)));
+                                it3.op.add(new Option(102,  (int) Math.round(Util.random(250, 300) * bonus_mult)));
                                 break;
                             }case 396:
                             case 366: { // luc bao
-                                it3.op.add(new Option(102,  Util.random(300, 350)));
+                                it3.op.add(new Option(102,  (int) Math.round(Util.random(300, 350) * bonus_mult)));
                                 break;
                             }case 397:
                             case 367:{ // Phong Ma
-                                it3.op.add(new Option(103, Util.random(100, 150)));
-                                it3.op.add(new Option(104, Util.random(3000, 3500)));
-                                it3.op.add(new Option(105, Util.random(300, 350)));
+                                it3.op.add(new Option(103, (int) Math.round(Util.random(100, 150) * bonus_mult)));
+                                it3.op.add(new Option(104, (int) Math.round(Util.random(3000, 3500) * bonus_mult)));
+                                it3.op.add(new Option(105, (int) Math.round(Util.random(300, 350) * bonus_mult)));
                                 break;
                             }case 398:
                             case 368:{ // Phong Ma
-                                it3.op.add(new Option(103, Util.random(150, 200)));
-                                it3.op.add(new Option(104, Util.random(3500, 4000)));
-                                it3.op.add(new Option(105, Util.random(350, 400)));
+                                it3.op.add(new Option(103, (int) Math.round(Util.random(150, 200) * bonus_mult)));
+                                it3.op.add(new Option(104, (int) Math.round(Util.random(3500, 4000) * bonus_mult)));
+                                it3.op.add(new Option(105, (int) Math.round(Util.random(350, 400) * bonus_mult)));
                                 break;
                             }case 399:
                             case 369:{ // Phong Ma
-                                it3.op.add(new Option(103, Util.random(200, 250)));
-                                it3.op.add(new Option(104, Util.random(4000, 4500)));
-                                it3.op.add(new Option(105, Util.random(400, 450)));
+                                it3.op.add(new Option(103, (int) Math.round(Util.random(200, 250) * bonus_mult)));
+                                it3.op.add(new Option(104, (int) Math.round(Util.random(4000, 4500) * bonus_mult)));
+                                it3.op.add(new Option(105, (int) Math.round(Util.random(400, 450) * bonus_mult)));
                                 break;
                             }case 400:
                             case 370:{ // Phong Ma
-                                it3.op.add(new Option(103, Util.random(300, 350)));
-                                it3.op.add(new Option(104, Util.random(4500, 5000)));
-                                it3.op.add(new Option(105, Util.random(450, 500)));
+                                it3.op.add(new Option(103, (int) Math.round(Util.random(300, 350) * bonus_mult)));
+                                it3.op.add(new Option(104, (int) Math.round(Util.random(4500, 5000) * bonus_mult)));
+                                it3.op.add(new Option(105, (int) Math.round(Util.random(450, 500) * bonus_mult)));
                                 break;
                             }case 401:
                             case 371: { // Phong Ma
-                                it3.op.add(new Option(103, Util.random(350, 400)));
-                                it3.op.add(new Option(104, Util.random(5000, 5500)));
-                                it3.op.add(new Option(105, Util.random(500, 550)));
+                                it3.op.add(new Option(103, (int) Math.round(Util.random(350, 400) * bonus_mult)));
+                                it3.op.add(new Option(104, (int) Math.round(Util.random(5000, 5500) * bonus_mult)));
+                                it3.op.add(new Option(105, (int) Math.round(Util.random(500, 550) * bonus_mult)));
                                 break;
                             }case 402:
                             case 372:{ // Sinh Mệnh
-                                it3.op.add(new Option(106, Util.random(500, 1000)));
+                                it3.op.add(new Option(106, (int) Math.round(Util.random(500, 1000) * bonus_mult)));
                                 break;
                             }case 403:
                             case 373:{ // Sinh Mệnh
-                                it3.op.add(new Option(106, Util.random(1000, 2000)));
+                                it3.op.add(new Option(106, (int) Math.round(Util.random(1000, 2000) * bonus_mult)));
                                 break;
                             }case 404:
                             case 374:{ // Sinh Mệnh
-                                it3.op.add(new Option(106, Util.random(2000, 3000)));
+                                it3.op.add(new Option(106, (int) Math.round(Util.random(2000, 3000) * bonus_mult)));
                                 break;
                             }case 405:
                             case 375:{ // Sinh Mệnh
-                                it3.op.add(new Option(106, Util.random(3000, 4000)));
+                                it3.op.add(new Option(106, (int) Math.round(Util.random(3000, 4000) * bonus_mult)));
                                 break;
                             }case 406:
                             case 376: { // Sinh Mệnh
-                                it3.op.add(new Option(106, Util.random(4000, 5000)));
+                                it3.op.add(new Option(106, (int) Math.round(Util.random(4000, 5000) * bonus_mult)));
                                 break;
                             }case 407:
                             case 377:{ // Tâm Linh
-                                it3.op.add(new Option(107, Util.random(100, 200)));
+                                it3.op.add(new Option(107, (int) Math.round(Util.random(100, 200) * bonus_mult)));
                                 break;
                             }case 408:
                             case 378:{ // Tâm Linh
-                                it3.op.add(new Option(107, Util.random(200, 300)));
+                                it3.op.add(new Option(107, (int) Math.round(Util.random(200, 300) * bonus_mult)));
                                 break;
                             }case 409:
                             case 379:{ // Tâm Linh
-                                it3.op.add(new Option(107, Util.random(300, 400)));
+                                it3.op.add(new Option(107, (int) Math.round(Util.random(300, 400) * bonus_mult)));
                                 break;
                             }case 410:
                             case 380:
                                 { // Tâm Linh
-                                it3.op.add(new Option(107, Util.random(400, 500)));
+                                it3.op.add(new Option(107, (int) Math.round(Util.random(400, 500) * bonus_mult)));
                                 break;
                             }case 411:
                             case 381: { // Tâm Linh
-                                it3.op.add(new Option(107, Util.random(500, 600)));
+                                it3.op.add(new Option(107, (int) Math.round(Util.random(500, 600) * bonus_mult)));
                                 break;
                             }
                           }

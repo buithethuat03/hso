@@ -1,0 +1,157 @@
+import luna.api.AutoCombatSnapshot;
+import luna.api.BachHoAutomationBridge;
+import javax.microedition.rms.RecordStore;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+
+/** Generated native adapter. Never compile older PetFeed support over the release. */
+public final class BachHoGeneratedAutomationBridge implements BachHoAutomationBridge {
+    private static volatile boolean awaitingMaterial;
+    private static volatile @class.VEC@ materialItems;
+    private static volatile String materialAction;
+    private boolean materialKeyOwned;
+    public static void observeMaterialMenu(short npc, byte menuId, Object rows) {
+        if (!awaitingMaterial || npc != -125 || menuId != -125 || !(rows instanceof @class.VEC@)) return;
+        materialItems = (@class.VEC@) rows;
+        materialAction = null;
+        if (materialItems.@vec.size@() > 0) {
+            Object row = materialItems.@vec.get@(0);
+            if (row instanceof @class.CMD@) materialAction = ((@class.CMD@) row).@cmd.label@;
+        }
+    }
+    public void readCombat(AutoCombatSnapshot out) {
+        out.ready = false;
+        @class.PLAYER@ player = LunaGeneratedLegacyHooks.player();
+        if (player == null || !isWorldReady()) return;
+        out.map = LunaGeneratedLegacyHooks.mapId();
+        out.zone = @zone.owner@.@zone.field@;
+        out.x = player.@player.x@;
+        out.y = player.@player.y@;
+        out.moving = player.@player.path@ != null;
+        out.fighting = @class.CHARS@.@chars.target@ != null;
+        out.ready = player.@player.hp@ > 0 && !LunaGeneratedLegacyHooks.mapSettling();
+    }
+    public boolean isAutoAttackEnabled() { return HSOSKYPetFeedSupport.persistentAutoAttack; }
+    public boolean routeOwnsMovement() {
+        return LunaGeneratedLegacyHooks.state != 0 || LunaGeneratedLegacyHooks.n4State != 0;
+    }
+    public void setAutoAttackEnabled(boolean enabled) {
+        HSOSKYPetFeedSupport.setModAutoAttack(enabled);
+        HSOSKYPetFeedSupport.onAutoAttackToggled(enabled);
+    }
+    public void pauseCombat() {
+        HSOSKYPetFeedSupport.setModAutoAttack(false);
+        @combat.auto.owner@.@combat.auto.field@ = false;
+        @class.CHARS@.@chars.target@ = null;
+    }
+    public void setCombatOrigin(int x, int y) {
+        @combat.origin.owner@.@combat.originX.field@ = x;
+        @combat.origin.owner@.@combat.originY.field@ = y;
+    }
+    public void holdPosition(int x, int y) {
+        @class.PLAYER@ player = LunaGeneratedLegacyHooks.player();
+        if (player == null) return;
+        LunaGeneratedLegacyHooks.haltWalk(player);
+        player.@player.x@ = x; player.@player.y@ = y;
+        player.@player.stepDestX@ = x; player.@player.stepDestY@ = y;
+        player.@combat.deltaX.field@ = 0; player.@combat.deltaY.field@ = 0;
+    }
+    public void returnToMap(int map) { LunaGeneratedLegacyHooks.routeTowards(map, false); }
+    public void changeZone(int zone) { LunaGeneratedLegacyHooks.sender().@sender.zone@((byte) zone); }
+    public boolean walkTo(int x, int y) { return LunaGeneratedLegacyHooks.walkTo(x, y, false); }
+    public void stopWalking() {
+        @class.PLAYER@ player = LunaGeneratedLegacyHooks.player();
+        if (player != null) LunaGeneratedLegacyHooks.haltWalk(player);
+        LunaGeneratedLegacyHooks.clearPlan();
+    }
+    public int targetX(Object target) { return ((@class.ENTITY@) target).@entity.x@; }
+    public int targetY(Object target) { return ((@class.ENTITY@) target).@entity.y@; }
+    public void showMenu(String title, String[] labels, int[] actions) {
+        @class.VEC@ items = new @class.VEC@((byte) 0);
+        for (int i = 0; i < labels.length; i++) {
+            items.@vec.add@(new @class.CMD@(labels[i], actions[i], @class.ENGINE@.@engine.field.INSTANCE@));
+        }
+        @class.CANVAS@.@canvas.menu@.@menubox.show@(items, 2, title, false, (@class.VEC@) null);
+    }
+    public void notice(String text) { HSOSKYPetFeedSupport.showInfo(text); }
+    public void loadPosition(int[] position) {
+        RecordStore store = null;
+        try {
+            store = RecordStore.openRecordStore("bachho_attack_pos", true);
+            if (store.getNumRecords() == 0) return;
+            DataInputStream data = new DataInputStream(new ByteArrayInputStream(store.getRecord(1)));
+            if (data.readInt() != 1) return;
+            int map = data.readInt(), x = data.readInt(), y = data.readInt(), zone = data.readInt();
+            if (map < -1 || x < 0 || y < 0 || zone < 0 || zone > 127) return;
+            position[0] = map; position[1] = x; position[2] = y; position[3] = zone;
+        } catch (Throwable ignored) { }
+        finally { try { if (store != null) store.closeRecordStore(); } catch (Throwable ignored) { } }
+    }
+    public void savePosition(int[] position) {
+        RecordStore store = null;
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            DataOutputStream data = new DataOutputStream(bytes);
+            data.writeInt(1);
+            for (int i = 0; i < 4; i++) data.writeInt(position[i]);
+            data.flush();
+            byte[] record = bytes.toByteArray();
+            store = RecordStore.openRecordStore("bachho_attack_pos", true);
+            if (store.getNumRecords() == 0) store.addRecord(record, 0, record.length);
+            else store.setRecord(1, record, 0, record.length);
+        } catch (Throwable ignored) { notice("Không lưu được tọa độ."); }
+        finally { try { if (store != null) store.closeRecordStore(); } catch (Throwable ignored) { } }
+    }
+    public boolean isWorldReady() {
+        return HSOSKYPetFeedSupport.isPlayerInGame()
+                && HSOSKYPetFeedSupport.getCurrentScreen() == HSOSKYPetFeedSupport.getGameScreen()
+                && !HSOSKYPetFeedSupport.hasCurrentDialog() && !LunaGeneratedLegacyHooks.mapHolderMissing();
+    }
+    public void openMaterialMenu() {
+        materialItems = null;
+        materialAction = null;
+        awaitingMaterial = true;
+        LunaGeneratedLegacyHooks.sender().@sender.npcMenuSelect@((short) 125, (byte) 125, (byte) 0);
+    }
+    public String whiteMedalAction() {
+        @class.MENUBOX@ menu = @class.CANVAS@.@canvas.menu@;
+        if (menu == null || !menu.@menu.isShowing@ || menu.@menu.items@ != materialItems) return null;
+        return materialAction;
+    }
+    public void closeWhiteMedalDrop() {
+        awaitingMaterial = false;
+        LunaGeneratedLegacyHooks.sender().@sender.npcMenuSelect@((short) -125, (byte) -125, (byte) 0);
+    }
+    public void hideMaterialMenu() {
+        @class.MENUBOX@ menu = @class.CANVAS@.@canvas.menu@;
+        if (menu != null && materialItems != null && menu.@menu.items@ == materialItems) menu.@menu.isShowing@ = false;
+        awaitingMaterial = false;
+    }
+    public boolean finishMaterialDialog() {
+        if (materialKeyOwned) {
+            @class.CANVAS@.@canvas.keyHeld@[5] = false;
+            @class.CANVAS@.@canvas.keyPressed@[5] = false;
+            materialKeyOwned = false;
+            return true;
+        }
+        @class.DIALOG@ first = @class.CANVAS@.@canvas.dialogA@;
+        @class.DIALOG@ second = @class.CANVAS@.@canvas.dialogB@;
+        if (isMaterialNotice(first) || isMaterialNotice(second)) {
+            LunaGeneratedLegacyHooks.pressOk();
+            materialKeyOwned = true;
+        }
+        return false;
+    }
+    private static boolean isMaterialNotice(@class.DIALOG@ dialog) {
+        if (dialog == null || dialog.@dialog.lines@ == null) return false;
+        String[] lines = dialog.@dialog.lines@;
+        for (int i = 0; i < lines.length; i++) {
+            if (lines[i] == null) continue;
+            String text = lines[i].toLowerCase();
+            if (text.indexOf("mề đay") >= 0 || text.indexOf("nguyên liệu") >= 0) return true;
+        }
+        return false;
+    }
+}

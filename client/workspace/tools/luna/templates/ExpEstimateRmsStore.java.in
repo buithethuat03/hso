@@ -1,0 +1,14 @@
+package luna.generated;
+
+import luna.api.ExpEstimateStore;
+
+/** Slot-local API adapter to the suite-wide, level-keyed EXP store. */
+public final class ExpEstimateRmsStore implements ExpEstimateStore {
+    public byte[] load() {
+        return ExpEstimateSharedRmsStore.load();
+    }
+
+    public boolean save(byte[] data) {
+        return ExpEstimateSharedRmsStore.save(data);
+    }
+}

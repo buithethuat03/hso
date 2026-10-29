@@ -1,0 +1,7 @@
+/** Shared-resource path normalization for the three relocated game namespaces. */
+public final class X3SlotSupport {
+    public static String absoluteResource(String name) {
+        if (name == null || name.startsWith("/")) return name;
+        return "/" + name;
+    }
+}

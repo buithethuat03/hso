@@ -481,7 +481,7 @@ public class LoiDai {
             }
             m.writer().writeByte(p0.fashion.length);
             for (int i = 0; i < p0.fashion.length; i++) {
-                m.writer().writeByte(p0.fashion[i]);
+                m.writer().writeShort(p0.fashion[i]);
             }
             //
             m.writer().writeShort(-1);

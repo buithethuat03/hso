@@ -115,7 +115,7 @@ public class Body {
             if (temp != null) {
                 for (Option op : temp.op) {
                     if (op.id == id) {
-                        param += op.getParam(temp.tier);
+                        param += op.getParam(temp.tier, temp.type);
                     }
                 }
             }

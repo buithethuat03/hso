@@ -1,0 +1,1161 @@
+/*
+ * ModUpLv features in Hung_By_Son (docs/HUNG_BY_SON_MODUPLV_PORT.md):
+ *  - Tấn công đặc biệt + Tấn công quái thường: ModUpLv's attack loop (K154.K067) runs from the
+ *    canvas loop once per 28ms of real time whatever the game speed: the highest learned skill
+ *    that has MP, no cooldown and targets goes straight to the serializer with the 20 nearest
+ *    living monsters of the whole map (range 20000000); no cast, animation or walking.
+ *    With Tấn công đặc biệt ON, items on the ground are picked up map-wide (K154.K157).
+ *  - Auto đánh > Tấn công quái thường OFF: a Special send of Auto đánh/Farm keeps its native list.
+ *  - Cài Đặt Cấu Hình > Auto Lửa Thiêng: on the map/zone where it was enabled, while an auto runs,
+ *    use "Lửa thiêng" when no fire stands on the map, "Bình dầu" when the fire is below level 4.
+ *  - MOD menu > Phó bản / mê cung: Ngã Tư Tử Thần (entry modes + Hoàn thành phó bản),
+ *    Làng Phủ Sương, Auto Mê cung. Packets, maps, NPC ids, coordinates and dialog texts are
+ *    ModUpLv's; its frame cadence (28ms) is kept in real time: 30 frames = 840ms, 50 = 1400ms,
+ *    5 = 140ms.
+ *
+ * Markers @~suffix@ expand to the 100-character obfuscated HBS names. CLDC 1.1 APIs only;
+ * compiled with --release 7 against the input JAR and stored as class version 48.
+ */
+import luna.features.AutoAttackRuntime;
+import luna.features.SkillCastStats;
+import luna.features.AutoPkTargetPolicy;
+import luna.features.BattlefieldSupport;
+import luna.features.HungDungeonPositionController;
+import luna.features.HungMazeCombatController;
+import luna.core.MovementArbiter;
+import luna.generated.HungAutoAttackAccess;
+import luna.generated.HungMonsterSelectionCommands;
+
+public final class HungBySonModUpLv implements IModModule {
+    static final int MAX_TARGETS = 20;
+    static final int WIDE_RANGE = 20000000;
+    static final long FIRE_MS = 1400L, DUNGEON_MS = 840L, FOG_MS = 1400L, MAZE_MS = 140L;
+    static final long HOME_SCROLL_MS = 5000L, MAZE_ITEM_MS = 1500L;
+    static final int RETURN_SCROLL = 142, MAZE_ITEM = 241;
+
+    static final int MENU = -87, NGA_TU = -88, FREE = -89, GEM = -90, BOTH = -91,
+            FOG_MENU = -92, FOG = -93, MAZE = -94, FINISH = -95, FIRE = -96, BACK_MAIN = -34;
+
+    static final String FIRE_NAME = "Lửa thiêng", OIL_NAME = "Bình dầu", METEOR = "Thiên thạch";
+    // Phó chỉ huy texts compared after plain(): the server may send tone marks precomposed or combining.
+    static final String ALONE = "nga tu tu than mot minh", GEM_FEE = "phi 5 ngoc",
+            DAILY_LIMIT = "nga tu tu than 10 lan", NEED = "de vao nga tu tu than can", LEVEL = "cap 30 moi duoc";
+    static final String VI_MARKED = "ÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚÝ"
+            + "àáâãèéêìíòóôõùúý"
+            + "ĂăĨĩŨũƠơƯư"
+            + "ẠạẢảẤấẦầẨẩẪẫẬậẮắ"
+            + "ẰằẲẳẴẵẶặẸẹẺẻẼẽẾế"
+            + "ỀềỂểỄễỆệỈỉỊịỌọỎỏ"
+            + "ỐốỒồỔổỖỗỘộỚớỜờỞở"
+            + "ỠỡỢợỤụỦủỨứỪừỬửỮữ"
+            + "ỰựỲỳỴỵỶỷỸỹđĐ";
+    static final String VI_PLAIN = "aaaaeeeiioooouuy" + "aaaaeeeiioooouuy" + "aaiiuuoouu"
+            + "aaaaaaaaaaaaaaaa" + "aaaaaaaaeeeeeeee" + "eeeeeeeeiiiioooo" + "oooooooooooooooo"
+            + "oooouuuuuuuuuuuu" + "uuyyyyyyyydd";
+    // Unanswered dialogs in a row while asking the Phó chỉ huy; any refusal wording ends the retry loop.
+    static final int MAX_ENTRY_REFUSALS = 3;
+    static int entryRefusals;
+
+    static boolean fire, finish, free, gem, both, fog;
+    static volatile boolean maze;
+    static int fireMap = -1, fireZone = -1;
+    static long fireAt, dungeonAt, fogAt, mazeAt;
+    static long homeSince;
+    static boolean dungeonNotify;
+    static int meteorX = -1, meteorY = -1;
+    static final HungDungeonPositionController dungeonPosition = new HungDungeonPositionController();
+    static final MovementArbiter dungeonMovement = new MovementArbiter();
+    static final HungAutoAttackAccess dungeonAccess = new HungAutoAttackAccess();
+    static boolean dungeonActive, dungeonAimDirty;
+    static int fogCount;
+    // Mê cung (ModUpLv K002): door picks for maps 109/112 and the item-241 cycle.
+    static int door109Counter, door109, door112Counter, door112, mazeUses;
+    static boolean door109Picked, door112Picked, found108;
+    static long mazeItemAt;
+    static final HungMazeCombatController mazeCombat = new HungMazeCombatController();
+    static @~lliiil@ mazePlayer;
+    static int mazeMap = -1, mazeZone = -1;
+
+    // ModUpLv attack loop: one frame of its canvas (28ms), learned skills 0..20, pick-up range.
+    static final long FRAME_MS = 28L;
+    static final int SKILLS = 21, PICKUP_RANGE = 50000;
+    static long frameAt;
+    static int nearest;
+    // Auto: đòn 0's first target and its send time; the next skill within ROTATE_MS puts it last.
+    static final long ROTATE_MS = 400L;
+    static boolean zeroSet;
+    static short zeroTarget;
+    static long zeroAt;
+    static final AutoPkTargetPolicy pkTargets = new AutoPkTargetPolicy();
+    /** The last nearestPlayers() list holds Battlefield Xà nữ monsters (opcode 9), not players. */
+    static boolean pkSerpents;
+    /**
+     * Battlefield target lock of the Special loop: the first target of the last nearestPlayers() list.
+     * It stays first until it dies, leaves the radius or a higher group (Xà nữ > level 40 > others) is in range.
+     */
+    static @~liiiliii@ pkLock;
+
+    static long testNow;
+    static int walks, lastWalkX = -1, lastWalkY = -1;
+
+    private static final HungBySonModUpLv INSTANCE = new HungBySonModUpLv();
+
+    private HungBySonModUpLv() {
+    }
+
+    /** Called from the module loader; registration appends the menu row after the others. */
+    public static void register() {
+        @~lillllll@.@~@(INSTANCE);
+    }
+
+    static long now() {
+        return testNow != 0L ? testNow : System.currentTimeMillis();
+    }
+
+    // ------------------------------------------------------------------ Tấn công quái thường
+
+    /** Replaces the native target builder call in the Special send. */
+    public static et specialTargets(@~lliiil@ player, int skill, @~liiiliii@ target) {
+        et list = player.@~@(skill, target);
+        try {
+            if (list == null || list.c() == 0 || target == null || target.cv != 1
+                    || !AutoAttackRuntime.normalMonstersActive()) return list;
+            et world = @~liiliii@.@~llillilll@;
+            if (world == null) return list;
+            et wide = new et("Monter attack focus by user");
+            wide.@~l@(list.a(0));
+            int n = world.c();
+            boolean[] used = new boolean[n];
+            while (wide.c() < MAX_TARGETS) {
+                int best = -1, bestDistance = Integer.MAX_VALUE;
+                for (int i = 0; i < n; i++) {
+                    if (used[i]) continue;
+                    Object value = world.a(i);
+                    if (!(value instanceof @~liiiliii@)) { used[i] = true; continue; }
+                    @~liiiliii@ e = (@~liiiliii@)value;
+                    if (e.cu == target.cu || !normalMonster(e, player)) { used[i] = true; continue; }
+                    int d = @~liiiliii@.c(player.aZ, player.ba, e.aZ, e.ba);
+                    if (d > WIDE_RANGE || d >= bestDistance) continue;
+                    bestDistance = d;
+                    best = i;
+                }
+                if (best < 0) break;
+                used[best] = true;
+                @~liiiliii@ e = (@~liiiliii@)world.a(best);
+                wide.@~l@(new @~liilli@((short)e.cu, e.cv));
+            }
+            return wide;
+        } catch (Throwable failure) {
+            return list;
+        }
+    }
+
+    static boolean normalMonster(@~liiiliii@ e, @~lliiil@ player) {
+        return e != player && e.cv == 1 && e.bs > 0 && e.cG != 4 && !e.dz && !e.x() && e.cy != 2
+                && HungMonsterSelectionCommands.allow(e);
+    }
+
+    // ------------------------------------------------------------------ ModUpLv attack loop
+
+    /** Canvas loop, every pass: one ModUpLv frame (attack, then pick-up) per FRAME_MS of real time. */
+    public static void frame() {
+        try {
+            HungBySonSkillStats.uiTick();
+            long now = now();
+            if (now >= frameAt && now - frameAt < FRAME_MS && !SkillCastStats.paceEndedSince(frameAt, now)) return;
+            frameAt = now;
+            boolean inDungeon = dungeonContext();
+            if (inDungeon) dungeonAccess.farmSpotHold();
+            // Mode/toggle changes use the same monitor. Selection through enqueue is one turn.
+            synchronized (AutoAttackRuntime.requestLock()) {
+                if (!AutoAttackRuntime.specialEnabled() || !HungAutoAttackAccess.farmWorldReady()) return;
+                @~lliiil@ player = @~liiliii@.@~llilliill@;
+                if (AutoAttackRuntime.normalMonstersActive() && (!inDungeon || dungeonAtStand(player))) attackFrame(player);
+                pickupFrame(player);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Canvas loop sleep: while Special is ON, wake up for the next ModUpLv frame. */
+    public static long frameSleep(long ms) {
+        try {
+            if (!AutoAttackRuntime.specialEnabled()) return ms;
+            long now = now(), wait = frameAt + FRAME_MS - now, lock = SkillCastStats.paceWait(now);
+            if (lock >= 0L && lock < wait) wait = lock;
+            if (wait < 1L) wait = 1L;
+            return wait < ms ? wait : ms;
+        } catch (Throwable ignored) {
+            return ms;
+        }
+    }
+
+    /**
+     * ModUpLv K154.K067: learned skills from the highest ID down; the first one with MP, no
+     * cooldown and a target count is sent to the 20 nearest monsters. The 600ms gate of skills
+     * 7/8/19/20 ends the frame instead of trying a lower skill. Cooldown, MP and the gate are
+     * updated like ModUpLv after the send.
+     * Lock mode ("Khoảng chờ" tab, default Khóa 550ms; the server rejects sends for ~500ms after
+     * any skill but Trọng kiếm): the frame waits for the lock, and the order becomes Trọng kiếm
+     * (no lock, slotted in first), skills 9..18, the area skills 20/19/8/7, then 1..6 by
+     * upgraded level (higher first, then higher ID). A Trọng kiếm send does not restart the
+     * 600ms gate. A skill whose last send went unanswered gets its cooldown cleared once.
+     * In Auto (lock learned from the send and the server's answer) the next skill goes out in the
+     * same frame as Trọng kiếm instead of one frame later, with đòn 0's target moved to the end of
+     * its list (the server may still be killing it).
+     * Buff skills (template type 1) go out like a native cast: the native target builder with the
+     * player as target (self + allies in range) and the opcode-40 buff request; ModUpLv sent them
+     * as attacks (opcode 9), which the server answers with damage but never applies the buff.
+     */
+    static boolean attackFrame(@~lliiil@ player) {
+        int[] levels = @~lliiil@.@~llilllii@, bonus = @~lliiil@.@~llilllil@;
+        @~liil@[] cooldowns = @~lliiil@.@~lliillli@;
+        if (levels == null || bonus == null || cooldowns == null) return false;
+        long now = HungBySonSkillStats.now();
+        SkillCastStats.expire(now);
+        for (int retry; (retry = SkillCastStats.takeRetry()) >= 0;)
+            if (retry < cooldowns.length && cooldowns[retry] != null) cooldowns[retry].b = 0;
+        if (!SkillCastStats.paceReady(now)) return false;
+        boolean lock = SkillCastStats.lockMode(), chain = SkillCastStats.answerMode(), sent = false;
+        boolean pk = pkMode();
+        et players = null;
+        int count = Math.min(SKILLS, Math.min(levels.length, Math.min(bonus.length, cooldowns.length)));
+        int[] order = lock ? lockOrder(levels, bonus, count) : null;
+        for (int k = 0; k < count; k++) {
+            int skill = lock ? order[k] : count - 1 - k;
+            if (levels[skill] <= 0) continue;
+            @~liiiiill@ template = @~liillil@.@~liili@(skill);
+            if (template == null || template.@~lllillllil@ == null) continue;
+            int index = levels[skill] + bonus[skill] - 1;
+            if (index < 0 || index >= template.@~lllillllil@.length) continue;
+            @~liiilill@ level = template.@~lllillllil@[index];
+            @~liil@ cooldown = cooldowns[skill];
+            if (level == null || cooldown == null || level.@~lilllli@ > player.bu || cooldown.b > 0 || level.j <= 0) continue;
+            if (!AutoAttackRuntime.specialSkillAllowed(skill)) return sent;
+            boolean buff = template.e == 1, rotated = false;
+            et targets;
+            if (buff) {
+                // The native builder also marks the player's cast object as a buff; keep it as it was.
+                byte castBuff = player.di.g;
+                targets = player.@~@(skill, player);
+                player.di.g = castBuff;
+            } else if (pk) {
+                if (players == null) players = nearestPlayers(player);
+                targets = players;
+            } else {
+                targets = nearestMonsters(player);
+                if (skill != SkillCastStats.FREE_SKILL && zeroSet && now - zeroAt < ROTATE_MS && SkillCastStats.rotateAfterFree()) {
+                    et moved = behind(targets, zeroTarget);
+                    if (moved != null) { targets = moved; rotated = true; }
+                }
+            }
+            if (targets == null || targets.c() <= 0) continue;
+            if (buff) @~lilillll@.@~liililli@().@~@((byte)skill, player.cv, targets);
+            else if (pk && !pkSerpents) sendPlayers(targets, skill);
+            else @~lilillll@.@~liililli@().@~@(targets, (byte)skill);
+            SkillCastStats.annotate(targets.c(), buff ? 0 : nearest);
+            if (rotated) SkillCastStats.markRotated();
+            if (skill != SkillCastStats.FREE_SKILL) zeroSet = false;
+            else if (zeroSet = !buff && !pk && targets.a(0) instanceof @~liilli@) {
+                zeroTarget = ((@~liilli@)targets.a(0)).@~lilllli@;
+                zeroAt = now;
+            }
+            int wait = level.@~lllilll@();
+            cooldown.b = wait;
+            cooldown.c = wait;
+            cooldown.@~liiil@ = @~llilill@.@~lliiil@();
+            if (level.@~lilllli@ > 0) player.bu -= level.@~lilllli@;
+            if (template.e == 0) cooldown.d = true;
+            if (!lock || skill != SkillCastStats.FREE_SKILL) AutoAttackRuntime.specialSent();
+            // A send is progress for Farm's "no attack -> village scroll" counter.
+            if (@~lliiiiil@.@~lililiilill@) @~lliiiiil@.@~lilililiiil@ = 0;
+            if (!chain || skill != SkillCastStats.FREE_SKILL || !SkillCastStats.paceReady(now)) return true;
+            sent = true;
+        }
+        return sent;
+    }
+
+    /** Auto: the list with its first entry (đòn 0's target, monster `id`) moved to the end; null when it is not first. */
+    static et behind(et list, short id) {
+        int n = list.c();
+        if (n < 2 || !(list.a(0) instanceof @~liilli@) || ((@~liilli@)list.a(0)).@~lilllli@ != id) return null;
+        et out = new et("Monter attack focus by user");
+        for (int i = 1; i < n; i++) out.@~l@(list.a(i));
+        out.@~l@(list.a(0));
+        return out;
+    }
+
+    /** Lock-mode order: Trọng kiếm, 9..18 (high ID first), 20/19/8/7, then 1..6 by upgraded level. */
+    static int[] lockOrder(int[] levels, int[] bonus, int count) {
+        int[] order = new int[count];
+        int n = 0;
+        if (SkillCastStats.FREE_SKILL < count) order[n++] = SkillCastStats.FREE_SKILL;
+        for (int s = count - 1; s >= 9; s--) if (s != 19 && s != 20) order[n++] = s;
+        int[] area = {20, 19, 8, 7};
+        for (int i = 0; i < area.length; i++) if (area[i] < count) order[n++] = area[i];
+        int first = n;
+        for (int s = 1; s <= 6 && s < count; s++) {
+            int at = n++;
+            while (at > first && rank(levels, bonus, s) > rank(levels, bonus, order[at - 1])) {
+                order[at] = order[at - 1];
+                at--;
+            }
+            order[at] = s;
+        }
+        return order;
+    }
+
+    /** Upgraded level (learned + bonus), ties broken by the higher ID. */
+    static int rank(int[] levels, int[] bonus, int skill) {
+        return ((levels[skill] + bonus[skill]) << 8) + skill;
+    }
+
+    /** Farm keeps its monster ownership even if the saved Auto mode is PK. */
+    static boolean pkMode() {
+        return AutoAttackRuntime.playersEnabled() && !@~lliiiiil@.@~lililiilill@;
+    }
+
+    /**
+     * Additional mode boundary for legacy Auto casts; native eligibility still runs after it.
+     * Players only, except the Battlefield's "Xà nữ" monster, which Auto PK also attacks.
+     */
+    public static boolean validPkMode(Object value, boolean players) {
+        if (!players) return true;
+        if (!(value instanceof @~liiiliii@)) return false;
+        @~liiiliii@ e = (@~liiiliii@)value;
+        @~lliiil@ player = @~liiliii@.@~llilliill@;
+        return player != null && !e.cL && (e.cv == 0 || (BattlefieldSupport.enabled() && serpentName(e)))
+                && AutoPkTargetPolicy.distanceSquared(player.aZ, player.ba, e.aZ, e.ba) >= 0;
+    }
+
+    /**
+     * Battlefield PK order for the Special OFF path, higher first and ties nearer first: group
+     * Xà nữ (2), then exact level 40 (1), then other players (0) in bits 28-29; inside a group
+     * lower HP ranks higher (HP capped at 0x0FFFFFFF in the low 28 bits). The controller's current
+     * target ranks as HP 0, so it is kept until it dies, leaves the radius or a higher group shows up.
+     */
+    public static int priorityRank(Object value) {
+        if (!BattlefieldSupport.enabled() || !(value instanceof @~liiiliii@)) return 0;
+        @~liiiliii@ e = (@~liiiliii@)value;
+        int group = e.cv == 1 ? (serpentName(e) ? 2 : 0) : e.cv == 0 && e.bz == 40 ? 1 : 0;
+        int hp = e.bs <= 0 || value == AutoAttackRuntime.target() ? 0 : e.bs > 0x0FFFFFFF ? 0x0FFFFFFF : e.bs;
+        return group << 28 | 0x0FFFFFFF - hp;
+    }
+
+    /** Catalog name match, as BattlefieldSupport/MonsterCacheSupport exclude "Xà nữ". */
+    static boolean serpentName(@~liiiliii@ e) {
+        return e.cv == 1 && e.cC != null && "Xà nữ".equalsIgnoreCase(e.cC.trim());
+    }
+
+    /** A living Xà nữ the native monster gate accepts (this also aligns its Battlefield position). */
+    static boolean serpentTarget(@~liiiliii@ e) {
+        return serpentName(e) && !e.cL && dungeonAccess.validTarget(e, false);
+    }
+
+    /**
+     * World renderer calls before its camera transform is reset; the native clip is retained.
+     * Feet-to-feet lines mark the targets nearestPlayers() picks from (same filters, same order of
+     * checks so Battlefield position alignment runs before the radius): with Battlefield ON and a
+     * Xà nữ in range, only red lines to Xà nữ; otherwise players, sky blue for the Battlefield level 40
+     * and white for the rest. The focused player is orange in Battlefield mode; the Special
+     * loop uses its attack lock because it sends without changing native focus. Xà nữ stays red.
+     * The ring is drawn last, over the lines.
+     */
+    public static void paintPkRange(@~llilll@ graphics) {
+        try {
+            if (graphics == null || !pkMode()
+                    || !HungAutoAttackAccess.farmWorldReady()) return;
+            @~lliiil@ player = @~liiliii@.@~llilliill@;
+            javax.microedition.lcdui.Graphics g = graphics.@~lliiilii@;
+            int scale = @~llilll@.b;
+            if (g == null || scale <= 0) return;
+            int color = g.getColor();
+            try {
+                et world = @~liiliii@.@~llillilll@;
+                if (world != null) {
+                    boolean war = BattlefieldSupport.enabled();
+                    Object focus = AutoAttackRuntime.enabled() && AutoAttackRuntime.normalMonstersActive()
+                            ? pkLock : @~liiliii@.@~llillilil@;
+                    int count = world.c();
+                    // Pass 0: red Xà nữ lines. Players only get lines (pass 1) while no Xà nữ is in range.
+                    boolean serpents = false;
+                    for (int pass = war ? 0 : 1; pass < 2 && !(pass == 1 && serpents); pass++) {
+                        for (int i = 0; i < count; i++) {
+                            Object value = world.a(i);
+                            if (!(value instanceof @~liiiliii@)) continue;
+                            @~liiiliii@ e = (@~liiiliii@)value;
+                            if (pass == 0 ? !serpentTarget(e) : e.cv != 0 || e.cL || !dungeonAccess.validTarget(e, true)) continue;
+                            if (AutoPkTargetPolicy.distanceSquared(player.aZ, player.ba, e.aZ, e.ba) < 0) continue;
+                            if (pass == 0) serpents = true;
+                            g.setColor(pass == 0 ? 0xFF0000 : war && e == focus ? 0xFFA500
+                                    : war && e.bz == 40 ? 0x00BFFF : 0xFFFFFF);
+                            g.drawLine(player.aZ * scale, player.ba * scale, e.aZ * scale, e.ba * scale);
+                        }
+                    }
+                }
+                g.setColor(0x50FF00);
+                g.drawArc((player.aZ - AutoPkTargetPolicy.RADIUS) * scale,
+                        (player.ba - AutoPkTargetPolicy.RADIUS) * scale,
+                        AutoPkTargetPolicy.RADIUS * 2 * scale, AutoPkTargetPolicy.RADIUS * 2 * scale, 0, 360);
+            } finally { g.setColor(color); }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Exact opcode-6 serializer is generated from the pinned native cast's sender call. */
+    static void sendPlayers(et targets, int skill) {
+        // Replaced by the pinned patcher; no guessed obfuscated sender name in this template.
+        throw new IllegalStateException("PK serializer bridge not generated");
+    }
+
+    /**
+     * Native PK and battlefield eligibility first, then radius / level-40 / nearest top 20.
+     * Battlefield ON: Xà nữ monsters inside the radius come first, and inside each group
+     * (Xà nữ, level 40, others) lower HP goes first, nearer on equal HP. The locked target is offered
+     * with HP -1, so it heads its group; the new first target becomes the lock. A send cannot mix monsters
+     * (opcode 9) with players (opcode 6), so their list replaces the players' and pkSerpents is set.
+     */
+    static et nearestPlayers(@~lliiil@ player) {
+        et result = new et("Player attack focus by user");
+        nearest = -1;
+        pkSerpents = false;
+        pkTargets.clear();
+        et world = @~liiliii@.@~llillilll@;
+        if (world == null) return result;
+        boolean war = BattlefieldSupport.enabled();
+        int x = player.aZ, y = player.ba, count = world.c();
+        try {
+            if (war) {
+                for (int i = 0; i < count; i++) {
+                    Object value = world.a(i);
+                    if (!(value instanceof @~liiiliii@)) continue;
+                    @~liiiliii@ e = (@~liiiliii@)value;
+                    if (!serpentTarget(e)) continue;
+                    pkTargets.offer(e, e.cu, AutoPkTargetPolicy.distanceSquared(x, y, e.aZ, e.ba), false, e == pkLock ? -1 : e.bs);
+                }
+                pkSerpents = pkTargets.size() > 0;
+            }
+            for (int i = 0; !pkSerpents && i < count; i++) {
+                Object value = world.a(i);
+                if (!(value instanceof @~liiiliii@)) continue;
+                @~liiiliii@ e = (@~liiiliii@)value;
+                if (e.cv != 0 || e.cL || !dungeonAccess.validTarget(e, true)) continue;
+                long distance = AutoPkTargetPolicy.distanceSquared(x, y, e.aZ, e.ba);
+                pkTargets.offer(e, e.cu, distance, war && e.bz == 40, !war ? 0 : e == pkLock ? -1 : e.bs);
+            }
+            pkLock = war && pkTargets.size() > 0 ? (@~liiiliii@)pkTargets.at(0) : null;
+            for (int i = 0; i < pkTargets.size(); i++) {
+                @~liiiliii@ e = (@~liiiliii@)pkTargets.at(i);
+                result.@~l@(new @~liilli@((short)e.cu, e.cv));
+            }
+            // Stats annotation is a pixel distance, independent of native overflowing distance.
+            long squared = pkTargets.nearestSquared();
+            if (squared >= 0) {
+                int distance = 0;
+                while ((long)(distance + 1) * (distance + 1) <= squared) distance++;
+                nearest = distance;
+            }
+            return result;
+        } finally { pkTargets.clear(); }
+    }
+
+    /** The 20 nearest living monsters of the loaded map, nearest first (ModUpLv K154.K143 filter). */
+    static et nearestMonsters(@~lliiil@ player) {
+        et list = new et("Monter attack focus by user");
+        nearest = -1;
+        et world = @~liiliii@.@~llillilll@;
+        if (world == null) return list;
+        int n = world.c();
+        boolean[] used = new boolean[n];
+        while (list.c() < MAX_TARGETS) {
+            int best = -1, bestDistance = Integer.MAX_VALUE;
+            for (int i = 0; i < n; i++) {
+                if (used[i]) continue;
+                Object value = world.a(i);
+                if (!(value instanceof @~liiiliii@) || !loopMonster((@~liiiliii@)value, player)) { used[i] = true; continue; }
+                @~liiiliii@ e = (@~liiiliii@)value;
+                int d = @~liiiliii@.c(player.aZ, player.ba, e.aZ, e.ba);
+                if (d > WIDE_RANGE || d >= bestDistance) continue;
+                bestDistance = d;
+                best = i;
+            }
+            if (best < 0) break;
+            used[best] = true;
+            if (nearest < 0) nearest = bestDistance;
+            @~liiiliii@ e = (@~liiiliii@)world.a(best);
+            list.@~l@(new @~liilli@((short)e.cu, e.cv));
+        }
+        return list;
+    }
+
+    /** Living monster; Con Ma stays with Farm's captcha branch, removed objects and the monster groups excluded in Auto đánh are skipped. */
+    static boolean loopMonster(@~liiiliii@ e, @~lliiil@ player) {
+        return e != player && e.cv == 1 && e.bs > 0 && e.cG != 4 && !e.cL && !e.x() && e.cy != 2
+                && HungMonsterSelectionCommands.allow(e);
+    }
+
+    /**
+     * Loot follows the mod's "Auto nhặt đồ" menu: its whole-map pass checks the on/off switch and the
+     * Trắng/Xanh/Vàng/Tím/Cam boxes. Farm only reaches that pass with Auto đánh off, so Special runs it here.
+     */
+    static void pickupFrame(@~lliiil@ player) {
+        @~lliiiiil@.@~lliiilii@();
+        if (map() != 48) return;
+        et world = @~liiliii@.@~llillilll@;
+        if (world == null) return;
+        for (int i = 0; i < world.c(); i++) {
+            Object value = world.a(i);
+            if (!(value instanceof @~liiiliii@)) continue;
+            @~liiiliii@ e = (@~liiiliii@)value;
+            if (e.dz || e.cv != 3 || !dungeonGoldChest(e)
+                    || @~liiiliii@.c(player.aZ, player.ba, e.aZ, e.ba) >= PICKUP_RANGE) continue;
+            @~lilillll@.@~liililli@().@~li@((short)e.cu, e.cv);
+            e.dz = true;
+        }
+    }
+
+    /** The sole loot exception to the menu: map 48 always picks Rương vàng, even with Auto nhặt off. */
+    static boolean dungeonGoldChest(@~liiiliii@ item) {
+        return map() == 48 && item.cC != null && "rương vàng".equals(item.cC.trim().toLowerCase());
+    }
+
+    // ------------------------------------------------------------------ menus
+
+    static String state(boolean on) {
+        return on ? "[BẬT]" : "[TẮT]";
+    }
+
+    static bt row(String label, int action) {
+        return new bt(label, action, @~liilllii@.@~liiiliiiiil@);
+    }
+
+    static void show(et menu, String title) {
+        @~liilllii@.@~liiiliillll@.@~@(menu, 2, title, false, (et)null);
+    }
+
+    public void addMenu(et menu) {
+        menu.@~l@(row("Phó bản / Mê cung >", MENU));
+    }
+
+    /** Cài Đặt Cấu Hình: inserted before "Reset Cấu Hình". */
+    public static void addConfigRows(et menu) {
+        menu.@~l@(row(cat("Auto Lửa Thiêng: ", state(fire)), FIRE));
+    }
+
+    static void showMain() {
+        et menu = new et("PHÓ BẢN / MÊ CUNG");
+        menu.@~l@(row("Phó bản Ngã Tư Tử Thần >", NGA_TU));
+        menu.@~l@(row("Làng Phủ Sương >", FOG_MENU));
+        menu.@~l@(row(cat("Auto Mê cung: ", state(maze)), MAZE));
+        menu.@~l@(row(cat("Hoàn thành phó bản: ", state(finish)), FINISH));
+        menu.@~l@(row("<< Quay lại", BACK_MAIN));
+        show(menu, "PHÓ BẢN / MÊ CUNG");
+    }
+
+    static void showNgaTu() {
+        et menu = new et("NGÃ TƯ TỬ THẦN");
+        menu.@~l@(row(cat("Vào bằng lượt free, đồng Horae: ", state(free)), FREE));
+        menu.@~l@(row(cat("Vào bằng ngọc: ", state(gem)), GEM));
+        menu.@~l@(row(cat("Vào bằng cả lượt free, đồng Horae và ngọc: ", state(both)), BOTH));
+        menu.@~l@(row("<< Quay lại", MENU));
+        show(menu, "NGÃ TƯ TỬ THẦN");
+    }
+
+    static void showFog() {
+        et menu = new et("LÀNG PHỦ SƯƠNG");
+        menu.@~l@(row(cat("Tự động vào Làng Phủ Sương: ", state(fog)), FOG));
+        menu.@~l@(row("<< Quay lại", MENU));
+        show(menu, "LÀNG PHỦ SƯƠNG");
+    }
+
+    static String cat(String a, String b) {
+        return new StringBuffer(a).append(b).toString();
+    }
+
+    static String turned(boolean on) {
+        return on ? "Đã bật " : "Đã tắt ";
+    }
+
+    public boolean onAction(int action, int extra) {
+        try {
+            if (blockMazeAction(action)) return true;
+            if (action == MENU) { showMain(); return true; }
+            if (action == NGA_TU) { showNgaTu(); return true; }
+            if (action == FOG_MENU) { showFog(); return true; }
+            if (action == FREE) { free = !free; notice(cat(turned(free), "vào Ngã Tư bằng lượt free, đồng Horae")); showNgaTu(); return true; }
+            if (action == GEM) { gem = !gem; notice(cat(turned(gem), "vào Ngã Tư bằng ngọc")); showNgaTu(); return true; }
+            if (action == BOTH) { both = !both; notice(cat(turned(both), "vào Ngã Tư bằng cả lượt free, đồng Horae và ngọc")); showNgaTu(); return true; }
+            if (action == FOG) { fog = !fog; notice(cat(turned(fog), "tự động vào Làng Phủ Sương")); showFog(); return true; }
+            if (action == MAZE) { setMaze(!maze); notice(cat(turned(maze), "Auto Mê cung")); showMain(); return true; }
+            if (action == FINISH) {
+                finish = !finish;
+                homeSince = 0L;
+                dungeonContext();
+                notice(cat(turned(finish), "tự động hoàn thành phó bản"));
+                showMain();
+                return true;
+            }
+            if (action == FIRE) {
+                fire = !fire;
+                fireMap = map();
+                fireZone = zone();
+                notice(cat(turned(fire), "tự động đốt Lửa Thiêng"));
+                @~lliiiiil@.@~liliilll@();
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    // ------------------------------------------------------------------ dialogs
+
+    /** Every native dialog text; true suppresses the dialog (ModUpLv closes it). */
+    public static boolean onDialog(String text) {
+        try {
+            if (text == null) return false;
+            if (maze && text.startsWith("Xin chờ")) return true;
+            if (fog && text.endsWith("sương")) {
+                fog = false;
+                info("Thông báo", "Bạn đã hết vé vào Làng Phủ Sương");
+            }
+            if (!finish) return false;
+            String plain = plain(text);
+            boolean answered = false;
+            // YES/NO dialogs of the Phó chỉ huy (ModUpLv K092): answer like it, one rule at a time.
+            if (free && plain.endsWith(ALONE)) { reply(); answered = true; }
+            if (gem && plain.endsWith(GEM_FEE)) { reply(); answered = true; }
+            if (both && plain.endsWith(ALONE)) { reply(); answered = true; }
+            if (both && plain.endsWith(GEM_FEE)) { reply(); answered = true; }
+            if (free && plain.endsWith(GEM_FEE)) {
+                free = false;
+                finish = false;
+                info("TB Phó Bản", "Bạn đã đi hết lượt phó bản free hoặc hết vé.\n=> Tắt phó bản free và Horae");
+            }
+            // OK dialogs (ModUpLv K014). The daily limit refuses every entry mode, free/Horae included;
+            // leaving one mode on re-asks the NPC every tick and re-opens this dialog forever.
+            if (finish && plain.indexOf(DAILY_LIMIT) >= 0) {
+                stopEntry();
+                info("TB Phó Bản", "Đã hết 10 lượt phó bản trong 1 ngày.\n=> Tắt tự động vào phó bản");
+            }
+            if (finish && free && plain.startsWith(NEED)) {
+                free = false; finish = false;
+                info("TB Phó Bản", "Đã hết lượt miễn phí hoặc vé phó bản.\n=> Tắt phó bản free và Horae");
+            }
+            if (finish && free && plain.startsWith(LEVEL)) {
+                free = false; finish = false;
+                info("TB Phó Bản", "Level chưa đạt yêu cầu.\n=> Tắt phó bản free và Horae");
+            }
+            if (finish && gem && plain.startsWith(NEED)) {
+                gem = false; finish = false;
+                info("TB Phó Bản", "Không đủ ngọc để tiếp tục.\n=> Tắt vào bằng ngọc");
+            }
+            if (finish && gem && plain.startsWith(LEVEL)) {
+                gem = false; finish = false;
+                info("TB Phó Bản", "Level chưa đạt yêu cầu.\n=> Tắt vào bằng ngọc");
+            }
+            if (finish && both && plain.startsWith(LEVEL)) {
+                both = false; finish = false;
+                info("TB Phó Bản", "Level chưa đạt yêu cầu.\n=> Tắt phó bản bằng cả lượt free, đồng Horae và ngọc");
+            }
+            if (finish && both && plain.startsWith(NEED)) {
+                both = false; finish = false;
+                info("TB Phó Bản", "Không đủ ngọc để tiếp tục.\n=> Tắt phó bản bằng cả lượt free, đồng Horae và ngọc");
+            }
+            // Unknown refusal wording: entry re-asks the NPC every 840ms, so stop after a few unanswered dialogs.
+            if (answered) entryRefusals = 0;
+            else if (finish && (free || gem || both) && map() != 48 && ++entryRefusals >= MAX_ENTRY_REFUSALS) {
+                stopEntry();
+                info("TB Phó Bản", "Phó chỉ huy không cho vào phó bản.\n=> Tắt tự động vào phó bản");
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    static void stopEntry() {
+        free = gem = both = false;
+        finish = false;
+        homeSince = 0L;
+        entryRefusals = 0;
+    }
+
+    /** Lower-case ASCII words separated by single spaces; precomposed and combining tone marks both drop. */
+    static String plain(String text) {
+        StringBuffer out = new StringBuffer(text.length());
+        boolean gap = false;
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c >= '̀' && c <= 'ͯ') continue;
+            int k = VI_MARKED.indexOf(c);
+            if (k >= 0) c = VI_PLAIN.charAt(k);
+            else if (c >= 'A' && c <= 'Z') c = (char)(c + 32);
+            if (c >= 'a' && c <= 'z' || c >= '0' && c <= '9') {
+                if (gap && out.length() > 0) out.append(' ');
+                gap = false;
+                out.append(c);
+            } else {
+                gap = true;
+            }
+        }
+        return out.toString();
+    }
+
+    // ------------------------------------------------------------------ tick
+
+    public void update() {
+        try {
+            long now = now();
+            int map = map();
+            synchronized (AutoAttackRuntime.requestLock()) {
+                if (mazePlayer != null && (!maze || !HungAutoAttackAccess.farmWorldReady()
+                        || mazePlayer != @~liiliii@.@~llilliill@ || mazeMap != map || mazeZone != zone())) {
+                    releaseMazeCombat();
+                    clearMazeWalk();
+                }
+            }
+            dungeonContext();
+            if (map != 48) dungeonNotify = true;
+            if (map == 48 || !finish) entryRefusals = 0;
+            if (!HungAutoAttackAccess.farmWorldReady()) return;
+            @~lliiil@ player = @~liiliii@.@~llilliill@;
+            if (fire && now >= fireAt) { fireAt = now + FIRE_MS; fireTick(player, map); }
+            if (finish && now >= dungeonAt) {
+                dungeonAt = now + DUNGEON_MS;
+                dungeonEntry(player, map, now);
+                if (map == 48) {
+                    if (dungeonNotify) {
+                        dungeonNotify = false;
+                        meteorX = meteorY = -1;
+                        notice("Đã vào phó bản và bắt đầu thực thi");
+                        info("Thông báo", "Đã vào phó bản và bắt đầu thực thi");
+                    }
+                    dungeonFight(player);
+                }
+            }
+            if (fog && now >= fogAt) { fogAt = now + FOG_MS; fogTick(player, map); }
+            if (maze && now >= mazeAt) { mazeAt = now + MAZE_MS; mazeTick(player, map, now); }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    // ------------------------------------------------------------------ Lửa thiêng
+
+    static void fireTick(@~lliiil@ player, int map) {
+        if (map != fireMap || zone() != fireZone) return;
+        // ModUpLv requires its native auto (state 1); Hung also runs Auto đánh and Auto Farm.
+        if (@~lliiil@.@~lllilli@ != 1 && !AutoAttackRuntime.enabled() && !@~lliiiiil@.@~lililiilill@) return;
+        @~liiiliii@ flame = null;
+        et world = @~liiliii@.@~llillilll@;
+        for (int i = 0; world != null && i < world.c(); i++) {
+            Object value = world.a(i);
+            if (!(value instanceof @~liiiliii@)) continue;
+            @~liiiliii@ e = (@~liiiliii@)value;
+            if (e.cv == 1 && FIRE_NAME.equals(e.cC)) { flame = e; break; }
+        }
+        @~llilli@ fireItem = null, oil = null;
+        et bag = @~llilli@.@~liiillili@;
+        for (int i = 0; bag != null && i < bag.c(); i++) {
+            Object value = bag.a(i);
+            if (!(value instanceof @~llilli@)) continue;
+            @~llilli@ item = (@~llilli@)value;
+            if (item.@~liiiiliii@ == null || item.@~llllii@ <= 0) continue;
+            if (FIRE_NAME.equals(item.@~liiiiliii@) && fireItem == null) fireItem = item;
+            else if (OIL_NAME.equals(item.@~liiiiliii@) && oil == null) oil = item;
+            if (fireItem != null && oil != null) break;
+        }
+        if (flame == null && fireItem != null) useItem(fireItem.O);
+        else if (flame != null && flame.bz < 4 && oil != null) useItem(oil.O);
+    }
+
+    // ------------------------------------------------------------------ Ngã Tư Tử Thần
+
+    static boolean village(int map) {
+        return map == 1 || map == 33 || map == 34 || map == 48 || map == 67 || map == 69 || map == 93;
+    }
+
+    /** ModUpLv K012.K157: reach the Phó chỉ huy of a village and ask to enter. */
+    static void dungeonEntry(@~lliiil@ player, int map, long now) {
+        if (!free && !gem && !both) return;
+        if (!village(map)) {
+            if (homeSince == 0L) {
+                homeSince = now;
+                notice("Map hiện tại không có NPC Phó chỉ huy! 5 giây nữa sẽ dùng Bùa về làng (nếu còn) để đi tìm.");
+            }
+            if (now - homeSince >= HOME_SCROLL_MS) {
+                useItem(RETURN_SCROLL);
+                homeSince = 0L;
+            }
+        } else {
+            homeSince = 0L;
+        }
+        if (map == 1) { approach(player, 615, 528, 50); npc(-37, 0, 0); }
+        else if (map == 33) approach(player, 0, 608, 50);
+        else if (map == 34) { approach(player, 584, 456, 50); npc(-37, 0, 0); }
+        else if (map == 67) approach(player, 0, 312, 50);
+        else if (map == 69) { approach(player, 396, 306, 50); npc(-37, 0, 0); }
+        else if (map == 93) { approach(player, 554, 528, 50); npc(-37, 0, 0); }
+    }
+
+    /** New server notices only: never replay a previous run's scrolling info queue. */
+    public static synchronized void onDungeonNotice(String text) {
+        if (!dungeonContext()) return;
+        if (dungeonPosition.onNotice(text, now())) dungeonAimDirty = true;
+    }
+
+    static synchronized boolean dungeonContext() {
+        boolean active = finish && map() == 48;
+        if (active && !dungeonActive) {
+            dungeonPosition.enterDungeon();
+            dungeonAimDirty = true;
+        } else if (!active && dungeonActive) {
+            dungeonPosition.reset();
+            dungeonMovement.release(MovementArbiter.OWNER_N4);
+            dungeonAimDirty = false;
+        }
+        dungeonActive = active;
+        return active;
+    }
+
+    static boolean dungeonAtStand(@~lliiil@ player) {
+        return dungeonPosition.hasTarget() && player.aZ / 24 == dungeonPosition.targetTileX()
+                && player.ba / 24 == dungeonPosition.targetTileY();
+    }
+
+    /** Special sends have no walker: move only to a direction's fixed stand tile, then hold. */
+    static synchronized void dungeonFight(@~lliiil@ player) {
+        AutoAttackRuntime.engageMonsters();
+        dungeonAccess.farmSpotHold();
+        if (dungeonAimDirty || dungeonAtStand(player)) {
+            player.cO = null;
+            if (player.cG == 1) player.cG = 0;
+            dungeonAimDirty = false;
+        }
+        if (!dungeonPosition.hasTarget()) return;
+        if (dungeonAtStand(player)) {
+            dungeonMovement.release(MovementArbiter.OWNER_N4);
+            return;
+        }
+        if (player.cO == null && dungeonMovement.acquire(MovementArbiter.OWNER_N4)) {
+            int[] target = {dungeonPosition.targetX(), dungeonPosition.targetY()};
+            if (dungeonMovement.submitPath(MovementArbiter.OWNER_N4, target, 2)) walk(target[0], target[1]);
+        }
+    }
+
+    static void approach(@~lliiil@ player, int x, int y, int radius) {
+        if (@~liiiliii@.c(player.aZ, player.ba, x, y) > radius) {
+            walk(x, y);
+            notice(new StringBuffer("Đang di chuyển tới tọa độ: (").append(x).append(", ").append(y).append(")").toString());
+        }
+    }
+
+    // ------------------------------------------------------------------ Làng Phủ Sương
+
+    /** ModUpLv K082.K157; Mrs Oda row and the sale-trip gate from HungFogOdaPatcher. */
+    static void fogTick(@~lliiil@ player, int map) {
+        if (map == 135) {
+            @~liiiliii@ serena = nearestNpc(player, "Serena");
+            int d = serena == null ? Integer.MAX_VALUE : distance(player, serena);
+            if (serena != null && d > 50) walk(serena.aZ, serena.ba);
+            else if (player.cG == 0 && d < 50) {
+                npc(-104, 0, 1);
+                info("Làng Phủ Sương", new StringBuffer("Đã vào Làng Phủ Sương lần thứ ").append(++fogCount).toString());
+            }
+        } else if (map == 1) {
+            if (codexFogSaleBusy()) return;
+            @~liiiliii@ oda = nearestNpc(player, "Mrs Oda");
+            if (oda == null) return;
+            int d = distance(player, oda);
+            if (d > 50) walk(oda.aZ, oda.ba);
+            // Mrs Oda has 16 rows here and "Làng phủ sương" is the last; ModUpLv's row 16 was ignored.
+            else if (player.cG == 0) npc(-81, 0, 15);
+        }
+    }
+
+    /** An Auto bán rác trip owns the village walk until it restores Farm (state back to 0). */
+    public static boolean codexFogSaleBusy() {
+        return @~lliiilll@.@~lilliiiiill@ && @~lliiiiil@.@~lililiilill@ && @~lliiilll@.@~lilliiiilil@ != 0;
+    }
+
+    static @~liiiliii@ nearestNpc(@~lliiil@ player, String name) {
+        et world = @~liiliii@.@~llillilll@;
+        @~liiiliii@ best = null;
+        int bestDistance = Integer.MAX_VALUE;
+        for (int i = 0; world != null && i < world.c(); i++) {
+            Object value = world.a(i);
+            if (!(value instanceof @~liiiliii@)) continue;
+            @~liiiliii@ e = (@~liiiliii@)value;
+            if (e.cv != 2 || !name.equals(e.cC)) continue;
+            int d = distance(player, e);
+            if (d > bestDistance) continue;
+            bestDistance = d;
+            best = e;
+        }
+        return best;
+    }
+
+    // ------------------------------------------------------------------ Mê cung
+
+    /** Exclusive intent: shut down competing combat/movement before exposing the new owner. */
+    public static void setMaze(boolean enabled) {
+        synchronized (AutoAttackRuntime.requestLock()) {
+            if (maze == enabled) return;
+            maze = false;
+            releaseMazeCombat();
+            clearMazeWalk();
+            if (enabled) {
+                if (AutoAttackRuntime.enabled()) AutoAttackRuntime.handleAction(-111);
+                if (AutoAttackRuntime.specialEnabled()) AutoAttackRuntime.handleAction(-116);
+                // The old monster toggle is no longer a setting. Special OFF already releases it.
+                @~lliillil@.@~ll@(false);
+                if (@~lliillii@.@~liilliliili@) new @~lliillii@().onAction(-85, 0);
+                dungeonAccess.stopFarm();
+                finish = free = gem = both = fog = fire = false;
+                homeSince = 0L;
+                @~lliiil@ player = @~liiliii@.@~llilliill@;
+                if (player != null) {
+                    player.cO = null;
+                    if (player.cG == 1) player.cG = 0;
+                }
+                mazeReset();
+                mazeAt = 0L;
+                maze = true;
+            }
+        }
+        dungeonContext();
+    }
+
+    /** The registry and direct Auto Attack/chat entry points consume conflicting toggles. */
+    public static boolean blockMazeAction(int action) {
+        if (!maze) return false;
+        if (action == -40 || action == -85 || action == -98 || action == -111 || action == -112 || action == -113
+                || action == -116 || action == -117 || action == FREE || action == GEM || action == BOTH
+                || action == FOG || action == FINISH || action == FIRE) {
+            notice("Hãy tắt Auto Mê cung trước khi bật auto khác");
+            return true;
+        }
+        return false;
+    }
+
+    /** Farm OFF must yield only to a live guard cast in this exact player/map/zone. */
+    public static boolean mazeOwnsCombat() {
+        if (!maze || !HungAutoAttackAccess.farmWorldReady()) return false;
+        @~lliiil@ player = @~liiliii@.@~llilliill@;
+        if (!mazeCombat.owns(player, map(), zone())) return false;
+        Object held = mazeCombat.target();
+        if (!(held instanceof @~liiiliii@)) return false;
+        @~liiiliii@ target = (@~liiiliii@)held;
+        if (target.bs <= 0 || target.cG == 4 || target.dz) return false;
+        et world = @~liiliii@.@~llillilll@;
+        for (int i = 0; world != null && i < world.c(); i++) if (world.a(i) == target) return true;
+        return false;
+    }
+
+    static void clearMazeWalk() {
+        if (mazePlayer != null) {
+            mazePlayer.cO = null;
+            if (mazePlayer.cG == 1) mazePlayer.cG = 0;
+        }
+        mazePlayer = null;
+        mazeMap = mazeZone = -1;
+    }
+
+    static void releaseMazeCombat() {
+        Object owner = mazeCombat.player();
+        mazeCombat.release();
+        if (owner instanceof @~lliiil@) {
+            @~lliiil@ previous = (@~lliiil@)owner;
+            @~lillill@ cast = previous.di;
+            // A replaced actor must not retain a tag-zero callback after losing this owner.
+            if (cast != null && cast.@~llillilil@ == previous && cast.codexAutoAttackGeneration == 0) {
+                cast.codexAutoAttackGeneration = -1;
+                HungAutoAttackAccess.cancelCast(cast);
+            }
+        }
+        // Native cleanup is valid only for the current local actor that this module claimed.
+        if (owner != null && owner == @~liiliii@.@~llilliill@) @~lliiiiil@.@~lillllll@();
+    }
+
+    /** ModUpLv K002.K143. */
+    static void mazeTick(@~lliiil@ player, int map, long now) {
+        synchronized (AutoAttackRuntime.requestLock()) {
+        if (!maze) return;
+        if (mazePlayer != player || mazeMap != map || mazeZone != zone()) {
+            releaseMazeCombat();
+            clearMazeWalk();
+            mazePlayer = player;
+            mazeMap = map;
+            mazeZone = zone();
+        }
+        if (mazeCombat.player() != null && !mazeOwnsCombat()) releaseMazeCombat();
+        if (map != 106 && map != 109) releaseMazeCombat();
+        if (map == 108) {
+            found108 = true;
+            walkIdle(player, 501, 598);
+            npc(-87, 0, 0);
+            return;
+        }
+        if (map != 109) { door109Picked = false; door109 = 0; }
+        if (map != 112) { door112Picked = false; door112 = 0; }
+        switch (map) {
+            case 1: case 33: case 67: case 93:
+                mazeVillage(map, now);
+                door109Counter = 0; door109Picked = false; door109 = 0;
+                door112Counter = 0; door112Picked = false; door112 = 0;
+                break;
+            case 105: walkIdle(player, 468, 4); break;
+            case 106: guard(player, 2, 760, 360); break;
+            case 107: case 110: walkIdle(player, 832, 352); break;
+            case 109:
+                if (!door109Picked) {
+                    if (++door109Counter > 2) door109Counter = 1;
+                    door109 = door109Counter;
+                    door109Picked = true;
+                }
+                if (door109 == 1) guard(player, 3, 396, 704);
+                else if (door109 == 2) guard(player, 1, 1, 381);
+                break;
+            case 111: walkIdle(player, 836, 348); break;
+            case 112:
+                if (!door112Picked) {
+                    if (++door112Counter > 2) { mazeReset(); return; }
+                    door112 = door112Counter;
+                    door112Picked = true;
+                }
+                if (door112 == 1) walkIdle(player, 92, 832);
+                else if (door112 == 2) walkIdle(player, 381, 0);
+                break;
+            case 113: walkIdle(player, 92, 832); break;
+            case 114: walkIdle(player, 825, 348); break;
+            case 115: walkIdle(player, 92, 836); break;
+            default: break;
+        }
+        }
+    }
+
+    /** In a village: use the maze item every 1.5s; after 4 uses re-evaluate the door of map 112. */
+    static void mazeVillage(int map, long now) {
+        if (now - mazeItemAt < MAZE_ITEM_MS) return;
+        mazeItemAt = now;
+        useItem(MAZE_ITEM);
+        if (++mazeUses < 4) return;
+        if (!found108 && map == 112) door112Counter = door112 = door112 == 1 ? 2 : 1;
+        mazeUses = 0;
+        found108 = false;
+    }
+
+    static void mazeReset() {
+        door109Counter = door109 = door112Counter = door112 = mazeUses = 0;
+        door109Picked = door112Picked = found108 = false;
+        mazeItemAt = 0L;
+    }
+
+    /** ModUpLv K002.K143(id, x, y): reach and attack the door guard, else go to its post. */
+    static void guard(@~lliiil@ player, int id, int x, int y) {
+        et world = @~liiliii@.@~llillilll@;
+        if (world == null || world.c() == 0) { releaseMazeCombat(); return; }
+        @~liiiliii@ target = null;
+        int best = 9999;
+        for (int i = 0; i < world.c(); i++) {
+            Object value = world.a(i);
+            if (!(value instanceof @~liiiliii@)) continue;
+            @~liiiliii@ e = (@~liiiliii@)value;
+            if (e.cu != id || e.cv != 1 || e.bs <= 0 || e.cG == 4 || e.dz) continue;
+            int d = distance(player, e);
+            if (d >= best) continue;
+            best = d;
+            target = e;
+        }
+        if (target != null) {
+            if (best > 150) {
+                releaseMazeCombat();
+                if (player.cG != 1) walk(target.aZ, target.ba);
+            }
+            else if (best <= 150) {
+                if (mazeCombat.target() != target) releaseMazeCombat();
+                mazeCombat.claim(player, target, map(), zone());
+                @~liiliii@.@~llillilil@ = target;
+                castAll(player);
+            }
+        } else {
+            releaseMazeCombat();
+            walkIdle(player, x, y);
+        }
+    }
+
+    /** ModUpLv K154.K177: native auto on, cast every ready skill of the current bar. */
+    static void castAll(@~lliiil@ player) {
+        if (player.cG == 4) return;
+        if (!@~lliiil@.@~lllliiii@) player.@~liilil@();
+        // Let the native animation/request complete before selecting another hotbar skill.
+        if (player.cG == 2 || player.cA >= 0) return;
+        @~lilii@[][] bars = @~lliiil@.@~lliliiil@;
+        if (bars == null || bars[@~lliiil@.d] == null) return;
+        @~lilii@[] bar = bars[@~lliiil@.d];
+        for (int i = 0; i < bar.length; i++) {
+            @~lilii@ slot = bar[i];
+            if (slot == null || slot.b != 0) continue;
+            short skill = slot.@~lilllli@;
+            @~liil@[] cooldowns = @~lliiil@.@~lliillli@;
+            if (cooldowns == null || skill < 0 || skill >= cooldowns.length || cooldowns[skill] == null || cooldowns[skill].b > 0) continue;
+            boolean ready = true;
+            try {
+                int level = @~lliiil@.@~llilllii@[skill];
+                if (level > 0 && player.bu < @~liillil@.@~liili@(skill).@~lllillllil@[level + @~lliiil@.@~llilllil@[skill] - 1].@~lilllli@) ready = false;
+            } catch (Throwable ignored) {
+            }
+            if (ready) {
+                player.@~@(i, false);
+                if (player.cG == 2 || player.cA >= 0) return;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ native helpers
+
+    static int map() {
+        cs current = @~liilllii@.@~liiililiiii@;
+        return current == null ? -1 : current.d;
+    }
+
+    static int zone() {
+        return cs.u;
+    }
+
+    static int distance(@~lliiil@ player, @~liiiliii@ e) {
+        return @~liiiliii@.c(player.aZ, player.ba, e.aZ, e.ba);
+    }
+
+    /** ModUpLv K165.K143: path to the point (the native walker keeps a path already running). */
+    static void walk(int x, int y) {
+        walks++;
+        lastWalkX = x;
+        lastWalkY = y;
+        try { @~lliiiiii@.@~lllli@(x, y); } catch (Throwable ignored) { }
+    }
+
+    /** ModUpLv K165.K095: only from standing still. */
+    static void walkIdle(@~lliiil@ player, int x, int y) {
+        if (player.cG == 0) walk(x, y);
+    }
+
+    static void useItem(int id) {
+        @~lilillll@.@~liililli@().@~llili@((short)id);
+    }
+
+    static void npc(int id, int menu, int row) {
+        @~lilillll@.@~liililli@().@~l@((short)id, (byte)menu, (byte)row);
+    }
+
+    static void reply() {
+        @~lilillll@.@~liililli@().@~li@((short)0, (byte)5, (byte)1);
+    }
+
+    static void notice(String text) {
+        @~lillllll@.@~lilli@(text);
+    }
+
+    static void info(String title, String text) {
+        @~lillllll@.@~liii@(title, text);
+    }
+}

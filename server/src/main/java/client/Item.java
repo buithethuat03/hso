@@ -49,7 +49,7 @@ public class Item {
                         m.writer().writeByte(temp.op.size()); // size
                         for (int j = 0; j < temp.op.size(); j++) {
                             m.writer().writeByte(temp.op.get(j).id);
-                            m.writer().writeInt(temp.op.get(j).getParam(temp.tier));
+                            m.writer().writeInt(temp.op.get(j).getParam(temp.tier, temp.type));
                         }
                         //
                         if (temp.time_use != 0) {
@@ -133,7 +133,7 @@ public class Item {
                         m.writer().writeByte(temp.op.size()); // size
                         for (int j = 0; j < temp.op.size(); j++) {
                             m.writer().writeByte(temp.op.get(j).id);
-                            m.writer().writeInt(temp.op.get(j).getParam(temp.tier));
+                            m.writer().writeInt(temp.op.get(j).getParam(temp.tier, temp.type));
                         }
                         if (temp.time_use != 0) {
                             long time_use = temp.time_use - System.currentTimeMillis();

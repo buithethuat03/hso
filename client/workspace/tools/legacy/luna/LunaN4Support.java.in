@@ -1,0 +1,882 @@
+/* Auto Nga 4 support for the clean Luna base. */
+public final class LunaN4Support {
+    private LunaN4Support() {
+    }
+
+    public static final int ACT_N4 = 10;
+
+    private static final int TOWN_MAP = 1;
+    private static final int N4_MAP = 48;
+    private static final int HOME_X = 588;
+    private static final int HOME_Y = 564;
+
+    private static final int[] NORTH = {684, 552};
+    private static final int[] EAST = {820, 672};
+    private static final int[] SOUTH = {688, 768};
+    private static final int[] WEST = {584, 656};
+
+    private static final long HOME_WAIT_MS = 500L;
+    private static final long AIM_WAIT_MS = 500L;
+    private static final long LEAVE_WAIT_MS = 1000L;
+    private static final long FIGHT_TIMEOUT_MS = 1800000L;
+    private static final long TALK_TIMEOUT_MS = 20000L;
+    private static final long HOME_TIMEOUT_MS = 180000L;
+    private static final long MOVE_TIMEOUT_MS = 60000L;
+    private static final long MENU_DELAY_MS = 1500L;
+    private static final long STEP_INTERVAL_MS = 200L;
+    private static final int ARRIVE_PX = 24;
+    private static final int PATH_MAX_TILES = 19;
+    private static final int PATH_BUDGET = 5000;
+    private static final int PATH_APPROACH_TILES = 4;
+    private static final int MAP_MAX = 256;
+
+    private static final String NPC_NAME = "ph\u00f3 ch\u1ec9 huy";
+    private static final int NPC_FALLBACK_ID = -37;
+    private static final String MENU_ENTER = "ng\u00e3 t\u01b0";
+    private static final String MENU_HORAE = "horae";
+    private static final String MENU_GEM = "ng\u1ecdc";
+    private static final String GATE_WORD = "c\u1eeda";
+
+    private static final int OFF = 0;
+    private static final int HOME = 1;
+    private static final int TALK = 2;
+    private static final int WAIT_GATE = 3;
+    private static final int MOVE_TO_GATE = 4;
+    private static final int HOLD_AND_FIGHT = 5;
+    private static final int LEAVE = 6;
+
+    private static int state = OFF;
+    private static long stateAt;
+    private static long idleAt;
+    private static long lastStepAt;
+    private static long lastGatePulseAt;
+    private static long enterAt;
+    private static long leaveAt;
+    private static int lastMap = -1;
+    private static boolean inN4;
+    private static boolean savedAttack;
+    private static boolean movementAttackPaused;
+    private static int talkFails;
+    private static boolean menuSeen;
+    private static int runCount;
+
+    private static int aimX;
+    private static int aimY;
+    private static String aimName;
+    private static long aimAt;
+    private static boolean aimChanged;
+
+    private static short pendingNpc;
+    private static byte pendingMenu;
+    private static int pendingRow = -1;
+    private static long pendingAt;
+
+    private static String[] infoSeen = new String[3];
+    private static short[] planPath;
+    private static int planMap = -1;
+    private static int planX = -1;
+    private static int planY = -1;
+    private static int[] bfsPrev;
+    private static int[] bfsDist;
+    private static int[] bfsQueue;
+    private static int bfsCells;
+
+    private static final String[] STATE_NAMES = {
+            "OFF", "ve Ph\u00f3 ch\u1ec9 huy", "n\u00f3i chuy\u1ec7n", "ch\u1edd h\u01b0\u1edbng qu\u00e1i",
+            "ra c\u1eeda", "\u0111\u1ee9ng \u0111\u00e1nh", "v\u1eeba ra l\u00e0ng"
+    };
+
+    public static boolean handleMenuAction(int action, int param) {
+        if (action != ACT_N4) return false;
+        if (state == OFF) start();
+        else stop(null);
+        return true;
+    }
+
+    public static void tick() {
+        try {
+            if (state == OFF) return;
+            if (player() == null || mapHolderMissing()) return;
+            if (playerDead()) {
+                stop("Nh\u00e2n v\u1eadt \u0111\u00e3 ch\u1ebft.");
+                return;
+            }
+
+            int here = mapId();
+            if (here >= 0 && here != lastMap) {
+                lastMap = here;
+                clearPlan();
+                idleAt = 0L;
+                if (inN4) {
+                    onLeaveN4();
+                } else if (state == TALK && here == N4_MAP) {
+                    onEnterN4();
+                }
+                return;
+            }
+
+            if (inN4) pollInfo();
+
+            if (dialogOpen()) {
+                pressOk();
+                return;
+            }
+
+            if (pendingRow >= 0) {
+                if (now() - pendingAt < MENU_DELAY_MS) return;
+                short npc = pendingNpc;
+                byte menu = pendingMenu;
+                byte row = (byte) pendingRow;
+                pendingRow = -1;
+                sender().@sender.npcMenuSelect@(npc, menu, row);
+                return;
+            }
+
+            switch (state) {
+                case HOME: stepHome(); break;
+                case TALK: stepTalk(); break;
+                case WAIT_GATE: stepWaitGate(); break;
+                case MOVE_TO_GATE: stepMoveToGate(); break;
+                case HOLD_AND_FIGHT: stepHoldAndFight(); break;
+                case LEAVE: stepLeave(); break;
+                default: break;
+            }
+        } catch (Throwable t) {
+            System.out.println("LUNA N4: " + t.toString());
+            stop("Auto Ng\u00e3 4 d\u1eebng do l\u1ed7i.");
+        }
+    }
+
+    public static boolean onNpcMenu(short npcId, byte menuId, @class.VEC@ items) {
+        if (state != TALK || items == null) return false;
+        int row = findMenuRow(items, MENU_ENTER);
+        if (row < 0) row = findMenuRow(items, MENU_HORAE);
+        if (row < 0) row = findMenuRow(items, MENU_GEM);
+        if (row < 0) return false;
+        menuSeen = true;
+        pendingNpc = npcId;
+        pendingMenu = menuId;
+        pendingRow = row;
+        pendingAt = now();
+        return true;
+    }
+
+    public static void paintHud(@class.GRAPHICS@ g) {
+        try {
+            if (state != OFF) {
+                @class.FONTS@.@fonts.small@.@font.draw@(g,
+                        join("Auto N4: ", STATE_NAMES[state]), 5, 155, 0);
+            }
+        } catch (Throwable t) {
+            // HUD phu khong duoc lam hong vong game.
+        }
+    }
+
+    private static void start() {
+        if (player() == null || mapHolderMissing()) {
+            notice("Ch\u01b0a v\u00e0o game.");
+            return;
+        }
+        state = HOME;
+        stateAt = now();
+        lastMap = mapId();
+        inN4 = false;
+        savedAttack = nativeAttackIsOn();
+        movementAttackPaused = false;
+        pauseAttackForMovement();
+        talkFails = 0;
+        menuSeen = false;
+        pendingRow = -1;
+        idleAt = 0L;
+        clearPlan();
+        if (lastMap == N4_MAP) onEnterN4();
+        else notice("Auto Ng\u00e3 4: b\u1eaft \u0111\u1ea7u, v\u1ec1 L\u00e0ng S\u00f3i Tr\u1eafng.");
+    }
+
+    private static void stop(String reason) {
+        resumeAttackAfterMovement();
+        state = OFF;
+        inN4 = false;
+        pendingRow = -1;
+        clearPlan();
+        if (reason != null) notice(reason);
+    }
+
+    private static void onEnterN4() {
+        flushInfo();
+        inN4 = true;
+        enterAt = now();
+        runCount++;
+        talkFails = 0;
+        menuSeen = false;
+        aimX = 0;
+        aimY = 0;
+        aimName = null;
+        aimAt = 0L;
+        aimChanged = false;
+        pauseAttackForMovement();
+        state = WAIT_GATE;
+        stateAt = now();
+        notice(join("Auto N4: v\u00e0o map, h\u00e3y t\u1ef1 b\u1eadt Auto \u0111\u00e1nh [7], ch\u1edd h\u01b0\u1edbng. L\u01b0\u1ee3t ",
+                String.valueOf(runCount)));
+    }
+
+    private static void onLeaveN4() {
+        inN4 = false;
+        leaveAt = now();
+        state = LEAVE;
+        stateAt = now();
+        pendingRow = -1;
+        pauseAttackForMovement();
+        notice("Auto N4: \u0111\u00e3 ra L\u00e0ng S\u00f3i Tr\u1eafng, ch\u1edd 1 gi\u00e2y.");
+    }
+
+    private static void keepAttack() {
+        // The user enables Auto Attack before starting Auto N4.
+    }
+
+    private static void pauseAttackForMovement() {
+        boolean wasPaused = movementAttackPaused;
+        if (nativeAttackIsOn()) {
+            savedAttack = true;
+            setNativeAttack(false);
+            movementAttackPaused = !nativeAttackIsOn();
+        }
+        if (movementAttackPaused && !wasPaused) haltWalk();
+    }
+
+    private static void resumeAttackAfterMovement() {
+        if (!movementAttackPaused) return;
+        movementAttackPaused = false;
+        if (savedAttack) setNativeAttack(true);
+    }
+
+    private static void haltWalk() {
+        @class.PLAYER@ me = player();
+        if (me == null) return;
+        me.@player.path@ = null;
+        me.@player.pathCursor@ = 0;
+        me.@player.stepDestX@ = me.@player.x@;
+        me.@player.stepDestY@ = me.@player.y@;
+    }
+
+    private static boolean nativeAttackIsOn() {
+        return false;
+    }
+
+    private static void nativeAttackToggle() {
+    }
+
+    private static void nativeAttackSetDirect(boolean wanted) {
+    }
+
+    private static void setNativeAttack(boolean wanted) {
+        if (nativeAttackIsOn() == wanted) return;
+        // Write the native flag directly; invoking the menu action opens the mode dialog.
+        nativeAttackSetDirect(wanted);
+    }
+
+    private static void stepHome() {
+        if (now() - stateAt > HOME_TIMEOUT_MS) {
+            stop("Kh\u00f4ng v\u1ec1 \u0111\u01b0\u1ee3c ch\u1ed7 Ph\u00f3 ch\u1ec9 huy.");
+            return;
+        }
+        pauseAttackForMovement();
+        if (mapId() != TOWN_MAP) {
+            routeTowards(TOWN_MAP);
+            return;
+        }
+        if (!engineIdle()) {
+            idleAt = 0L;
+            return;
+        }
+        if (!arrived(HOME_X, HOME_Y)) {
+            idleAt = 0L;
+            stepToward(HOME_X, HOME_Y);
+            return;
+        }
+        if (!settled(HOME_WAIT_MS)) return;
+        notice(join("Auto N4: \u0111\u00e3 t\u1edbi Ph\u00f3 ch\u1ec9 huy (", n4Position()));
+        sender().@sender.requestNpcMenu@((byte) npcIdOf(NPC_NAME, NPC_FALLBACK_ID));
+        state = TALK;
+        stateAt = now();
+        menuSeen = false;
+    }
+
+    private static void stepTalk() {
+        if (now() - stateAt < TALK_TIMEOUT_MS) return;
+        if (++talkFails >= 3) {
+            stop(menuSeen ? "Kh\u00f4ng v\u00e0o \u0111\u01b0\u1ee3c Ng\u00e3 T\u01b0 T\u1eed Th\u1ea7n." :
+                    "Kh\u00f4ng m\u1edf \u0111\u01b0\u1ee3c menu Ph\u00f3 ch\u1ec9 huy.");
+            return;
+        }
+        state = HOME;
+        stateAt = now();
+        idleAt = 0L;
+        notice("Auto N4: ch\u01b0a v\u00e0o map, quay l\u1ea1i ch\u1ed7 NPC.");
+    }
+
+    private static void stepWaitGate() {
+        if (fightTooLong()) return;
+        pauseAttackForMovement();
+        keepAttack();
+        if (aimChanged) {
+            aimChanged = false;
+            state = MOVE_TO_GATE;
+            stateAt = now();
+            return;
+        }
+    }
+
+    private static void stepMoveToGate() {
+        if (fightTooLong()) return;
+        pauseAttackForMovement();
+        keepAttack();
+        if (!engineIdle()) {
+            idleAt = 0L;
+            return;
+        }
+        if (now() - aimAt < AIM_WAIT_MS) return;
+        if (arrived(aimX, aimY)) {
+            resumeAttackAfterMovement();
+            notice(join("Auto N4: \u0111\u00e3 t\u1edbi c\u1eeda ", join(aimName, ", \u0111\u1ee9ng y\u00ean \u0111\u00e1nh.")));
+            state = HOLD_AND_FIGHT;
+            stateAt = now();
+            return;
+        }
+        if (now() - stateAt > MOVE_TIMEOUT_MS) {
+            resumeAttackAfterMovement();
+            state = HOLD_AND_FIGHT;
+            stateAt = now();
+            notice("Auto N4: kh\u00f4ng t\u1edbi \u0111\u01b0\u1ee3c c\u1eeda, \u0111\u1ee9ng y\u00ean \u0111\u00e1nh t\u1ea1i ch\u1ed7.");
+            return;
+        }
+        idleAt = 0L;
+        stepToward(aimX, aimY);
+    }
+
+    private static void stepHoldAndFight() {
+        if (fightTooLong()) return;
+        keepAttack();
+        if (aimChanged) {
+            aimChanged = false;
+            pauseAttackForMovement();
+            state = MOVE_TO_GATE;
+            stateAt = now();
+        }
+    }
+
+    private static void stepLeave() {
+        if (now() - leaveAt < LEAVE_WAIT_MS) return;
+        if (!mapReady()) return;
+        state = HOME;
+        stateAt = now();
+        idleAt = 0L;
+        clearPlan();
+        notice("Auto N4: b\u1eaft \u0111\u1ea7u v\u00f2ng m\u1edbi.");
+    }
+
+    private static boolean fightTooLong() {
+        if (now() - enterAt <= FIGHT_TIMEOUT_MS) return false;
+        stop("Auto N4: \u1edf map qu\u00e1 l\u00e2u, \u0111\u00e3 d\u1eebng.");
+        return true;
+    }
+
+    private static void setAim(int x, int y, String name) {
+        if (x == aimX && y == aimY && aimAt != 0L) return;
+        aimX = x;
+        aimY = y;
+        aimName = name;
+        aimAt = now();
+        aimChanged = true;
+    }
+
+    private static void pollInfo() {
+        try {
+            @class.INFOBOX@ box = @class.INFOQ@.@infoq.holder@;
+            if (box == null) return;
+            takeInfo(0, box.@infobox.text1@);
+            takeInfo(1, box.@infobox.text2@);
+            takeInfo(2, box.@infobox.text3@);
+        } catch (Throwable t) {
+            // Thong bao chua san sang thi doc lai o frame sau.
+        }
+    }
+
+    private static void flushInfo() {
+        try {
+            @class.INFOBOX@ box = @class.INFOQ@.@infoq.holder@;
+            if (box == null) return;
+            infoSeen[0] = box.@infobox.text1@;
+            infoSeen[1] = box.@infobox.text2@;
+            infoSeen[2] = box.@infobox.text3@;
+        } catch (Throwable t) {
+            // Khong co hop thong bao thi khong co gi can xoa.
+        }
+    }
+
+    private static void takeInfo(int slot, String text) {
+        if (text == null || text == infoSeen[slot]) return;
+        infoSeen[slot] = text;
+        readGate(text.toLowerCase());
+    }
+
+    private static void readGate(String lower) {
+        boolean hasGate = lower.indexOf(GATE_WORD) >= 0 || lower.indexOf("cua") >= 0;
+        if (!hasGate) return;
+
+        if (lower.indexOf("t\u00e2y") >= 0 || lower.indexOf("tay") >= 0) {
+            setAim(WEST[0], WEST[1], "T\u00e2y");
+        } else if (lower.indexOf("\u0111\u00f4ng") >= 0 || lower.indexOf("dong") >= 0) {
+            setAim(EAST[0], EAST[1], "\u0110\u00f4ng");
+        } else if (lower.indexOf("b\u1eafc") >= 0 || lower.indexOf("bac") >= 0) {
+            setAim(NORTH[0], NORTH[1], "B\u1eafc");
+        } else if (lower.indexOf("nam") >= 0) {
+            setAim(SOUTH[0], SOUTH[1], "Nam");
+        } else {
+            return;
+        }
+        notice(join("Auto N4: \u0111\u00e3 nh\u1eadn h\u01b0\u1edbng, ch\u1edd 0.5s r\u1ed3i \u0111i ", aimName));
+    }
+
+    private static int findMenuRow(@class.VEC@ items, String needle) {
+        for (int i = 0; i < items.@vec.size@(); i++) {
+            Object o = items.@vec.get@(i);
+            if (!(o instanceof @class.CMD@)) continue;
+            @class.CMD@ c = (@class.CMD@) o;
+            if (c.@cmd.label@ == null) continue;
+            if (c.@cmd.label@.toLowerCase().indexOf(needle) >= 0) return i;
+        }
+        return -1;
+    }
+
+    private static boolean engineIdle() {
+        @class.PLAYER@ me = player();
+        return me != null && me.@player.path@ == null;
+    }
+
+    private static boolean settled(long ms) {
+        if (idleAt == 0L) idleAt = now();
+        return now() - idleAt >= ms;
+    }
+
+    private static void routeTowards(int targetMap) {
+        int here = mapId();
+        int hop = nextHop(here, targetMap);
+        if (hop < 0) return;
+        @class.WAYPOINT@ wp = findWaypointTo(hop);
+        if (wp == null) return;
+        int gx = wp.@waypoint.x@;
+        int gy = wp.@waypoint.y@;
+        if (!arrived(gx, gy)) {
+            stepToward(gx, gy);
+            return;
+        }
+        @class.PLAYER@ me = player();
+        if (me != null && now() - lastGatePulseAt >= 1000L) {
+            lastGatePulseAt = now();
+            sender().@sender.move@((short) me.@player.x@, (short) me.@player.y@);
+        }
+    }
+
+    private static void stepToward(int tx, int ty) {
+        @class.PLAYER@ me = player();
+        if (me == null || me.@player.path@ != null) return;
+        if (now() - lastStepAt < STEP_INTERVAL_MS) return;
+        lastStepAt = now();
+        if (walkTo(tx, ty)) clearPathFailures();
+    }
+
+    private static void clearPathFailures() {
+        // Kept as a named point so a failed path never causes a reverse command.
+    }
+
+    private static boolean walkTo(int tx, int ty) {
+        @class.PLAYER@ me = player();
+        int tile = @class.TILEMAP@.@tilemap.tileSize@;
+        if (me == null || tile <= 0) return false;
+        int fromX = me.@player.x@ / tile;
+        int fromY = me.@player.y@ / tile;
+        int toX = tx / tile;
+        int toY = ty / tile;
+        @class.CHARS@ screen = @class.CANVAS@.@canvas.currentScreen@;
+        if (screen == null) return false;
+
+        short[] plan = plannedPath(screen, fromX, fromY, toX, toY);
+        if (plan == null) return false;
+        int at = nearestOnPath(plan, fromX, fromY);
+        if (at < 0) {
+            clearPlan();
+            return false;
+        }
+        boolean onPlan = plan[at] == tileWord(fromX, fromY);
+        int left = onPlan ? plan.length - 1 - at : plan.length - at;
+        if (left <= 0) {
+            clearPlan();
+            return false;
+        }
+        int count = left < PATH_MAX_TILES ? left : PATH_MAX_TILES;
+        int src = onPlan ? at + 1 : at;
+        short[] out = new short[count + 1];
+        out[0] = tileWord(fromX, fromY);
+        for (int i = 1; i <= count; i++) out[i] = plan[src + i - 1];
+        me.@player.stepDestX@ = me.@player.x@;
+        me.@player.stepDestY@ = me.@player.y@;
+        me.@player.path@ = out;
+        me.@player.pathCursor@ = 1;
+        me.@player.startMove@();
+        return true;
+    }
+
+    private static short[] plannedPath(@class.CHARS@ screen, int fromX, int fromY,
+            int toX, int toY) {
+        if (planPath != null && planMap == mapId() && planX == toX && planY == toY
+                && nearestOnPath(planPath, fromX, fromY) >= 0) return planPath;
+        short[] found = askPath(screen, fromX, fromY, toX, toY);
+        if (found == null) found = gridPath(fromX, fromY, toX, toY, PATH_APPROACH_TILES);
+        if (found == null) return null;
+        planPath = found;
+        planMap = mapId();
+        planX = toX;
+        planY = toY;
+        return found;
+    }
+
+    private static short[] askPath(@class.CHARS@ screen, int fromX, int fromY, int toX, int toY) {
+        if (!tileInRange(fromX) || !tileInRange(fromY) || !tileInRange(toX)
+                || !tileInRange(toY)) return null;
+        try {
+            short[] found = screen.@screen.findPath@(toX, toY, fromX, fromY, PATH_BUDGET);
+            if (found == null || found.length < 2 || found.length > PATH_BUDGET) return null;
+            if (found[0] != tileWord(fromX, fromY)
+                    || found[found.length - 1] != tileWord(toX, toY)) return null;
+            return found;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static int nearestOnPath(short[] path, int x, int y) {
+        if (path == null) return -1;
+        int best = -1;
+        int bestDist = Integer.MAX_VALUE;
+        for (int i = 0; i < path.length; i++) {
+            int dx = Math.abs(((path[i] >> 8) & 0xff) - x);
+            int dy = Math.abs((path[i] & 0xff) - y);
+            int d = dx > dy ? dx : dy;
+            if (d < bestDist) {
+                bestDist = d;
+                best = i;
+            }
+        }
+        return bestDist <= 1 ? best : -1;
+    }
+
+    private static int[] tileGrid() {
+        @class.TILEMAP@ m = @class.CANVAS@.@canvas.mapHolder@;
+        return m == null ? null : m.@tilemap.tiles@;
+    }
+
+    private static int gridWidth() {
+        @class.TILEMAP@ m = @class.CANVAS@.@canvas.mapHolder@;
+        return m == null ? 0 : m.@tilemap.width@;
+    }
+
+    private static short[] gridPath(int fromX, int fromY, int toX, int toY, int radius) {
+        int[] grid = tileGrid();
+        int width = gridWidth();
+        if (grid == null || width <= 0) return null;
+        int height = grid.length / width;
+        if (height <= 0 || fromX < 0 || fromY < 0 || fromX >= width || fromY >= height) return null;
+        int total = width * height;
+        if (total <= 0 || total > grid.length) return null;
+        if (bfsCells != total) {
+            bfsPrev = new int[total];
+            bfsDist = new int[total];
+            bfsQueue = new int[total];
+            bfsCells = total;
+        }
+        for (int i = 0; i < total; i++) {
+            bfsPrev[i] = -1;
+            bfsDist[i] = -1;
+        }
+        int start = fromY * width + fromX;
+        int head = 0;
+        int tail = 0;
+        bfsQueue[tail++] = start;
+        bfsDist[start] = 0;
+        while (head < tail) {
+            int cur = bfsQueue[head++];
+            int x = cur % width;
+            int y = cur / width;
+            tail = pushTile(grid, width, height, x + 1, y, cur, tail);
+            tail = pushTile(grid, width, height, x - 1, y, cur, tail);
+            tail = pushTile(grid, width, height, x, y + 1, cur, tail);
+            tail = pushTile(grid, width, height, x, y - 1, cur, tail);
+        }
+        int best = -1;
+        int bestNear = Integer.MAX_VALUE;
+        int bestSteps = Integer.MAX_VALUE;
+        for (int dy = -radius; dy <= radius; dy++) {
+            for (int dx = -radius; dx <= radius; dx++) {
+                int x = toX + dx;
+                int y = toY + dy;
+                if (x < 0 || y < 0 || x >= width || y >= height) continue;
+                int idx = y * width + x;
+                if (bfsDist[idx] < 0) continue;
+                int near = dx * dx + dy * dy;
+                if (near > bestNear || (near == bestNear && bfsDist[idx] >= bestSteps)) continue;
+                best = idx;
+                bestNear = near;
+                bestSteps = bfsDist[idx];
+            }
+        }
+        if (best < 0) return null;
+        int len = bfsDist[best] + 1;
+        if (len < 2) return null;
+        short[] out = new short[len];
+        int cur = best;
+        for (int i = len - 1; i >= 0; i--) {
+            out[i] = tileWord(cur % width, cur / width);
+            cur = bfsPrev[cur];
+        }
+        return out;
+    }
+
+    private static int pushTile(int[] grid, int width, int height, int x, int y,
+            int from, int tail) {
+        if (x < 0 || y < 0 || x >= width || y >= height || !tileInRange(x) || !tileInRange(y)) return tail;
+        int idx = y * width + x;
+        if (bfsDist[idx] >= 0 || grid[idx] == 1 || grid[idx] == -1 || tail >= bfsQueue.length) return tail;
+        bfsDist[idx] = bfsDist[from] + 1;
+        bfsPrev[idx] = from;
+        bfsQueue[tail++] = idx;
+        return tail;
+    }
+
+    private static void clearPlan() {
+        planPath = null;
+        planMap = -1;
+        planX = -1;
+        planY = -1;
+    }
+
+    private static boolean tileInRange(int t) {
+        return t >= 0 && t <= 127;
+    }
+
+    private static short tileWord(int x, int y) {
+        return (short) ((x << 8) | (y & 0xff));
+    }
+
+    private static @class.PLAYER@ player() {
+        return @class.CHARS@.@chars.player@;
+    }
+
+    private static boolean mapHolderMissing() {
+        return @class.CANVAS@.@canvas.mapHolder@ == null;
+    }
+
+    private static int mapId() {
+        @class.TILEMAP@ holder = @class.CANVAS@.@canvas.mapHolder@;
+        return holder == null ? -1 : holder.@map.mapId@;
+    }
+
+    private static boolean mapReady() {
+        return player() != null && !mapHolderMissing() && gridWidth() > 0;
+    }
+
+    private static boolean playerDead() {
+        @class.PLAYER@ me = player();
+        return me != null && me.@player.hpMax@ > 0 && me.@player.hp@ <= 0;
+    }
+
+    private static boolean arrived(int x, int y) {
+        int tile = @class.TILEMAP@.@tilemap.tileSize@;
+        return within(x, y, ARRIVE_PX + (tile > 0 ? tile : 0));
+    }
+
+    private static boolean within(int x, int y, int slack) {
+        @class.PLAYER@ me = player();
+        return me != null && Math.abs(me.@player.x@ - x) <= slack
+                && Math.abs(me.@player.y@ - y) <= slack;
+    }
+
+    private static int npcIdOf(String needle, int fallback) {
+        @class.VEC@ list = @class.CHARS@.@chars.entities@;
+        if (list == null) return fallback;
+        for (int i = 0; i < list.@vec.size@(); i++) {
+            Object o = list.@vec.get@(i);
+            if (o == null) continue;
+            @class.ENTITY@ e = (@class.ENTITY@) o;
+            if (e.@entity.kind@ != 2 || e.@entity.name@ == null) continue;
+            if (e.@entity.name@.toLowerCase().indexOf(needle) >= 0) return e.@entity.npcId@;
+        }
+        return fallback;
+    }
+
+    private static String n4Position() {
+        @class.PLAYER@ me = player();
+        return me == null ? "?" : join(join(String.valueOf(me.@player.x@), ","),
+                String.valueOf(me.@player.y@));
+    }
+
+    private static void notice(String text) {
+        try {
+            @class.CHATBOX@ box = @class.CANVAS@.@chatbox.instance@;
+            @class.VEC@ tabs = @class.CHATBOX@.@chatbox.tabs@;
+            if (box != null && tabs != null && tabs.@vec.size@() > 0) {
+                @class.CHATTAB@ tab = (@class.CHATTAB@) tabs.@vec.get@(0);
+                if (tab != null && tab.@chattab.name@ != null) {
+                    box.@chatbox.addLine@(tab.@chattab.name@, "N4", text, (byte) 0, false);
+                    return;
+                }
+            }
+        } catch (Throwable t) {
+            // Khung chat chua nap thi dung hop thoai lam duong lui.
+        }
+        @class.CANVAS@.@canvas.showDialog@(text);
+    }
+
+    private static boolean dialogOpen() {
+        return @class.CANVAS@.@canvas.dialogA@ != null
+                || @class.CANVAS@.@canvas.dialogB@ != null;
+    }
+
+    private static void pressOk() {
+        @class.CANVAS@.@canvas.keyHeld@[5] = true;
+        @class.CANVAS@.@canvas.keyPressed@[5] = true;
+    }
+
+    private static String join(String a, String b) {
+        StringBuffer sb = new StringBuffer(a);
+        sb.append(b);
+        return sb.toString();
+    }
+
+    private static @class.SENDER@ sender() {
+        return @class.SENDER@.@sender.gI@();
+    }
+
+    private static long now() {
+        return System.currentTimeMillis();
+    }
+
+    private static final int[] MAP_IDS = {
+            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13,
+            14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26,
+            27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+            40, 41, 42, 43, 44, 45, 47, 48, 50, 51, 52, 53, 54,
+            55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67,
+            68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 82,
+            88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 102
+    };
+
+    private static final String[] MAP_LABELS = {
+            "Ng\u00f4i L\u00e0ng Nh\u1ecf", "L\u00e0ng S\u00f3i Tr\u1eafng", "Khu m\u1ecf",
+            "B\u00eca R\u1eebng", "Hang L\u1eeda", "R\u1eebng \u1ea2o Gi\u00e1c",
+            "Khe V\u1ef1c", "C\u00e1nh \u0110\u1ed3ng S\u00f3i", "Thung L\u0169ng K\u1ef3 B\u00ed",
+            "H\u1ed3 K\u00fd \u1ee8c", "B\u00e3i \u0110\u1ea5t Tr\u1ed1ng", "B\u1edd Bi\u1ec3n",
+            "V\u1ef1c \u0110\u00e1", "R\u1eb7ng \u0110\u00e1 Ng\u1ea7m", "Ngh\u0129a \u0110\u1ecba T\u00e0u \u0110\u1eafm",
+            "\u0110\u1ea7m L\u1ea7y", "\u0110\u1ec1n C\u1ed5", "Hang D\u01a1i",
+            "Hang S\u00f3i Qu\u1ef7", "C\u1eeda Bi\u1ec3n", "Sa M\u1ea1c",
+            "\u0110\u1ed3i C\u00e1t", "V\u1ef1c L\u00fan", "H\u1ed1 T\u1eed Th\u1ea7n",
+            "Ngh\u0129a \u0111\u1ecba c\u00e1t", "R\u1eebng Ch\u1ebft", "Su\u1ed1i Ma",
+            "Thung L\u0169ng \u0110\u00e1", "Boss Guardian", "H\u1ea7m M\u1ed9 T\u1ea7ng 1",
+            "H\u1ea7m M\u1ed9 T\u1ea7ng 2", "H\u1ea7m M\u1ed9 T\u1ea7ng 3", "H\u1ea7m m\u1ed9 qu\u00e1i v\u1eadt",
+            "Th\u00e0nh Ph\u1ed1 Kho B\u00e1u", "Khu ph\u00eda T\u00e2y", "Khu ph\u00eda \u0110\u00f4ng",
+            "\u0110\u1ea5u Tr\u01b0\u1eddng", "R\u1eebng cao nguy\u00ean", "Con \u0111\u01b0\u1eddng hi\u1ec3m tr\u1edf",
+            "V\u00e1ch \u0111\u00e1 cheo leo", "N\u00fai C\u1ea7u V\u00f2ng", "L\u1ed1i l\u00ean Th\u01b0\u1ee3ng gi\u1edbi",
+            "\u0110\u00e8o hoang s\u01a1", "\u0110\u01b0\u1eddng xu\u1ed1ng l\u00f2ng \u0111\u1ea5t", "C\u00e2y c\u1ea7u ma \u00e1m",
+            "C\u1ed5ng v\u00e0o H\u1ea1 gi\u1edbi", "\u0110\u1ed3i x\u00e1c ch\u1ebft", "Ng\u00e3 t\u01b0 t\u1eed th\u1ea7n",
+            "Khu v\u01b0\u1eddn", "C\u1ed5ng thi\u00ean \u0111\u00e0ng", "C\u1ed5ng \u0111\u1ecba ng\u1ee5c",
+            "Chu\u1ea9n b\u1ecb", "L\u00e0ng \u00e1nh s\u00e1ng", "Chu\u1ea9n b\u1ecb",
+            "L\u00e0ng gi\u00f3", "Chu\u1ea9n b\u1ecb", "L\u00e0ng s\u00e9t",
+            "Chu\u1ea9n b\u1ecb", "L\u00e0ng l\u1eeda", "Chi\u1ebfn tr\u01b0\u1eddng",
+            "\u0110\u1ecba ng\u1ee5c t\u1ea7ng 1", "R\u1eebng medusa", "R\u1eebng Chimera",
+            "R\u1eebng qu\u00e1i v\u1eadt", "Th\u00e1c reo", "Th\u00e0nh ph\u1ed1 c\u1ea3ng",
+            "Khu b\u1edd nam", "Khu b\u1edd b\u1eafc", "Khu b\u1edd t\u00e2y",
+            "R\u1eebng chu\u1ed9t", "R\u1eebng hoa \u0111\u1ecf", "V\u1ecbnh Caribe",
+            "M\u00ea cung", "M\u00ea cung t\u1ea7ng 1", "M\u00ea cung t\u1ea7ng 2",
+            "M\u00ea cung t\u1ea7ng 3", "M\u00ea cung t\u1ea7ng 4", "M\u00ea cung t\u1ea7ng cu\u1ed1i",
+            "Khu mua b\u00e1n", "Khu hang \u0111\u1ed9ng", "Khu \u0111\u1ed3i c\u00e1t",
+            "Khu th\u1ea3o nguy\u00ean", "Khu \u0111\u1ed3i c\u1ecf", "C\u1ed5ng tr\u1eafng",
+            "Th\u1ecb tr\u1ea5n m\u00f9a \u0111\u00f4ng", "Thung l\u0169ng b\u0103ng gi\u00e1", "Ch\u00e2n n\u00fai tuy\u1ebft",
+            "\u0110\u00e8o b\u0103ng gi\u00e1", "V\u1ef1c th\u1eb3m s\u01b0\u01a1ng m\u00f9", "Tr\u1ea1m n\u00fai tuy\u1ebft",
+            "L\u1ed7i \u0110\u1ea1i"
+    };
+
+    private static final int[] MAP_EDGES = {
+            0, 1, 1, 2, 1, 3, 1, 7, 1, 50, 3, 4, 4, 5, 5, 6,
+            7, 8, 7, 11, 7, 15, 7, 18, 8, 9, 9, 10, 11, 12, 12, 13,
+            13, 14, 15, 16, 16, 17, 18, 25, 19, 24, 19, 47, 20, 23, 20, 34,
+            21, 24, 21, 37, 22, 24, 22, 42, 23, 24, 25, 26, 25, 33, 26, 27,
+            27, 28, 29, 30, 29, 35, 30, 31, 31, 32, 33, 34, 33, 35, 33, 36,
+            37, 38, 38, 39, 39, 40, 40, 41, 41, 51, 42, 43, 43, 44, 44, 45,
+            45, 52, 52, 62, 53, 54, 54, 61, 55, 56, 56, 61, 57, 58, 58, 61,
+            59, 60, 60, 61, 63, 64, 63, 65, 63, 70, 63, 72, 64, 66, 64, 70,
+            64, 71, 65, 68, 66, 69, 67, 68, 67, 69, 67, 70, 71, 73, 72, 73,
+            73, 74, 74, 75, 75, 76, 76, 77, 77, 78, 78, 79, 79, 92, 92, 93,
+            93, 94, 94, 95, 95, 96, 96, 97, 97, 98
+    };
+
+    private static int mapIdOfName(String name) {
+        if (name == null) return -1;
+        String n = name.toLowerCase().trim();
+        for (int i = 0; i < MAP_IDS.length && i < MAP_LABELS.length; i++) {
+            String candidate = MAP_LABELS[i].toLowerCase();
+            if (n.equals(candidate) || n.indexOf(candidate) >= 0 || candidate.indexOf(n) >= 0) {
+                return MAP_IDS[i];
+            }
+        }
+        return -1;
+    }
+
+    private static int nextHop(int from, int to) {
+        if (from == to) return to;
+        if (from < 0 || from >= MAP_MAX || to < 0 || to >= MAP_MAX) return -1;
+        boolean[] seen = new boolean[MAP_MAX];
+        int[] prev = new int[MAP_MAX];
+        int[] queue = new int[MAP_MAX];
+        for (int i = 0; i < MAP_MAX; i++) prev[i] = -1;
+        int head = 0;
+        int tail = 0;
+        queue[tail++] = from;
+        seen[from] = true;
+        while (head < tail) {
+            int cur = queue[head++];
+            for (int i = 0; i + 1 < MAP_EDGES.length; i += 2) {
+                int a = MAP_EDGES[i];
+                int b = MAP_EDGES[i + 1];
+                int other = a == cur ? b : (b == cur ? a : -1);
+                if (other < 0 || other >= MAP_MAX || seen[other]) continue;
+                seen[other] = true;
+                prev[other] = cur;
+                if (other == to) {
+                    head = tail;
+                    break;
+                }
+                queue[tail++] = other;
+            }
+        }
+        if (!seen[to]) return -1;
+        int cursor = to;
+        while (prev[cursor] != from) {
+            cursor = prev[cursor];
+            if (cursor < 0) return -1;
+        }
+        return cursor;
+    }
+
+    private static @class.WAYPOINT@ findWaypointTo(int destMapId) {
+        @class.VEC@ list = @class.TILEMAP@.@tilemap.waypoints@;
+        if (list == null) return null;
+        for (int i = 0; i < list.@vec.size@(); i++) {
+            Object o = list.@vec.get@(i);
+            if (o == null) continue;
+            @class.WAYPOINT@ wp = (@class.WAYPOINT@) o;
+            if (mapIdOfName(wp.@waypoint.destName@) == destMapId) return wp;
+        }
+        return null;
+    }
+}

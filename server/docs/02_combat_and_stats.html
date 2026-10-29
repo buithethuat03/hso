@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>02. Engine Chỉ Số & Kỹ Năng - Bảng Dữ Liệu Công Thức & Option CSDL</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Sidebar Navigation Tree -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚔️</div>
+      <div class="brand-text">
+        <h1>HSO Core Engine</h1>
+        <span>v2.0 Architectural Docs</span>
+      </div>
+    </div>
+
+    <div class="nav-section-title">Hệ Thống & Báo Cáo</div>
+    <ul class="nav-links">
+      <li><a href="index.html"><span class="nav-num">00</span> Tổng Quan & Cây Hệ Thống</a></li>
+      <li><a href="01_core_architecture.html"><span class="nav-num">01</span> Hạ Tầng & Packet Protocol</a></li>
+      <li><a href="02_combat_and_stats.html" class="active"><span class="nav-num">02</span> Engine Chỉ Số & Chiến Đấu</a></li>
+      <li><a href="03_items_and_equipment.html"><span class="nav-num">03</span> Vật Phẩm, Rương & Rơi Đồ</a></li>
+      <li><a href="04_cultivation_systems.html"><span class="nav-num">04</span> Hệ Thống Tu Luyện Sâu</a></li>
+      <li><a href="05_events_and_activities.html"><span class="nav-num">05</span> Hoạt Động & Sự Kiện</a></li>
+      <li><a href="06_social_and_economy.html"><span class="nav-num">06</span> Xã Hội, Bang Hội & Kinh Tế</a></li>
+      <li><a href="07_npc_and_menu_routing.html"><span class="nav-num">07</span> MenuController & NPC</a></li>
+      <li><a href="08_upgrade_roadmap.html"><span class="nav-num">08</span> Định Hướng Nâng Cấp</a></li>
+      <li><a href="09_default_equipment_catalog.html"><span class="nav-num">09</span> Tra Cứu Đồ Mặc Định DB</a></li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <span style="font-size: 11px; color: var(--text-muted);">© 2026 HSO Dev Team</span>
+      <button id="theme-toggle-btn" class="theme-toggle">🌙 Tối</button>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="main-wrapper">
+    <header class="top-bar">
+      <div class="breadcrumb">
+        <a href="index.html">Tài Liệu Server</a>
+        <span>/</span>
+        <span class="current">02. Engine Chỉ Số & Chiến Đấu</span>
+      </div>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="doc-search-input" placeholder="Tìm công thức, option ID, damage...">
+      </div>
+    </header>
+
+    <main class="content-container">
+      <div class="doc-header">
+        <span class="doc-tag badge green">Combat Mathematics & Database Option Mapping</span>
+        <h1 class="doc-title">Chương 02: Bảng Số Liệu Toán Học Chiến Đấu & Danh Mục Option CSDL</h1>
+        <p class="doc-desc">
+          Công thức toán học chính xác 100% trích xuất từ <code>Body.java</code> và <code>MapService.java</code>, kèm bảng tra cứu 60+ mã Option từ bảng <code>itemoption</code> trong CSDL MySQL và ví dụ tính toán từng bước.
+        </p>
+      </div>
+
+      <!-- 1. Bảng Tra Cứu Toàn Bộ Option ID Trong CSDL -->
+      <h2>1. Bảng Tra Cứu Toàn Bộ Mã Thuộc Tính Option (<span class="file-ref">table: itemoption</span>)</h2>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Tên Thuộc Tính</th>
+              <th>Đơn Vị / Kiểu</th>
+              <th>Công Dụng & Phạm Vi Tác Động Trong Body Engine</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>0</code></td>
+              <td>Sát thương vật lý</td>
+              <td>Điểm số</td>
+              <td>Cộng trực tiếp vào sát thương vật lý cơ bản</td>
+            </tr>
+            <tr>
+              <td><code>1</code></td>
+              <td>Sát thương băng</td>
+              <td>Điểm số</td>
+              <td>Sát thương hệ Băng (Chủ đạo của Pháp Sư)</td>
+            </tr>
+            <tr>
+              <td><code>2</code></td>
+              <td>Sát thương lửa</td>
+              <td>Điểm số</td>
+              <td>Sát thương hệ Hỏa (Chủ đạo của Chiến Binh)</td>
+            </tr>
+            <tr>
+              <td><code>3</code></td>
+              <td>Sát thương điện</td>
+              <td>Điểm số</td>
+              <td>Sát thương hệ Sét (Chủ đạo của Sát Thủ)</td>
+            </tr>
+            <tr>
+              <td><code>4</code></td>
+              <td>Sát thương độc</td>
+              <td>Điểm số</td>
+              <td>Sát thương hệ Độc (Chủ đạo của Xạ Thủ)</td>
+            </tr>
+            <tr>
+              <td><code>7</code></td>
+              <td>+ % Sát thương vật lý</td>
+              <td>Phần trăm (%)</td>
+              <td>Nhân tỉ lệ phần trăm khuếch đại tổng sát thương vật lý</td>
+            </tr>
+            <tr>
+              <td><code>8, 9, 10, 11</code></td>
+              <td>+ % Sát thương Băng, Lửa, Sét, Độc</td>
+              <td>Phần trăm (%)</td>
+              <td>Nhân tỉ lệ phần trăm khuếch đại sát thương nguyên tố</td>
+            </tr>
+            <tr>
+              <td><code>14</code></td>
+              <td>Phòng thủ (Giáp)</td>
+              <td>Điểm số</td>
+              <td>Chỉ số giáp cơ bản giảm sát thương gánh chịu</td>
+            </tr>
+            <tr>
+              <td><code>15</code></td>
+              <td>+ % Phòng thủ</td>
+              <td>Phần trăm (%)</td>
+              <td>Nhân % gia tăng tổng lượng giáp nhân vật</td>
+            </tr>
+            <tr>
+              <td><code>16 - 20</code></td>
+              <td>Kháng vật lý, Kháng Băng, Lửa, Sét, Độc</td>
+              <td>Phần trăm (%)</td>
+              <td>Kháng trực tiếp sát thương theo từng hệ nguyên tố tương ứng</td>
+            </tr>
+            <tr>
+              <td><code>23, 24, 25, 26</code></td>
+              <td>+ Sức Mạnh, Khéo Léo, Thể Lực, Tinh Thần</td>
+              <td>Điểm số</td>
+              <td>Cộng thẳng vào điểm tiềm năng của nhân vật</td>
+            </tr>
+            <tr>
+              <td><code>27, 28</code></td>
+              <td>+ % Máu (HP), + % Mana (MP)</td>
+              <td>Phần trăm (%)</td>
+              <td>Khuếch đại tổng dung lượng HP và MP tối đa</td>
+            </tr>
+            <tr>
+              <td><code>33</code></td>
+              <td>Chí mạng</td>
+              <td>Phần trăm (%)</td>
+              <td>Tỉ lệ xuất hiện đòn đánh gấp đôi (x2) sát thương</td>
+            </tr>
+            <tr>
+              <td><code>34</code></td>
+              <td>Né đòn</td>
+              <td>Phần trăm (%)</td>
+              <td>Tỉ lệ né hoàn toàn sát thương từ đối thủ (Miss)</td>
+            </tr>
+            <tr>
+              <td><code>35</code></td>
+              <td>Phản sát thương</td>
+              <td>Phần trăm (%)</td>
+              <td>Phản lại % sát thương gánh chịu về phía kẻ tấn công</td>
+            </tr>
+            <tr>
+              <td><code>36</code></td>
+              <td>Xuyên giáp</td>
+              <td>Phần trăm (%)</td>
+              <td>Bỏ qua chỉ số phòng ngự giáp của mục tiêu</td>
+            </tr>
+            <tr>
+              <td><code>37, 38</code></td>
+              <td>+ Kỹ năng tấn công / phòng thủ</td>
+              <td>Cấp skill</td>
+              <td>Gia tăng trực tiếp cấp độ kỹ năng chủ động / bị động</td>
+            </tr>
+            <tr>
+              <td><code>41, 42</code></td>
+              <td>Tỉ lệ xuất hiện Nộ (%), Thời gian Nộ</td>
+              <td>% / Giây</td>
+              <td>Kích hoạt trạng thái Cuồng Nộ (Power Wing Eff -120)</td>
+            </tr>
+            <tr>
+              <td><code>58, 59, 60</code></td>
+              <td>Lỗ Khảm Ngọc 1, 2, 3</td>
+              <td>Mã ngọc khảm</td>
+              <td>Lưu ID của viên ngọc đã khảm (Ngọc Hồn Nguyên, Ngọc Phong Ma...)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 2. Công Thức Tính Toán Chi Tiết Body Engine -->
+      <h2>2. Công Thức Tính Toán Chi Tiết (<span class="file-ref">client/Body.java</span>)</h2>
+
+      <div class="card-grid">
+        <div class="feature-card">
+          <h4>Công Thức Sát Thương Vật Lý</h4>
+          <pre><code>// 1. Sát thương thô:
+Dame_VatLy_Tho = (Str * 10) + total_item_param(0);
+
+// 2. Hệ số % gia tăng (get_percent_damePhysical):
+Percent_Tang = total_item_param(7) + (Str * 20); // Đối với Chiến Binh / Sát Thủ
+// Với Pháp Sư / Xạ Thủ: + (Str * 20 + Int * 18)
+
+// 3. Sát thương vật lý tổng:
+Dame_VatLy_Tong = Dame_VatLy_Tho + (Dame_VatLy_Tho * Percent_Tang / 10000);</code></pre>
+        </div>
+
+        <div class="feature-card">
+          <h4>Công Thức Sát Thương Nguyên Tố</h4>
+          <pre><code>// Type: 1-Băng, 2-Lửa, 3-Độc, 4-Sét
+Dame_NT_Tho = (Int * 10) + total_item_param(type);
+
+Percent_NT_Tang = total_item_param(7 + type) + (Int * 20);
+
+Dame_NT_Tong = Dame_NT_Tho + (Dame_NT_Tho * Percent_NT_Tang / 10000);</code></pre>
+        </div>
+
+        <div class="feature-card">
+          <h4>Công Thức Tính Máu (HP) & Mana (MP)</h4>
+          <pre><code>// Máu tối đa:
+Max_HP = (Vit * 10) + total_item_param(25);
+Max_HP_Tong = Max_HP + (Max_HP * total_item_param(27) / 10000);
+
+// Mana tối đa:
+Max_MP = (Int * 10) + total_item_param(26);
+Max_MP_Tong = Max_MP + (Max_MP * total_item_param(28) / 10000);</code></pre>
+        </div>
+
+        <div class="feature-card">
+          <h4>Hệ Số Nhân Thú Cưỡi & Uy Lực Cánh</h4>
+          <pre><code>• Thú cưỡi Cấp 3: Sát thương * 1.2 (+20%)
+• Thú cưỡi Cấp 5: Sát thương * 1.4 (+40%)
+• Ngựa Chiến 114: Sát thương * 1.15 (+15%)
+• Ngựa Chiến 116: Sát thương * 1.35 (+35%)
+• Power Wing (Eff -120): +2000 điểm Option 7..11, 15</code></pre>
+        </div>
+      </div>
+
+      <!-- 3. Ví Dụ Tính Toán Minh Họa Cụ Thể Từng Bước -->
+      <h2>3. Ví Dụ Tính Toán Minh Họa Cụ Thể (Step-by-Step Example)</h2>
+
+      <div class="callout success">
+        <div class="callout-title">📝 Ví Dụ Thực Tế: Nhân Vật Chiến Binh Cấp 100</div>
+        <p><strong>Thông số nhân vật:</strong></p>
+        <ul>
+          <li>Điểm Sức Mạnh (Str) = <strong>500</strong>, Thể Lực (Vit) = <strong>200</strong>, Tinh Thần (Int) = <strong>50</strong>.</li>
+          <li>Đang mặc Trọng Kiếm +15 có dòng <em>Sát thương vật lý gốc = 1000</em>. Tại cấp +15: <code>(280 * 1000)/100 = 2800</code> sát thương.</li>
+          <li>Áo giáp và phụ kiện có tổng <em>+20% Sát thương vật lý</em> (Option 7 = 2000).</li>
+          <li>Cưỡi Thú cưỡi Cấp 5 (Hệ số nhân 1.4).</li>
+        </ul>
+        <p><strong>Các bước tính toán của Server:</strong></p>
+        <ol style="margin-left: 20px;">
+          <li><code>Dame_VatLy_Tho = (500 * 10) + 2800 = 7.800</code> điểm.</li>
+          <li><code>Percent_Tang = 2000 + (500 * 20) = 12.000</code> (tương đương +120%).</li>
+          <li><code>Dame_VatLy_Tong = 7.800 + (7.800 * 120 / 100) = 17.160</code> điểm.</li>
+          <li>Khuếch đại Thú cưỡi Cấp 5: <code>17.160 * 1.4 = 24.024</code> sát thương.</li>
+          <li>Nếu xuất hiện đòn đánh <strong>Chí Mạng (Crit)</strong>: Sát thương gây ra là <code>24.024 * 2 = 48.048</code> damage lên quái vật!</li>
+        </ol>
+      </div>
+
+      <div class="page-nav">
+        <a href="01_core_architecture.html" class="page-nav-btn">
+          <span class="sub">Quay lại</span>
+          <span class="title">← 01. Hạ Tầng & Packet Protocol</span>
+        </a>
+        <a href="03_items_and_equipment.html" class="page-nav-btn" style="text-align: right;">
+          <span class="sub">Tiếp theo</span>
+          <span class="title">03. Vật Phẩm, Cường Hóa & Khảm Ngọc →</span>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

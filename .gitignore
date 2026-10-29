@@ -3,6 +3,35 @@ target/
 *.class
 .ghostmod-build/
 
+# Client release JAR is the sole file in client/jar. Inputs and generated
+# JARs live under client/workspace and are ignored.
+**/*.jar
+client/jar/*
+!client/jar/*.jar
+**/*.jar.*
+
+# Decompiled/source-extraction output and one-off investigation scratch.
+client/workspace/.*-cfr/
+client/workspace/*-cfr/
+client/workspace/cfr_*/
+client/workspace/src-*/
+client/workspace/build_src/
+client/workspace/scratch*/
+scratch/
+
+# Maintained client Java belongs in src/, fixtures/, or tools/.
+client/workspace/*.java
+
+# One-off bytecode dumps, logs, and discovery output. The maintained client
+# trace lives below fixtures/luna/ and is intentionally not covered here.
+client/workspace/*.txt
+client/log.txt
+server/src/main/java/.discovery.txt
+server/target/classes/.discovery.txt
+
+# Luna semantic/tool build output (source, symbols, fixtures, and docs are tracked)
+client/workspace/build/
+
 # Runtime output
 log/
 *.log
@@ -13,10 +42,10 @@ log/
 _verify_out.jar
 
 # Decompiled sources - sinh lai bang: java -jar cfr-0.152.jar <jar> --outputdir <dir>
-client/jar/src-hsosky-cfr/
-client/jar/src-decompiled/
-client/jar/src-jadx-deobf/
-client/jar/jadx/
+client/workspace/src-hsosky-cfr/
+client/workspace/src-decompiled/
+client/workspace/src-jadx-deobf/
+client/workspace/jadx/
 
 # Docker env (chua secret) - khong commit
 .env
@@ -26,7 +55,7 @@ server/.env
 server/SERVER_REPORT.html
 
 # Client jar tro sang EC2 (sinh boi ClientRepointPatcher)
-client/jar/*_EC2.jar
+client/workspace/*_EC2.jar
 
 # Ban bien dich trung gian cua Auto Di Buon - sinh lai duoc bang MakeAutoTradeCompileJar
-client/jar/.autotrade-compile.jar
+client/workspace/.autotrade-compile.jar

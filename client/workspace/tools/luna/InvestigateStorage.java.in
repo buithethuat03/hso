@@ -1,0 +1,87 @@
+package luna.generated;
+
+import javax.microedition.rms.RecordStore;
+import javax.microedition.rms.RecordStoreException;
+import javax.microedition.lcdui.Graphics;
+import javax.microedition.lcdui.Font;
+
+/** MIDP boundary; all native RMS operations in this test suite use this namespace. */
+public final class InvestigateStorage {
+    private static final String PREFIX = "inv_";
+    private static final String CACHE = "mc_inv_v1";
+    private static final String SELECTION = "ms_inv_v1";
+    private static String scoped(String name) {
+        if (name == null) throw new IllegalArgumentException("RMS name");
+        return name.startsWith(PREFIX) ? name : PREFIX + name;
+    }
+    public static RecordStore openRecordStore(String name, boolean create) throws RecordStoreException {
+        return RecordStore.openRecordStore(scoped(name), create);
+    }
+    public static void deleteRecordStore(String name) throws RecordStoreException {
+        RecordStore.deleteRecordStore(scoped(name));
+    }
+    public static String[] listRecordStores() {
+        String[] all = RecordStore.listRecordStores();
+        if (all == null) return null;
+        int count = 0;
+        for (int i = 0; i < all.length; i++) if (all[i].startsWith(PREFIX)) count++;
+        if (count == 0) return null;
+        String[] result = new String[count]; count = 0;
+        for (int i = 0; i < all.length; i++) if (all[i].startsWith(PREFIX))
+            result[count++] = all[i].substring(PREFIX.length());
+        return result;
+    }
+    public static byte[] load() {
+        return loadStore(CACHE);
+    }
+    public static byte[] loadSelection() { return loadStore(SELECTION); }
+    private static byte[] loadStore(String name) {
+        RecordStore store = null;
+        try {
+            store = openRecordStore(name, false);
+            if (store.getNumRecords() == 0 || store.getRecordSize(1) > 131072) return null;
+            return store.getRecord(1);
+        } catch (Throwable ignored) { return null; }
+        finally { if (store != null) try { store.closeRecordStore(); } catch (Throwable ignored) { } }
+    }
+    public static boolean save(byte[] data) {
+        return saveStore(CACHE, data);
+    }
+    public static boolean saveSelection(byte[] data) { return saveStore(SELECTION, data); }
+    private static boolean saveStore(String name, byte[] data) {
+        if (data == null || data.length > 131072) return false;
+        RecordStore store = null;
+        try {
+            store = openRecordStore(name, true);
+            if (store.getNumRecords() == 0) store.addRecord(data, 0, data.length);
+            else store.setRecord(1, data, 0, data.length);
+            return true;
+        } catch (Throwable ignored) { return false; }
+        finally { if (store != null) try { store.closeRecordStore(); } catch (Throwable ignored) { } }
+    }
+    public static void hud(Object graphics, String text) {
+        if (!(graphics instanceof Graphics) || text == null) return;
+        Graphics g = (Graphics)graphics;
+        int tx = g.getTranslateX(), ty = g.getTranslateY();
+        int cx = g.getClipX(), cy = g.getClipY(), cw = g.getClipWidth(), ch = g.getClipHeight();
+        int color = g.getColor(); Font font = g.getFont();
+        try {
+            g.translate(-tx, -ty);
+            int width = com.silverknight.a.a, height = com.silverknight.a.b;
+            if (width <= 0 || height <= 0) return;
+            Font small = Font.getFont(Font.FACE_SYSTEM, Font.STYLE_PLAIN, Font.SIZE_SMALL);
+            int split = text.indexOf('\n');
+            int lines = split < 0 ? 1 : 2;
+            int h = lines * small.getHeight() + 2;
+            int y = Math.max(0, height - h - 36);
+            g.setClip(0, 0, width, height);
+            g.setColor(0x101010); g.fillRect(0, y, width, h);
+            g.setColor(0xffff80); g.setFont(small);
+            g.drawString(split < 0 ? text : text.substring(0, split), 2, y + 1, Graphics.TOP | Graphics.LEFT);
+            if (split >= 0) g.drawString(text.substring(split + 1), 2, y + 1 + small.getHeight(), Graphics.TOP | Graphics.LEFT);
+        } catch (Throwable ignored) { }
+        finally {
+            g.translate(tx, ty); g.setClip(cx, cy, cw, ch); g.setColor(color); g.setFont(font);
+        }
+    }
+}

@@ -72,14 +72,17 @@ public class LeaveItemMap {
 		if (mob != null) {
 			short id_item_can_drop = 0;
 			byte color_ = 0;
-			if (60 > Util.random(0, 200)) {
-				color_ = 1;
-			} else if (25 > Util.random(0, 275)) {
-				color_ = 2;
-			} else if (15 > Util.random(0, 350)) {
-				color_ = 3;
-			} else if (5 > Util.random(0, 500)) {
-				color_ = 4;
+			int rand_color = Util.random(0, 200);
+			if (rand_color < 20) {
+				color_ = 0; // Trắng (20/200 = 10%)
+			} else if (rand_color < 60) {
+				color_ = 1; // Xanh lá (40/200 = 20%)
+			} else if (rand_color < 100) {
+				color_ = 2; // Xanh lam (40/200 = 20%)
+			} else if (rand_color < 160) {
+				color_ = 3; // Tím (60/200 = 30%)
+			} else {
+				color_ = 4; // Cam (40/200 = 20%)
 			}
 			if (mob.color_name != 0) {
 				color_ = 3;
@@ -147,17 +150,28 @@ public class LeaveItemMap {
 			map.item_map[index_item_map].category = 3;
 			map.item_map[index_item_map].idmaster = (short) p_master.id;
 			List<Option> opnew = new ArrayList<Option>();
-			for (Option op_old : ItemTemplate3.item.get(index_real).getOp()) {
+			ItemTemplate3 it_template = ItemTemplate3.item.get(index_real);
+			int item_level = (it_template != null) ? it_template.getLevel() : 1;
+			for (Option op_old : it_template.getOp()) {
 				Option temp = new Option(1, 1);
 				temp.id = op_old.id;
-				if (temp.id != 37 && temp.id != 38) {
-					if (op_old.getParam(0) < 10) {
-						temp.setParam(Util.random(0, 10));
+				int base_val = op_old.getParam(0);
+				if (temp.id != 37 && temp.id != 38 && temp.id != 71 && temp.id != 62) {
+					if (base_val <= 0) {
+						temp.setParam(0);
 					} else {
-						temp.setParam(Util.random((9 * op_old.getParam(0)) / 10, op_old.getParam(0)));
+						// Dao động trong khoảng 90% đồ mở rương -> max chỉ số template
+						double min_val = (base_val * 90.0) / 100.0;
+						double max_val = (double) base_val;
+						double raw_val = min_val + (Util.random(0, 10000) / 10000.0) * (max_val - min_val);
+						int final_val = round_option_drop(temp.id, raw_val, base_val, item_level);
+						if (final_val < 1 && base_val > 0) {
+							final_val = 1;
+						}
+						temp.setParam(final_val);
 					}
 				} else {
-					temp.setParam(1);
+					temp.setParam(base_val);
 				}
 				opnew.add(temp);
 			}
@@ -177,6 +191,70 @@ public class LeaveItemMap {
 			MapService.send_msg_player_inside(map, p_master, mi, true);
 			mi.cleanup();
 		}
+	}
+
+	private static int round_option_drop(byte op_id, double raw_val, int base_val, int level) {
+		// Category D: Special Options
+		if (op_id == 37 || op_id == 38 || op_id == 71 || op_id == 62) {
+			return base_val;
+		}
+
+		// Category A1: Potential stats (+1 điểm mỗi cấp tier: Op 23..26)
+		if (op_id >= 23 && op_id <= 26) {
+			return (int) Math.round(raw_val);
+		}
+
+		// Category A2: Percent stats (+1% mỗi cấp tier: Op 7..13, Op 15, Op 27, Op 28)
+		// Trong server, 1% = 100 điểm -> làm tròn đến hàng đơn vị % (bội số 100)
+		if ((op_id >= 7 && op_id <= 13) || op_id == 15 || op_id == 27 || op_id == 28) {
+			return (int) (Math.round(raw_val / 100.0) * 100);
+		}
+
+		// Category B: Percent stats (+0.2% mỗi cấp tier: Op 16..22, Op 29..36, Op 41)
+		if ((op_id >= 16 && op_id <= 22) || (op_id >= 29 && op_id <= 36) || op_id == 41) {
+			// Đồ Level 11x (có phân vị .4 -> 5.4% = 540 điểm)
+			if (level >= 110 && level < 120) {
+				int base_hundred = ((int) raw_val / 100) * 100;
+				double remainder = raw_val - base_hundred;
+				if (base_val % 100 == 40 || base_val % 100 == 50) {
+					// Ngưỡng phân vị .2 (ví dụ 5.25 -> 5.4, 5.15 -> 5.0)
+					if (remainder >= 20.0) {
+						return base_hundred + 40;
+					} else {
+						return base_hundred;
+					}
+				} else {
+					return (int) (Math.round(raw_val / 100.0) * 100);
+				}
+			}
+			// Đồ Level 12x (có phân vị .6 -> 5.6% = 560 điểm)
+			else if (level >= 120 && level < 130) {
+				int base_hundred = ((int) raw_val / 100) * 100;
+				double remainder = raw_val - base_hundred;
+				if (base_val % 100 == 60 || base_val % 100 == 75) {
+					// Ngưỡng phân vị .3 (ví dụ 5.35 -> 5.6, 5.25 -> 5.0)
+					if (remainder >= 30.0) {
+						return base_hundred + 60;
+					} else {
+						return base_hundred;
+					}
+				} else {
+					return (int) (Math.round(raw_val / 100.0) * 100);
+				}
+			}
+			// Các level khác: làm tròn đến hàng đơn vị % (bội số 100)
+			else {
+				return (int) (Math.round(raw_val / 100.0) * 100);
+			}
+		}
+
+		// Category C: Base points (Op 0..6: Sát thương, Op 14: Giáp, Op 40: Sát thương cơ bản)
+		// Làm tròn đến hàng đơn vị nguyên
+		if ((op_id >= 0 && op_id <= 6) || op_id == 14 || op_id == 40) {
+			return (int) Math.round(raw_val);
+		}
+
+		return (int) Math.round(raw_val);
 	}
 
 	public static void leave_item_4(Map map, Mob_in_map mob, Player p) throws IOException {

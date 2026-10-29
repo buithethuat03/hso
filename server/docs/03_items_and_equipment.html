@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>03. Vật Phẩm, Rương, Cường Hóa & Khảm Ngọc - Bảng Số Liệu Toàn Diện</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Sidebar Navigation Tree -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚔️</div>
+      <div class="brand-text">
+        <h1>HSO Core Engine</h1>
+        <span>v2.0 Architectural Docs</span>
+      </div>
+    </div>
+
+    <div class="nav-section-title">Hệ Thống & Báo Cáo</div>
+    <ul class="nav-links">
+      <li><a href="index.html"><span class="nav-num">00</span> Tổng Quan & Cây Hệ Thống</a></li>
+      <li><a href="01_core_architecture.html"><span class="nav-num">01</span> Hạ Tầng & Packet Protocol</a></li>
+      <li><a href="02_combat_and_stats.html"><span class="nav-num">02</span> Engine Chỉ Số & Chiến Đấu</a></li>
+      <li><a href="03_items_and_equipment.html" class="active"><span class="nav-num">03</span> Vật Phẩm, Rương & Rơi Đồ</a></li>
+      <li><a href="04_cultivation_systems.html"><span class="nav-num">04</span> Hệ Thống Tu Luyện Sâu</a></li>
+      <li><a href="05_events_and_activities.html"><span class="nav-num">05</span> Hoạt Động & Sự Kiện</a></li>
+      <li><a href="06_social_and_economy.html"><span class="nav-num">06</span> Xã Hội, Bang Hội & Kinh Tế</a></li>
+      <li><a href="07_npc_and_menu_routing.html"><span class="nav-num">07</span> MenuController & NPC</a></li>
+      <li><a href="08_upgrade_roadmap.html"><span class="nav-num">08</span> Định Hướng Nâng Cấp</a></li>
+      <li><a href="09_default_equipment_catalog.html"><span class="nav-num">09</span> Tra Cứu Đồ Mặc Định DB</a></li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <span style="font-size: 11px; color: var(--text-muted);">© 2026 HSO Dev Team</span>
+      <button id="theme-toggle-btn" class="theme-toggle">🌙 Tối</button>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="main-wrapper">
+    <header class="top-bar">
+      <div class="breadcrumb">
+        <a href="index.html">Tài Liệu Server</a>
+        <span>/</span>
+        <span class="current">03. Vật Phẩm, Cường Hóa & Khảm Ngọc</span>
+      </div>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="doc-search-input" placeholder="Tìm số liệu cường hóa, khảm ngọc, option ID...">
+      </div>
+    </header>
+
+    <main class="content-container">
+      <div class="doc-header">
+        <span class="doc-tag badge amber">Concrete Database Stats & Algorithms</span>
+        <h1 class="doc-title">Chương 03: Hệ Thống Vật Phẩm, Cường Hóa (+15), Khảm Ngọc & Rương</h1>
+        <p class="doc-desc">
+          Bảng số liệu chi tiết 100% trích xuất từ Database CSDL và mã nguồn Java: Tỉ lệ cường hóa từng cấp, số đá tiêu hao, cơ chế bảo hiểm rớt cấp checkpoint, danh sách ngọc khảm và hiệu ứng kích hoạt chiến đấu.
+        </p>
+      </div>
+
+      <!-- 1. Bảng Số Liệu Cường Hóa Toàn Diện +1 Đến +15 -->
+      <h2>1. Bảng Số Liệu Cường Hóa Toàn Diện (+1 Đến +15) (<span class="file-ref">core/GameSrc.java</span>)</h2>
+      <p>Cơ chế cường hóa trang bị tại Thợ rèn được xử lý tại hàm <code>GameSrc.rebuild_item()</code> và <code>checkmaterial()</code>:</p>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Cấp Cường Hóa</th>
+              <th>Tỉ Lệ Gốc (percent[])</th>
+              <th>Tỉ Lệ Thực Tế (Tier &lt; 7 có +30%)</th>
+              <th>Tỉ Lệ Dùng May Mắn (ID 13/14)</th>
+              <th>Nguyên Liệu Yêu Cầu (Item 7)</th>
+              <th>Chi Phí Ngọc / Vàng</th>
+              <th>Hình Phạt Khi Thất Bại</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>+0 ➔ +1</strong></td>
+              <td><code>95%</code></td>
+              <td><strong>100%</strong> (95 + 30 = 125/120)</td>
+              <td>100%</td>
+              <td>1x Đá cấp 1 (ID 0) + 1x Đá cấp 2 (ID 1)</td>
+              <td>10.000 Vàng / 4 Ngọc</td>
+              <td>Giữ nguyên +0</td>
+            </tr>
+            <tr>
+              <td><strong>+1 ➔ +2</strong></td>
+              <td><code>90%</code></td>
+              <td><strong>100%</strong> (90 + 30 = 120/120)</td>
+              <td>100%</td>
+              <td>1x Đá cấp 1 (ID 0) + 1x Đá cấp 2 (ID 1)</td>
+              <td>10.000 Vàng / 4 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+1</strong></td>
+            </tr>
+            <tr>
+              <td><strong>+2 ➔ +3</strong></td>
+              <td><code>80%</code></td>
+              <td><strong>91.6%</strong> (110 / 120)</td>
+              <td>100%</td>
+              <td>1x Đá cấp 1 (ID 0) + 1x Đá cấp 2 (ID 1)</td>
+              <td>10.000 Vàng / 4 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+1</strong></td>
+            </tr>
+            <tr>
+              <td><strong>+3 ➔ +4</strong></td>
+              <td><code>70%</code></td>
+              <td><strong>83.3%</strong> (100 / 120)</td>
+              <td>95.8%</td>
+              <td>1x Đá cấp 1 (ID 0) + 1x Đá cấp 2 (ID 1)</td>
+              <td>10.000 Vàng / 5 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+1</strong></td>
+            </tr>
+            <tr>
+              <td><strong>+4 ➔ +5</strong></td>
+              <td><code>60%</code></td>
+              <td><strong>75.0%</strong> (90 / 120)</td>
+              <td>87.5%</td>
+              <td>1x Đá cấp 1 (ID 0) + 1x Đá cấp 2 (ID 1)</td>
+              <td>10.000 Vàng / 5 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+1</strong></td>
+            </tr>
+            <tr>
+              <td><strong>+5 ➔ +6</strong></td>
+              <td><code>50%</code></td>
+              <td><strong>66.6%</strong> (80 / 120)</td>
+              <td>79.1%</td>
+              <td>1x Đá cấp 1 (ID 0) + 1x Đá cấp 2 (ID 1)</td>
+              <td>10.000 Vàng / 5 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+1</strong></td>
+            </tr>
+            <tr>
+              <td><strong>+6 ➔ +7</strong></td>
+              <td><code>45%</code></td>
+              <td><strong>62.5%</strong> (75 / 120)</td>
+              <td>75.0%</td>
+              <td>1x Đá C1 (0) + 1x Đá C2 (1) + 1x Đá C3 (2)</td>
+              <td>10.000 Vàng / 6 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+6</strong></td>
+            </tr>
+            <tr>
+              <td><strong>+7 ➔ +8</strong></td>
+              <td><code>35%</code></td>
+              <td><strong>29.1%</strong> (35 / 120)</td>
+              <td>41.6% (50 / 120)</td>
+              <td>1x Đá C1 (0) + 1x Đá C2 (1) + 1x Đá C3 (2)</td>
+              <td>10.000 Vàng / 6 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+6</strong> (hoặc -1 cấp nếu dùng ID 13)</td>
+            </tr>
+            <tr>
+              <td><strong>+8 ➔ +9</strong></td>
+              <td><code>25%</code></td>
+              <td><strong>20.8%</strong> (25 / 120)</td>
+              <td>33.3% (40 / 120)</td>
+              <td>1x Đá C1 (0) + 1x Đá C2 (1) + 1x Đá C3 (2)</td>
+              <td>10.000 Vàng / 6 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+6</strong> (hoặc -1 cấp nếu dùng ID 13)</td>
+            </tr>
+            <tr>
+              <td><strong>+9 ➔ +10</strong></td>
+              <td><code>15%</code></td>
+              <td><strong>12.5%</strong> (15 / 120)</td>
+              <td>25.0% (30 / 120)</td>
+              <td>1x Đá C1 (0) + 1x Đá C2 (1) + 1x Đá C3 (2)</td>
+              <td>10.000 Vàng / 7 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+6</strong> (hoặc -1 cấp nếu dùng ID 13)</td>
+            </tr>
+            <tr>
+              <td><strong>+10 ➔ +11</strong></td>
+              <td><code>10%</code></td>
+              <td><strong>8.33%</strong> (10 / 120)</td>
+              <td>20.8% (25 / 120)</td>
+              <td>1x Đá C1 (0) + 1x Đá C2 (1) + 1x Đá C3 (2)</td>
+              <td>10.000 Vàng / 7 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+6</strong> (hoặc -1 cấp nếu dùng ID 13)</td>
+            </tr>
+            <tr>
+              <td><strong>+11 ➔ +12</strong></td>
+              <td><code>5%</code></td>
+              <td><strong>4.16%</strong> (5 / 120)</td>
+              <td>16.6% (20 / 120)</td>
+              <td>1x Đá C1 + 1x Đá C2 + 1x Đá C3 + 1x Đá C4 (3)</td>
+              <td>10.000 Vàng / 7 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+11</strong></td>
+            </tr>
+            <tr>
+              <td><strong>+12 ➔ +13</strong></td>
+              <td><code>4%</code></td>
+              <td><strong>3.33%</strong> (4 / 120)</td>
+              <td>15.8% (19 / 120)</td>
+              <td>1x Đá C1 + 1x Đá C2 + 1x Đá C3 + 1x Đá C4 (3)</td>
+              <td>10.000 Vàng / 7 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+11</strong> (hoặc -1 cấp nếu dùng ID 13)</td>
+            </tr>
+            <tr>
+              <td><strong>+13 ➔ +14</strong></td>
+              <td><code>3%</code></td>
+              <td><strong>2.50%</strong> (3 / 120)</td>
+              <td>15.0% (18 / 120)</td>
+              <td>1x Đá C1 + 1x Đá C2 + 1x Đá C3 + 1x Đá C4 (3)</td>
+              <td>10.000 Vàng / 7 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+11</strong> (hoặc -1 cấp nếu dùng ID 13)</td>
+            </tr>
+            <tr>
+              <td><strong>+14 ➔ +15</strong></td>
+              <td><code>2%</code></td>
+              <td><strong>1.66%</strong> (2 / 120)</td>
+              <td>14.1% (17 / 120)</td>
+              <td>1x Đá C1 + 1x Đá C2 + 1x Đá C3 + 1x Đá C4 (3)</td>
+              <td>10.000 Vàng / 7 Ngọc</td>
+              <td>Rớt về Checkpoint <strong>+11</strong> (hoặc -1 cấp nếu dùng ID 13)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout warning">
+        <div class="callout-title">📌 Phân Tích Cơ Chế Bảo Hiểm Khi Cường Hóa Thất Bại</div>
+        <ul>
+          <li><strong>Đá 3 Màu (Item 7: ID 14)</strong>: Cộng <code>+15%</code> tỉ lệ thành công và <strong>100% giữ nguyên cấp độ</strong> khi thất bại (Không bị rớt cấp).</li>
+          <li><strong>Cỏ 4 Lá (Item 7: ID 13)</strong>: Cộng <code>+15%</code> tỉ lệ thành công. Khi đập xịt, có <strong>15% xác suất được bảo hộ giữ nguyên cấp</strong>; 85% còn lại chỉ bị <strong>-1 cấp</strong> (nếu đang ở mốc checkpoint +1, +6, +11 thì không bị tụt).</li>
+          <li><strong>Cỏ 3 Lá (Item 7: ID 12)</strong>: Cộng <code>+15%</code> tỉ lệ thành công. Khi đập xịt, có <strong>15% xác suất được bảo hộ giữ nguyên cấp</strong>; 85% còn lại bị <strong>-2 cấp</strong> (không tụt qua checkpoint, ví dụ đồ +12 xịt sẽ về checkpoint là <strong>+11</strong>).</li>
+          <li><strong>Không Dùng Bảo Hiểm</strong>: Khi đập xịt sẽ <strong>rớt thẳng về mốc Checkpoint</strong> gần nhất (+1, +6 hoặc +11).</li>
+        </ul>
+      </div>
+
+      <!-- 2. Công Thức Tăng Trưởng Chỉ Số Cường Hóa Option.java -->
+      <h2>2. Công Thức Tăng Trưởng Chỉ Số Khi Cường Hóa (<span class="file-ref">template/Option.java</span>)</h2>
+      <p>Khi trang bị đạt cấp <code>tier</code> từ 1 đến 15, hàm <code>getParam(tier)</code> tính toán giá trị chỉ số thực tế theo bảng hệ số:</p>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Nhóm Option ID</th>
+              <th>Tên Thuộc Tính</th>
+              <th>Công Thức Toán Học Tính Toán Chỉ Số Theo Tier</th>
+              <th>Ví Dụ Minh Họa Cụ Thể</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>0 - 6, 14, 40</code></td>
+              <td>Sát thương cơ bản & Giáp phòng thủ</td>
+              <td><code>Param_ThucTe = (parafterupdate[tier] * Param_Goc) / 100</code><br>
+                Bảng <code>parafterupdate[]</code> = {1, 110, 120, 130, 140, 150, 160, 172, 184, 196, 208, 220, 235, 250, 265, <strong>280</strong>}
+              </td>
+              <td>Vũ khí có Sát thương gốc = <strong>1000</strong>.<br>
+                • Ở cấp +6: <code>(160 * 1000) / 100</code> = <strong>1600 (+60%)</strong><br>
+                • Ở cấp +11: <code>(220 * 1000) / 100</code> = <strong>2200 (+120%)</strong><br>
+                • Ở cấp +15: <code>(280 * 1000) / 100</code> = <strong>2800 (+180%)</strong>
+              </td>
+            </tr>
+            <tr>
+              <td><code>7 - 13, 15, 27, 28</code></td>
+              <td>+ % Sát Thương, + % Phòng Thủ, + % Máu/Mana</td>
+              <td><code>Param_ThucTe = Param_Goc + (100 * tier)</code></td>
+              <td>Áo giáp có dòng <em>+10% Máu</em> (Param gốc = 1000 tương ứng 10%).<br>
+                • Ở cấp +10: <code>1000 + 100 * 10</code> = <strong>2000 (tương ứng +20% Máu)</strong><br>
+                • Ở cấp +15: <code>1000 + 100 * 15</code> = <strong>2500 (tương ứng +25% Máu)</strong>
+              </td>
+            </tr>
+            <tr>
+              <td><code>16 - 22, 29 - 36, 41</code></td>
+              <td>Chí mạng, Né đòn, Kháng nguyên tố, Xuyên giáp</td>
+              <td><code>Param_ThucTe = Param_Goc + (20 * tier)</code></td>
+              <td>Nhẫn có dòng <em>Chí mạng 5%</em> (Param gốc = 500).<br>
+                • Ở cấp +15: <code>500 + 20 * 15</code> = <strong>800 (tương ứng 8% Chí mạng)</strong>
+              </td>
+            </tr>
+            <tr>
+              <td><code>23 - 26</code></td>
+              <td>+ Sức Mạnh, Khéo Léo, Thể Lực, Tinh Thần</td>
+              <td><code>Param_ThucTe = Param_Goc + tier</code></td>
+              <td>Dây chuyền có dòng <em>+50 Sức mạnh</em>.<br>
+                • Ở cấp +15: <code>50 + 15</code> = <strong>+65 Sức mạnh</strong>
+              </td>
+            </tr>
+            <tr>
+              <td><code>37, 38</code></td>
+              <td>+ Kỹ năng Tấn công / Phòng thủ</td>
+              <td>Nếu <code>tier &lt; 9</code>: <strong>+1 điểm</strong>.<br>Nếu <code>tier &gt;= 9</code> (trang bị dây chuyền type 5): <strong>+2 điểm</strong></td>
+              <td>Dây chuyền khi đập lên <strong>+9 trở lên</strong> sẽ tăng từ +1 kỹ năng lên <strong>+2 kỹ năng</strong>.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 3. Hệ Thống Khảm Ngọc Toàn Diện -->
+      <h2>3. Hệ Thống Khảm Nạm Ngọc & Hiệu Ứng Kích Hoạt (<span class="file-ref">client/Player.java</span>)</h2>
+      <p>Mỗi trang bị có tối đa 3 lỗ khảm (Lỗ 1: Option 58, Lỗ 2: Option 59, Lỗ 3: Option 60). Hiệu ứng được kích hoạt tự động trong chiến đấu qua hàm <code>process_eff_ngoc_kham()</code>:</p>
+
+      <div class="card-grid">
+        <div class="feature-card">
+          <h4>💎 Ngọc Hồn Nguyên (ID: 382 Đến 386) - Bạo Lực</h4>
+          <p>Tích lũy số đòn đánh để kích hoạt trạng thái <strong>Nhân Đôi Sát Thương (Dame x2) trong 3 giây</strong> (Eff ID: 32000):</p>
+          <pre><code>Số đòn đánh cần = (387 - Param_Ngoc) * 5</code></pre>
+          <ul style="font-size: 13px; margin-left: 16px;">
+            <li><strong>Ngọc Cấp 1 (ID 382)</strong>: Cần <code>(387 - 382) * 5</code> = <strong>25 lần đánh</strong>.</li>
+            <li><strong>Ngọc Cấp 2 (ID 383)</strong>: Cần <code>(387 - 383) * 5</code> = <strong>20 lần đánh</strong>.</li>
+            <li><strong>Ngọc Cấp 3 (ID 384)</strong>: Cần <code>(387 - 384) * 5</code> = <strong>15 lần đánh</strong>.</li>
+            <li><strong>Ngọc Cấp 4 (ID 385)</strong>: Cần <code>(387 - 385) * 5</code> = <strong>10 lần đánh</strong>.</li>
+            <li><strong>Ngọc Cấp 5 (ID 386)</strong>: Cần <code>(387 - 386) * 5</code> = <strong>Chỉ 5 lần đánh</strong> ➔ Kích hoạt Dame x2 liên tục!</li>
+          </ul>
+        </div>
+
+        <div class="feature-card">
+          <h4>🛡️ Ngọc Phong Ma (ID: 397 Đến 401) - Sinh Mệnh</h4>
+          <p>Khi máu tụt xuống mức nguy hiểm, có tỉ lệ kích hoạt <strong>Hồi Phục Máu Liên Tục Mỗi Giây trong 5 giây</strong> (Eff ID: 32001):</p>
+          <ul style="font-size: 13px; margin-left: 16px;">
+            <li><strong>Cấp 1 (ID 397)</strong>: Khi HP &lt; 20%, có <strong>1.5%</strong> tỉ lệ hồi <strong>1% Max HP/s</strong> trong 5s.</li>
+            <li><strong>Cấp 2 (ID 398)</strong>: Khi HP &lt; 30%, có <strong>2.0%</strong> tỉ lệ hồi <strong>2% Max HP/s</strong> trong 5s.</li>
+            <li><strong>Cấp 3 (ID 399)</strong>: Khi HP &lt; 40%, có <strong>2.5%</strong> tỉ lệ hồi <strong>5% Max HP/s</strong> trong 5s.</li>
+            <li><strong>Cấp 4 (ID 400)</strong>: Khi HP &lt; 50%, có <strong>3.5%</strong> tỉ lệ hồi <strong>7% Max HP/s</strong> trong 5s.</li>
+            <li><strong>Cấp 5 (ID 401)</strong>: Khi HP &lt; 70%, có <strong>4.5%</strong> tỉ lệ hồi <strong>10% Max HP/s</strong> trong 5s (Tổng hồi 50% HP!).</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout tip">
+        <div class="callout-title">✨ Hệ Số Tăng Trưởng Chỉ Số Ngọc Theo Phẩm Chất Trang Bị</div>
+        <p>Trừ <em>Ngọc Hỗn Nguyên</em> và <em>Ngọc Khải Hoàn</em>, tất cả các loại ngọc khác (Lục Bảo, Phong Ma, Sinh Mệnh, Tâm Linh) khi ép vào đồ có phẩm chất cao hơn sẽ được <strong>nhân thêm hệ số % chỉ số</strong>:</p>
+        <ul>
+          <li>⚪ <strong>Đồ Trắng (Color 0)</strong>: <code>+0%</code> (Hệ số $\times 1.0$)</li>
+          <li>🟢 <strong>Đồ Xanh Lá (Color 1)</strong>: <code>+5%</code> (Hệ số $\times 1.05$)</li>
+          <li>🔵 <strong>Đồ Xanh Lam (Color 2)</strong>: <code>+12.5%</code> (Hệ số $\times 1.125$)</li>
+          <li>🟣 <strong>Đồ Tím (Color 3)</strong>: <code>+20%</code> (Hệ số $\times 1.20$)</li>
+          <li>🟠 <strong>Đồ Cam (Color 4)</strong>: <code>+30%</code> (Hệ số $\times 1.30$)</li>
+        </ul>
+        <p><strong>Ví dụ</strong>: Ngọc Sinh Mệnh cấp 1 ($2.0\%$ kích hoạt $+50\%$ Dame Boss) ép vào Nhẫn Cam (Color 4) sẽ được $2.0\% \times 1.3 = \mathbf{2.6\%}$. Ngọc Tâm Linh cấp 5 ($14.0\%$ Sát thương Chí mạng) ép vào Nhẫn Tím (Color 3) sẽ thành $14.0\% \times 1.2 = \mathbf{16.8\%}$ Sát thương Chí Mạng.</p>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Cấp Độ Ngọc</th>
+              <th>Chi Phí Vàng Khảm</th>
+              <th>Tỉ Lệ Khảm (Ngọc Chưa Tinh Luyện)</th>
+              <th>Tỉ Lệ Khảm (Ngọc Đã Tinh Luyện)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Ngọc Cấp 1</strong></td>
+              <td>1.000.000 Vàng</td>
+              <td><strong>100.0%</strong> (100 / 100)</td>
+              <td><strong>90.0%</strong> (90 / 100)</td>
+            </tr>
+            <tr>
+              <td><strong>Ngọc Cấp 2</strong></td>
+              <td>2.000.000 Vàng</td>
+              <td><strong>85.0%</strong> (85 / 100)</td>
+              <td><strong>75.0%</strong> (75 / 100)</td>
+            </tr>
+            <tr>
+              <td><strong>Ngọc Cấp 3</strong></td>
+              <td>3.000.000 Vàng</td>
+              <td><strong>60.0%</strong> (60 / 100)</td>
+              <td><strong>50.0%</strong> (50 / 100)</td>
+            </tr>
+            <tr>
+              <td><strong>Ngọc Cấp 4</strong></td>
+              <td>4.000.000 Vàng</td>
+              <td><strong>30.0%</strong> (30 / 100)</td>
+              <td><strong>20.0%</strong> (20 / 100)</td>
+            </tr>
+            <tr>
+              <td><strong>Ngọc Cấp 5</strong></td>
+              <td>5.000.000 Vàng</td>
+              <td><strong>10.0%</strong> (10 / 100)</td>
+              <td><strong>5.0%</strong> (5 / 100)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 4. Nâng Cấp Cánh 30 Cấp Độ -->
+      <h2>4. Bảng Số Liệu Nâng Cấp Cánh (Wing 30 Cấp Độ) (<span class="file-ref">core/GameSrc.java</span>)</h2>
+      <p>Cánh có 30 cấp độ tiến hóa, yêu cầu 4 loại tài nguyên với số lượng tăng dần theo cấp:</p>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Mốc Cấp Cánh</th>
+              <th>Lông Khúc Xương (Item 7)</th>
+              <th>Kim Loại Hiếm (Item 7)</th>
+              <th>Đá Cường Hóa (Item 7)</th>
+              <th>Chi Phí Vàng</th>
+              <th>Thời Gian Luyện</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Cấp 1 ➔ 5</strong></td>
+              <td>10, 12, 15, 19, 24</td>
+              <td>20, 22, 25, 29, 34</td>
+              <td>50, 54, 60, 68, 78</td>
+              <td>50.000 ➔ 64.000 Vàng</td>
+              <td>2 ➔ 12 phút</td>
+            </tr>
+            <tr>
+              <td><strong>Cấp 6 ➔ 10</strong></td>
+              <td>30, 37, 45, 54, 64</td>
+              <td>40, 47, 55, 64, 74</td>
+              <td>90, 104, 120, 138, 158</td>
+              <td>70.000 ➔ 104.000 Vàng</td>
+              <td>15 ➔ 60 phút</td>
+            </tr>
+            <tr>
+              <td><strong>Cấp 11 ➔ 20</strong></td>
+              <td>75 ➔ 219</td>
+              <td>85 ➔ 229</td>
+              <td>180 ➔ 468</td>
+              <td>115.000 ➔ 259.000 Vàng</td>
+              <td>100 ➔ 380 phút</td>
+            </tr>
+            <tr>
+              <td><strong>Cấp 21 ➔ 30 (Max)</strong></td>
+              <td>240 ➔ 474</td>
+              <td>250 ➔ 484</td>
+              <td>510 ➔ 978</td>
+              <td>280.000 ➔ 514.000 Vàng</td>
+              <td>422 ➔ 830 phút (~13.8 giờ)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 5. Bảng Rơi Đồ Boss Thế Giới Cố Định -->
+      <h2>5. Bảng Dữ Liệu Rơi Đồ Cố Định Của Các Boss Lớn (<span class="file-ref">map/LeaveItemMap.java</span>)</h2>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Boss ID</th>
+              <th>Tên Boss</th>
+              <th>Dược Phẩm Rơi (Item 4)</th>
+              <th>Đá & Nguyên Liệu Rơi (Item 7)</th>
+              <th>Mảnh Mề Đay (Item 7)</th>
+              <th>Trang Bị Quý (Item 3)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>101</code></td>
+              <td><strong>Xà Nữ</strong></td>
+              <td>ID 53 (Bình HP 5000)</td>
+              <td>{0, 4, 14, 0, 4, 12, 2, 2, 1, 1, 10, 10}</td>
+              <td><strong>ID 138</strong> (3 lần)</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td><code>84</code></td>
+              <td><strong>Dê Vàng</strong></td>
+              <td>{54, 27, 27}</td>
+              <td>{8, 9, 10, 13, 14, 0, 4, 0, 4}</td>
+              <td><strong>ID 139</strong> (3 lần)</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td><code>83</code></td>
+              <td><strong>Dê Bạc</strong></td>
+              <td>ID 53</td>
+              <td>{0, 4, 0, 4, 11, 12, 14, 2, 3, 2, 3}</td>
+              <td><strong>ID 141</strong> (3 lần)</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td><code>103</code></td>
+              <td><strong>Bọ Cạp Chúa</strong></td>
+              <td>{48, 50, 18, 9, 48, 50, 18, 9, 2, 5, 2, 5}</td>
+              <td>{0, 0, 0}</td>
+              <td><strong>ID 136</strong> (3 lần)</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td><code>104</code></td>
+              <td><strong>Quỷ 1 Mắt</strong></td>
+              <td>{10, 10}</td>
+              <td>{2, 3, 2, 3, 12, 12, 8, 9, 10, 8, 9, 10}</td>
+              <td><strong>ID 137</strong> (3 lần)</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td><code>105</code></td>
+              <td><strong>Quỷ Đầu Bò</strong></td>
+              <td>{54, 49, 49}</td>
+              <td>{11, 0, 4, 0, 4, 13, 14, 2, 3, 2, 3}</td>
+              <td><strong>ID 140</strong> (3 lần)</td>
+              <td>-</td>
+            </tr>
+            <tr>
+              <td><code>106</code></td>
+              <td><strong>Kỵ Sỹ Địa Ngục</strong></td>
+              <td>{54, 53, 18}</td>
+              <td>{11, 13, 2, 3, 2, 3, 14}</td>
+              <td><strong>ID 142 - 144</strong></td>
+              <td>Random Item ID <strong>4577 ➔ 4585</strong></td>
+            </tr>
+            <tr>
+              <td><code>149</code></td>
+              <td><strong>Nhện Chúa</strong></td>
+              <td>{54, 53, 18}</td>
+              <td>{11, 13, 2, 3, 2, 3, 14}</td>
+              <td><strong>ID 144 - 146</strong></td>
+              <td>Random Item ID <strong>4577 ➔ 4585</strong></td>
+            </tr>
+            <tr>
+              <td><code>155</code></td>
+              <td><strong>Giant Skeleton</strong></td>
+              <td>{54, 53, 18}</td>
+              <td>{11, 13, 2, 3, 2, 3, 14}</td>
+              <td><strong>ID 136 - 146</strong></td>
+              <td>Random Item ID <strong>4577 ➔ 4585</strong></td>
+            </tr>
+            <tr>
+              <td><code>174</code></td>
+              <td><strong>Chó 3 Đầu (Cerberus)</strong></td>
+              <td>{54, 53, 18}</td>
+              <td>{11, 13, 2, 3, 2, 3, 14}</td>
+              <td><strong>ID 136 - 146</strong></td>
+              <td>Random Item ID <strong>4577 ➔ 4585</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 6. Thuật Toán Rơi Đồ Quái Biến Thiên & Quy Tắc Làm Tròn -->
+      <h2>6. Thuật Toán Rơi Đồ Quái Biến Thiên [90% Rương ➔ Max] & Quy Tắc Làm Tròn (<span class="file-ref">map/LeaveItemMap.java</span>)</h2>
+      
+      <div class="callout info">
+        <div class="callout-title">🎲 Cơ Chế Tỉ Lệ Rơi & Phẩm Chất Đồ Mới</div>
+        <ul>
+          <li><strong>Tỉ Lệ Rơi Trang Bị Quái Thường (MapService.java)</strong>: Nâng lên <strong>1/15 (6.67%)</strong> (trước đây là 1/30). Quái Tinh anh / Thủ lĩnh luôn rơi 100%.</li>
+          <li><strong>Tỉ Lệ Phân Bổ Phẩm Chất Đồ (LeaveItemMap.java)</strong> trên thang 200 điểm:
+            <ul>
+              <li>⚪ <strong>Trắng (Color 0)</strong>: <code>20 / 200</code> = <strong>10.0%</strong></li>
+              <li>🟢 <strong>Xanh lá (Color 1)</strong>: <code>40 / 200</code> = <strong>20.0%</strong></li>
+              <li>🔵 <strong>Xanh lam (Color 2)</strong>: <code>40 / 200</code> = <strong>20.0%</strong></li>
+              <li>🟣 <strong>Tím (Color 3)</strong>: <code>60 / 200</code> = <strong>30.0%</strong></li>
+              <li>🟠 <strong>Cam (Color 4)</strong>: <code>40 / 200</code> = <strong>20.0%</strong></li>
+            </ul>
+          </li>
+          <li><strong>Mở Rương (UseItem.java)</strong>: Giữ nguyên 100% chỉ số gốc mặc định trong CSDL MySQL (đồ bị khóa <code>islock = true</code>).</li>
+          <li><strong>Đánh Quái Rơi Đồ (LeaveItemMap.java)</strong>: Mỗi dòng Option sẽ dao động ngẫu nhiên từ <strong>90% chỉ số đồ mở rương (base_val * 0.9)</strong> đến <strong>Chỉ số Max theo bảng chuẩn</strong> (đồ không khóa <code>islock = false</code>).</li>
+        </ul>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Nhóm Thuộc Tính</th>
+              <th>Mã Option ID</th>
+              <th>Bước Nhảy Khi Lên +1 Tier</th>
+              <th>Quy Tắc Làm Tròn Chuẩn (round_option_drop)</th>
+              <th>Ví Dụ Minh Họa</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Điểm Tiềm Năng</strong></td>
+              <td><code>23, 24, 25, 26</code> (Sức mạnh, Khéo léo, Thể lực, Tinh thần)</td>
+              <td>+1 đơn vị / cấp</td>
+              <td>Làm tròn đến <strong>hàng đơn vị nguyên</strong>: <code>Math.round(raw_val)</code></td>
+              <td>Đồ max là 33. Nếu roll ra 31.4 ➔ làm tròn về <strong>31</strong>; roll ra 31.6 ➔ làm tròn lên <strong>32</strong>.</td>
+            </tr>
+            <tr>
+              <td><strong>Tỉ Lệ Phần Trăm (+1%/tier)</strong></td>
+              <td><code>7 - 13, 15, 27, 28</code> (+% Dame, +% Thủ, +% Máu, +% Mana)</td>
+              <td>+1.0% (100 điểm) / cấp</td>
+              <td>Làm tròn đến <strong>hàng đơn vị % (bội số 100)</strong>: <code>Math.round(raw_val / 100.0) * 100</code></td>
+              <td>Dòng +28% Dame (2800). Nếu roll ra 2640 (26.4%) ➔ làm tròn về <strong>2600 (26%)</strong>. Roll ra 2670 ➔ <strong>2700 (27%)</strong>.</td>
+            </tr>
+            <tr>
+              <td><strong>Tỉ Lệ Phần Trăm (+0.2%/tier)</strong></td>
+              <td><code>16 - 22, 29 - 36, 41</code> (Chí mạng, Né, Phản đòn, Xuyên giáp, Kháng...)</td>
+              <td>+0.2% (20 điểm) / cấp</td>
+              <td>
+                • <strong>Level thông thường</strong>: Làm tròn đến hàng đơn vị % (2%, 3%, 4%, 5%...).<br>
+                • <strong>Level 11x (phân vị .4)</strong>: Ngưỡng <code>.2</code> (520). Nếu tính ra <code>5.25%</code> ➔ làm tròn lên <strong>5.4% (540)</strong>; Nếu tính ra <code>5.15%</code> ➔ làm tròn về <strong>5.0% (500)</strong>.<br>
+                • <strong>Level 12x (phân vị .6)</strong>: Ngưỡng <code>.3</code> (530). Nếu tính ra <code>5.35%</code> ➔ làm tròn lên <strong>5.6% (560)</strong>; Nếu tính ra <code>5.25%</code> ➔ làm tròn về <strong>5.0% (500)</strong>.
+              </td>
+              <td>Đồ 11x max Crit 5.4% (540). Roll 90%..100% ra 5.25% ➔ Ra <strong>5.4% Chí Mạng</strong>. Đồ 12x max 5.6% roll ra 5.25% ➔ Ra <strong>5.0% Chí Mạng</strong>.</td>
+            </tr>
+            <tr>
+              <td><strong>Điểm Cơ Bản</strong></td>
+              <td><code>0 - 6, 14, 40</code> (ST Vật lý/Nguyên tố, Giáp, ST cơ bản)</td>
+              <td>Theo bảng parafterupdate</td>
+              <td>Làm tròn đến <strong>hàng đơn vị nguyên</strong>: <code>Math.round(raw_val)</code></td>
+              <td>Gươm Titan 5x max ST 349. Nếu roll ra 325.7 ➔ làm tròn thành <strong>326 Sát thương</strong>.</td>
+            </tr>
+            <tr>
+              <td><strong>Kỹ Năng & Effect Đặc Biệt</strong></td>
+              <td><code>37, 38, 71, 62</code> (+Kỹ năng công/thủ, Effect, Kháng ma)</td>
+              <td>Cố định</td>
+              <td>Giữ nguyên 100% giá trị gốc từ Database</td>
+              <td>Dòng <strong>+1 Kỹ Năng (Op 37 = 1)</strong> luôn giữ nguyên 1.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="page-nav">
+        <a href="02_combat_and_stats.html" class="page-nav-btn">
+          <span class="sub">Quay lại</span>
+          <span class="title">← 02. Engine Chỉ Số & Kỹ Năng</span>
+        </a>
+        <a href="04_cultivation_systems.html" class="page-nav-btn" style="text-align: right;">
+          <span class="sub">Tiếp theo</span>
+          <span class="title">04. Hệ Thống Tu Luyện Sâu →</span>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

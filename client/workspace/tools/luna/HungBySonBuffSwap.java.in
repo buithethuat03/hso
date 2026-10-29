@@ -1,0 +1,263 @@
+/*
+ * Auto thay đồ khi BUFF in Hung_By_Son (docs/HUNG_BY_SON_BUFF_SWAP.md). The MOD "Thay Đồ" module
+ * (~lillllil) keeps three sets: "Thêm vào S1/S2" fill them, "Mặc Set 1/2" (actions -24/-25) queue
+ * one opcode-11 equip per item, worn by its update() only while its own switch "Thay Đồ" is ON.
+ *  - Cài Đặt Cấu Hình > Auto Tự Đánh > "Auto thay đồ khi BUFF >" (action -107, extra OPEN): the
+ *    switch and one row per learned buff skill (template type 1), "Tên Lv<n> [x]" when chosen.
+ *  - Only while Auto Farm or Tấn công đặc biệt is ON: when a chosen buff has 2s or less of
+ *    cooldown left (~liil.b, ms), wear Set 1. That skill is done when the server's buff answer
+ *    (opcode 40) names the local player as caster for it, the same answer HungBySonSkillStats
+ *    counts as the hit of a buff; once no chosen skill is waiting, wear Set 2. The cast itself
+ *    stays with Farm / Tấn công đặc biệt.
+ *  - Each skill runs its own cycle. A skill ready for 5s without being cast, or cast without an
+ *    answer for 2s, gives up (Set 2) and waits 10s before it may ask for Set 1 again.
+ *
+ * Markers @~suffix@ expand to the 100-character obfuscated HBS names. CLDC 1.1 APIs only;
+ * compiled with --release 7 against the input JAR and stored as class version 48.
+ */
+import java.io.DataInputStream;
+import luna.features.AutoAttackRuntime;
+import luna.generated.HungAutoAttackAccess;
+
+public final class HungBySonBuffSwap implements IModModule {
+    static final int ACTION = -107, OPEN = 0, TOGGLE = 1, BACK = 2, NONE = 3, SKILL_BASE = 10;
+    static final int WEAR_SET1 = -24, WEAR_SET2 = -25, BUFF = 1, DEAD = 4, MAX = 32;
+    static final int LEAD_MS = 2000;
+    static final long READY_MS = 5000L, ANSWER_MS = 2000L, HOLD_MS = 10000L;
+
+    static boolean enabled;
+    static final boolean[] chosen = new boolean[MAX], armed = new boolean[MAX];
+    /** Set by the opcode-40 answer (network thread), taken by update(). */
+    static final boolean[] answered = new boolean[MAX];
+    static final long[] readyAt = new long[MAX], sentAt = new long[MAX], holdUntil = new long[MAX];
+    /** Set 1 was asked for and Set 2 not yet. */
+    static boolean inSet1;
+
+    static long testNow;
+    static int wears1, wears2, successes, giveUps;
+    static String popupText;
+
+    private static final HungBySonBuffSwap INSTANCE = new HungBySonBuffSwap();
+
+    private HungBySonBuffSwap() {
+    }
+
+    /** Called from the module loader right before the ModUpLv port, which keeps the last menu row. */
+    public static void register() {
+        @~lillllll@.@~@(INSTANCE);
+    }
+
+    static long now() {
+        return testNow != 0L ? testNow : System.currentTimeMillis();
+    }
+
+    // ------------------------------------------------------------------ menu
+
+    static bt row(String label, int extra) {
+        return new bt(label, ACTION, extra, @~liilllii@.@~liiiliiiiil@);
+    }
+
+    /** Called by Tùy chọn tự đánh right before its "<< Quay Lại" row. */
+    public static void addAttackRows(et menu) {
+        if (menu != null) menu.@~l@(row("Auto thay đồ khi BUFF >", OPEN));
+    }
+
+    static void showMenu() {
+        et menu = new et("AUTO THAY ĐỒ KHI BUFF");
+        menu.@~l@(row(enabled ? "Auto thay đồ: [BẬT]" : "Auto thay đồ: [TẮT]", TOGGLE));
+        int[] levels = @~lliiil@.@~llilllii@, bonus = @~lliiil@.@~llilllil@;
+        int rows = 0;
+        for (int s = 0; levels != null && s < levels.length && s < MAX; s++) {
+            if (!buffSkill(s, levels)) continue;
+            int level = levels[s] + (bonus != null && s < bonus.length ? bonus[s] : 0);
+            String label = cat(cat(skillName(s), " Lv"), String.valueOf(level));
+            menu.@~l@(row(chosen[s] ? cat(label, " [x]") : label, SKILL_BASE + s));
+            rows++;
+        }
+        if (rows == 0) menu.@~l@(row("Chưa học chiêu buff nào", NONE));
+        menu.@~l@(row("<< Quay Lại", BACK));
+        @~liilllii@.@~liiiliillll@.@~@(menu, 2, "AUTO THAY ĐỒ KHI BUFF", false, (et)null);
+    }
+
+    public void addMenu(et menu) {
+    }
+
+    public boolean onAction(int action, int extra) {
+        if (action != ACTION) return false;
+        try {
+            int x = extra & 255;
+            if (x == BACK) {
+                @~lliiiiil@.@~lilllili@();
+                return true;
+            }
+            if (x == TOGGLE) {
+                setEnabled(!enabled);
+                notice(enabled ? "Auto thay đồ khi buff: Đã BẬT" : "Auto thay đồ khi buff: Đã TẮT");
+                if (enabled) {
+                    String missing = missing();
+                    if (missing != null) popup(cat("Auto thay đồ khi buff cần: ", missing));
+                }
+            } else if (x >= SKILL_BASE && x - SKILL_BASE < MAX) {
+                int s = x - SKILL_BASE;
+                chosen[s] = !chosen[s];
+                armed[s] = false;
+                holdUntil[s] = 0L;
+            }
+            showMenu();
+        } catch (Throwable ignored) {
+        }
+        return true;
+    }
+
+    static void setEnabled(boolean on) {
+        enabled = on;
+        for (int s = 0; s < MAX; s++) {
+            armed[s] = answered[s] = false;
+            holdUntil[s] = 0L;
+        }
+    }
+
+    /** What the player still has to set up, or null. The sets themselves are checked when worn. */
+    static String missing() {
+        StringBuffer b = new StringBuffer();
+        if (!@~lillllil@.@~liilliliili@) b.append("bật Menu > Thay Đồ");
+        boolean any = false;
+        for (int s = 0; s < MAX; s++) any |= chosen[s];
+        if (!any) b.append(b.length() > 0 ? ", " : "").append("chọn chiêu buff");
+        return b.length() == 0 ? null : b.toString();
+    }
+
+    // ------------------------------------------------------------------ native hook
+
+    /** Opcode-40 buff answer, right after HungBySonSkillStats.buff: flag, caster type, caster id, skill; the stream is reset. */
+    public static void onBuff(DataInputStream in) {
+        if (!enabled || in == null || !in.markSupported()) return;
+        in.mark(65536);
+        try {
+            @~lliiil@ player = @~liiliii@.@~llilliill@;
+            in.readByte();
+            int casterType = in.readByte();
+            int caster = in.readShort();
+            int skill = in.readByte();
+            // Types 4 and 6 are monster casters in the native handler; anything else is a player.
+            if (player == null || casterType == 4 || casterType == 6 || caster != player.cu) return;
+            if (skill >= 0 && skill < MAX) answered[skill] = true;
+        } catch (Throwable ignored) {
+        } finally {
+            try { in.reset(); } catch (Throwable ignored) { }
+        }
+    }
+
+    // ------------------------------------------------------------------ auto
+
+    /** Farm or Tấn công đặc biệt ON and the Thay Đồ switch ON. */
+    static boolean active() {
+        return enabled && (@~lliiiiil@.@~lililiilill@ || AutoAttackRuntime.specialEnabled()) && @~lillllil@.@~liilliliili@;
+    }
+
+    public void update() {
+        try {
+            if (!HungAutoAttackAccess.farmWorldReady()) return;
+            @~lliiil@ player = @~liiliii@.@~llilliill@;
+            if (player == null || player.cG == DEAD) return;
+            if (!active()) {
+                for (int s = 0; s < MAX; s++) armed[s] = false;
+                if (inSet1) wear(2);
+                return;
+            }
+            long now = now();
+            int[] levels = @~lliiil@.@~llilllii@;
+            @~liil@[] cooldowns = @~lliiil@.@~lliillli@;
+            if (levels == null || cooldowns == null) return;
+            boolean waiting = false;
+            for (int s = 0; s < MAX; s++) {
+                boolean answer = answered[s];
+                answered[s] = false;
+                if (!chosen[s] || !buffSkill(s, levels) || s >= cooldowns.length || cooldowns[s] == null) {
+                    armed[s] = false;
+                    continue;
+                }
+                if (armed[s] && answer) {
+                    armed[s] = false;
+                    successes++;
+                }
+                int left = cooldowns[s].b;
+                if (!armed[s]) {
+                    if (left <= LEAD_MS && now >= holdUntil[s]) {
+                        armed[s] = true;
+                        readyAt[s] = sentAt[s] = 0L;
+                    }
+                } else if (left <= 0) {
+                    if (readyAt[s] == 0L) readyAt[s] = now;
+                    sentAt[s] = 0L;
+                } else if (left > LEAD_MS && sentAt[s] == 0L) {
+                    // Farm / Tấn công đặc biệt started the cooldown with its send; the answer follows.
+                    sentAt[s] = now;
+                }
+                if (armed[s] && (readyAt[s] != 0L && now - readyAt[s] >= READY_MS
+                        || sentAt[s] != 0L && now - sentAt[s] >= ANSWER_MS)) {
+                    armed[s] = false;
+                    holdUntil[s] = now + HOLD_MS;
+                    giveUps++;
+                    notice(cat(cat("Chưa buff được ", skillName(s)), ": mặc lại Set 2"));
+                }
+                waiting |= armed[s];
+            }
+            if (waiting && !inSet1) wear(1);
+            else if (!waiting && inSet1) wear(2);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /**
+     * "Mặc Set n" through the MOD dispatcher, once the previous set is on and the Thay Đồ switch is
+     * ON. A filled set raises the module's wearing flag at once; an empty one only says "Set n trống!".
+     */
+    static void wear(int set) {
+        if (!@~lillllil@.@~liilliliili@ || busy()) return;
+        @~lillllll@.@~lliii@(set == 1 ? WEAR_SET1 : WEAR_SET2, 0);
+        if (!busy()) {
+            inSet1 = false;
+            setEnabled(false);
+            popup(cat(cat("Set ", String.valueOf(set)), " trống! Hãy chọn đồ > Thêm vào S1/S2. Đã tắt Auto thay đồ khi buff"));
+            return;
+        }
+        inSet1 = set == 1;
+        if (inSet1) wears1++;
+        else wears2++;
+    }
+
+    static boolean busy() {
+        return @~lillllil@.@~liliiiiilll@ || @~lillllil@.@~liliiiiliii@ || @~lillllil@.@~liliiiiliil@;
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    static boolean buffSkill(int s, int[] levels) {
+        if (s < 0 || s >= levels.length || levels[s] <= 0) return false;
+        @~liiiiill@ template = @~liillil@.@~liili@(s);
+        return template != null && template.e == BUFF;
+    }
+
+    static String skillName(int s) {
+        try {
+            @~liiiiill@ template = @~liillil@.@~liili@(s);
+            if (template != null && template.@~lllilllil@ != null && template.@~lllilllil@.length() > 0) return template.@~lllilllil@;
+        } catch (Throwable ignored) {
+        }
+        return cat("Chiêu ", String.valueOf(s));
+    }
+
+    static String cat(String a, String b) {
+        return new StringBuffer(a).append(b).toString();
+    }
+
+    static void popup(String text) {
+        popupText = text;
+        @~liilllii@.a(text);
+    }
+
+    static void notice(String text) {
+        @~lillllll@.@~lilli@(text);
+    }
+}

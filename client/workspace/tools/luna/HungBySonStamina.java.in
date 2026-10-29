@@ -1,0 +1,219 @@
+/*
+ * Auto phục hồi thể lực in Hung_By_Son (docs/HUNG_BY_SON_STAMINA.md). The heart number of the Trang Bị
+ * tab is the static int ~lliiil.e; only the opcode-59 reply writes it (readInt e, readInt i), and the
+ * client asks for it with an empty opcode-59 request (HUD tap, after opcode 3, after opcode 12).
+ *  - Menu mod > Cài đặt cấu hình: "Auto Phục Hồi Thể Lực: [BẬT]/[TẮT]" (action -21) toggles in place.
+ *  - While on: one opcode-59 request per second, sent directly (the HUD tap also opens the
+ *    character screen; this does not touch any screen).
+ *  - A fresh reply below 500: use the first bag item named Cơm … gà (op 32, like the native use).
+ *    A later reply at or above 500 is the recovery; two replies still below 500 stop the auto.
+ *  - Dialogs during the 5s after eating ("Sức khỏe đã được phục hồi", the daily limit, …) are
+ *    swallowed before the native dialog opens; connection notices are never swallowed.
+ *
+ * Markers @~suffix@ expand to the 100-character obfuscated HBS names. CLDC 1.1 APIs only;
+ * compiled with --release 7 against the input JAR and stored as class version 48.
+ */
+import luna.generated.HungAutoAttackAccess;
+
+public final class HungBySonStamina implements IModModule {
+    static final int TOGGLE = -21, REQUEST = 59, LOW = 500, DEAD = 4, MAX_QUIET = 2;
+    static final long POLL_MS = 1000L, QUIET_MS = 5000L, SETTLE_MS = 2000L, TIMEOUT_MS = 10000L;
+
+    static boolean enabled;
+    /** Opcode-59 replies seen; `base` is the count when the watch (re)started. */
+    static int replies, base;
+    static int stage;
+    static boolean recovered;
+    static int lowReads, quiet;
+    static long pollAt, eatAt, quietUntil;
+    static String eaten, serverText;
+
+    static long testNow;
+    static int requests, uses;
+    static String popupText;
+
+    private static final HungBySonStamina INSTANCE = new HungBySonStamina();
+
+    private HungBySonStamina() {
+    }
+
+    /** Called from the module loader just before the ModUpLv port, which keeps the last menu row. */
+    public static void register() {
+        @~lillllll@.@~@(INSTANCE);
+    }
+
+    static long now() {
+        return testNow != 0L ? testNow : System.currentTimeMillis();
+    }
+
+    static int stamina() {
+        return @~lliiil@.e;
+    }
+
+    // ------------------------------------------------------------------ menu
+
+    /** Called by the config menu right after ModUpLv's rows, before "Reset Cấu Hình". */
+    public static void addConfigRows(et menu) {
+        if (menu != null)
+            menu.@~l@(new bt(enabled ? "Auto Phục Hồi Thể Lực: [BẬT]" : "Auto Phục Hồi Thể Lực: [TẮT]", TOGGLE,
+                    @~liilllii@.@~liiiliiiiil@));
+    }
+
+    public void addMenu(et menu) {
+    }
+
+    public boolean onAction(int action, int extra) {
+        if (action != TOGGLE) return false;
+        try {
+            setEnabled(!enabled);
+            notice(enabled ? "Auto phục hồi thể lực: Đã BẬT" : "Auto phục hồi thể lực: Đã TẮT");
+            @~lliiiiil@.@~liliilll@();
+        } catch (Throwable ignored) {
+        }
+        return true;
+    }
+
+    static void setEnabled(boolean on) {
+        enabled = on;
+        stage = 0;
+        base = replies;
+        pollAt = 0L;
+        quietUntil = 0L;
+    }
+
+    /** Auto stops for a reason the player must read: a popup, never swallowed. */
+    static void stop(String text) {
+        setEnabled(false);
+        popup(text);
+    }
+
+    // ------------------------------------------------------------------ native hooks
+
+    /** End of the opcode-59 reply handler, after ~lliiil.e and ~lliiil.i are stored. */
+    public static void onStamina() {
+        replies++;
+        if (stage != 1) return;
+        if (stamina() >= LOW) recovered = true;
+        else lowReads++;
+    }
+
+    /** Every native dialog text, before ModUpLv; true suppresses the dialog. */
+    public static boolean onDialog(String text) {
+        try {
+            if (text == null || quietUntil == 0L || quiet >= MAX_QUIET) return false;
+            if (now() > quietUntil) { quietUntil = 0L; return false; }
+            String plain = HungBySonModUpLv.plain(text);
+            if (plain.indexOf("ket noi") >= 0) return false;
+            quiet++;
+            serverText = text;
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    // ------------------------------------------------------------------ auto
+
+    public void update() {
+        try {
+            if (!enabled) return;
+            if (!HungAutoAttackAccess.farmWorldReady()) return;
+            @~lliiil@ player = @~liiliii@.@~llilliill@;
+            if (player == null) return;
+            long now = now();
+            if (now >= pollAt) {
+                pollAt = now + POLL_MS;
+                request();
+            }
+            if (stage == 0) watch(player, now);
+            else settle(now);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    static void watch(@~lliiil@ player, long now) {
+        // Only a reply received while the watch runs; the field keeps its value across logins.
+        if (replies <= base || stamina() >= LOW || player.cG == DEAD) return;
+        @~llilli@ food = food();
+        if (food == null) {
+            stop("Không còn Cơm gà trong hành trang! Đã tắt Auto phục hồi thể lực");
+            return;
+        }
+        eaten = name(food);
+        serverText = null;
+        recovered = false;
+        lowReads = 0;
+        quiet = 0;
+        stage = 1;
+        eatAt = now;
+        quietUntil = now + QUIET_MS;
+        use(food.O);
+        // Asked after the use, so the server answers it with the stamina after the meal.
+        pollAt = now + POLL_MS;
+        request();
+    }
+
+    static void settle(long now) {
+        if (recovered) {
+            stage = 0;
+            base = replies;
+            notice(cat(cat("Đã ăn ", eaten), cat(", thể lực: ", String.valueOf(stamina()))));
+            return;
+        }
+        long waited = now - eatAt;
+        if (lowReads >= 2 && waited >= SETTLE_MS) {
+            String reason = cat(cat("Đã ăn ", eaten), " nhưng thể lực vẫn dưới 500");
+            if (serverText != null && serverText.length() > 0) reason = cat(reason, cat(" (", cat(serverText, ")")));
+            stop(cat(reason, ". Đã tắt Auto phục hồi thể lực"));
+        } else if (waited >= TIMEOUT_MS) {
+            stop("Server không trả lời thể lực sau khi ăn. Đã tắt Auto phục hồi thể lực");
+        }
+    }
+
+    static void request() {
+        requests++;
+        @~lilillll@.@~liililli@().@~llll@((byte)REQUEST);
+    }
+
+    static void use(int id) {
+        uses++;
+        @~lilillll@.@~liililli@().@~llili@((short)id);
+    }
+
+    // ------------------------------------------------------------------ bag
+
+    /** "Cơm gà" or "Cơm đùi gà": the folded name starts with "com" and ends with "ga". */
+    static @~llilli@ food() {
+        et bag = @~llilli@.@~liiillili@;
+        for (int i = 0; bag != null && i < bag.c(); i++) {
+            Object value = bag.a(i);
+            if (!(value instanceof @~llilli@)) continue;
+            @~llilli@ item = (@~llilli@)value;
+            String plain = HungBySonModUpLv.plain(name(item));
+            if (plain.startsWith("com ") && plain.endsWith(" ga")) return item;
+        }
+        return null;
+    }
+
+    static String name(@~llilli@ item) {
+        String name = item.@~liiiiliii@;
+        if (name == null || name.length() == 0) {
+            String[] names = @~llilli@.@~liiiiilll@;
+            if (names != null && item.O >= 0 && item.O < names.length) name = names[item.O];
+        }
+        return name == null ? "" : name;
+    }
+
+    static String cat(String a, String b) {
+        return new StringBuffer(a).append(b).toString();
+    }
+
+    static void popup(String text) {
+        popupText = text;
+        @~liilllii@.a(text);
+    }
+
+    static void notice(String text) {
+        @~lillllll@.@~lilli@(text);
+    }
+}

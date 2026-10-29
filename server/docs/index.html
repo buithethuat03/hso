@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bách Khoa Kỹ Thuật Server HSO - Kiến Trúc & Tính Năng Toàn Diện</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Sidebar Navigation Tree -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚔️</div>
+      <div class="brand-text">
+        <h1>HSO Core Engine</h1>
+        <span>v2.0 Architectural Docs</span>
+      </div>
+    </div>
+
+    <div class="nav-section-title">Hệ Thống & Báo Cáo</div>
+    <ul class="nav-links">
+      <li><a href="index.html" class="active"><span class="nav-num">00</span> Tổng Quan & Cây Hệ Thống</a></li>
+      <li><a href="01_core_architecture.html"><span class="nav-num">01</span> Hạ Tầng & Packet Protocol</a></li>
+      <li><a href="02_combat_and_stats.html"><span class="nav-num">02</span> Engine Chỉ Số & Chiến Đấu</a></li>
+      <li><a href="03_items_and_equipment.html"><span class="nav-num">03</span> Vật Phẩm, Rương & Rơi Đồ</a></li>
+      <li><a href="04_cultivation_systems.html"><span class="nav-num">04</span> Hệ Thống Tu Luyện Sâu</a></li>
+      <li><a href="05_events_and_activities.html"><span class="nav-num">05</span> Hoạt Động & Sự Kiện</a></li>
+      <li><a href="06_social_and_economy.html"><span class="nav-num">06</span> Xã Hội, Bang Hội & Kinh Tế</a></li>
+      <li><a href="07_npc_and_menu_routing.html"><span class="nav-num">07</span> MenuController & NPC</a></li>
+      <li><a href="08_upgrade_roadmap.html"><span class="nav-num">08</span> Định Hướng Nâng Cấp</a></li>
+      <li><a href="09_default_equipment_catalog.html"><span class="nav-num">09</span> Tra Cứu Đồ Mặc Định DB</a></li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <span style="font-size: 11px; color: var(--text-muted);">© 2026 HSO Dev Team</span>
+      <button id="theme-toggle-btn" class="theme-toggle">🌙 Tối</button>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="main-wrapper">
+    <header class="top-bar">
+      <div class="breadcrumb">
+        <a href="index.html">Tài Liệu Server</a>
+        <span>/</span>
+        <span class="current">Trang Chủ & Sơ Đồ Cây Hệ Thống</span>
+      </div>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="doc-search-input" placeholder="Tìm kiếm nhanh module / tính năng...">
+      </div>
+    </header>
+
+    <main class="content-container">
+      <div class="doc-header">
+        <span class="doc-tag badge blue">System Blueprint & Architecture Hub</span>
+        <h1 class="doc-title">Hồ Sơ Kỹ Thuật Toàn Diện Server HSO</h1>
+        <p class="doc-desc">
+          Bách khoa toàn thư kỹ thuật phân tích chi tiết từng dòng mã, thuật toán, công thức toán học chiến đấu, cấu trúc cơ sở dữ liệu và các hệ thống tính năng của Server Hiệp Sĩ Online (HSO). Được xây dựng nhằm phục vụ công tác bảo trì, gỡ lỗi và nâng cấp quy mô lớn trong tương lai.
+        </p>
+      </div>
+
+      <!-- Quick Metrics -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="label">Tổng số gói Java Source</div>
+          <div class="value">98 Class Files</div>
+          <div class="sub">Chia thành 7 phân vùng logic chính</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Cơ sở dữ liệu MySQL</div>
+          <div class="value">21 Bảng Dữ Liệu</div>
+          <div class="sub">Quản lý User, Item, Map, Mob, Clan...</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Hệ thống Tính Năng</div>
+          <div class="value">35+ Phân Hệ</div>
+          <div class="sub">Chiến trường, Tu tiên, Rương, Khảm ngọc...</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Định dạng Giao Tiếp</div>
+          <div class="value">Custom TCP Packet</div>
+          <div class="sub">Mã hóa Byte/Short/UTF nhị phân tối ưu</div>
+        </div>
+      </div>
+
+      <!-- Master Architecture Tree Map -->
+      <h2>🌳 Sơ Đồ Cây Phân Cấp Hệ Thống (Architectural Tree Map)</h2>
+      <p>Cấu trúc toàn bộ server được phân tách thành các module độc lập nhưng liên kết chặt chẽ qua luồng xử lý `Session` và `Player`:</p>
+
+      <div class="card-grid">
+        <!-- Node 1 -->
+        <div class="feature-card">
+          <h4><span class="badge blue">CORE</span> 01. Hạ Tầng Mạng & Lưu Trữ</h4>
+          <p>Xử lý kết nối Socket TCP, đa luồng, giải mã gói tin nhị phân và luồng lưu trữ CSDL MySQL tự động.</p>
+          <ul style="font-size: 13px; margin-left: 18px; margin-bottom: 12px;">
+            <li><code>Session.java</code> & <code>Message.java</code>: I/O Packet Pipeline</li>
+            <li><code>ServerManager.java</code>: Điều phối Server & Timer Tasks</li>
+            <li><code>SQL.java</code> & <code>SaveData.java</code>: MySQL Auto-saver Thread</li>
+          </ul>
+          <a href="01_core_architecture.html" class="file-ref">👉 Xem chi tiết Hạ Tầng & Packet</a>
+        </div>
+
+        <!-- Node 2 -->
+        <div class="feature-card">
+          <h4><span class="badge green">COMBAT</span> 02. Engine Chỉ Số & Kỹ Năng</h4>
+          <p>Bộ máy tính toán toán học thuộc tính (Str, Dex, Vit, Int), sát thương vật lý/phép, bạo kích, né tránh và hiệu ứng PK.</p>
+          <ul style="font-size: 13px; margin-left: 18px; margin-bottom: 12px;">
+            <li><code>Body.java</code>: Core Stat Calculation Engine</li>
+            <li><code>MapService.java</code>: Xử lý Tấn công, AOE & Hiệu ứng Skill</li>
+            <li>4 Hệ Phái: Chiến binh, Sát thủ, Pháp sư, Xạ thủ</li>
+          </ul>
+          <a href="02_combat_and_stats.html" class="file-ref">👉 Xem chi tiết Chỉ Số & Chiến Đấu</a>
+        </div>
+
+        <!-- Node 3 -->
+        <div class="feature-card">
+          <h4><span class="badge amber">ITEMS</span> 03. Vật Phẩm, Rương & Rơi Đồ</h4>
+          <p>Hệ thống túi đồ 3 loại (Item3/4/7), logic mở Rương tím/đỏ/vàng, thuật toán rơi đồ biến thiên 90%-100%, Cường hóa & Khảm ngọc.</p>
+          <ul style="font-size: 13px; margin-left: 18px; margin-bottom: 12px;">
+            <li><code>UseItem.java</code>: Logic Mở Rương Tím (207) & Đỏ (205)</li>
+            <li><code>LeaveItemMap.java</code>: Thuật toán RNG rơi trang bị từ quái</li>
+            <li>Cường hóa (+1 đến +15) & Ghép Mề đay</li>
+          </ul>
+          <a href="03_items_and_equipment.html" class="file-ref">👉 Xem chi tiết Vật Phẩm & Rương</a>
+        </div>
+
+        <!-- Node 4 -->
+        <div class="feature-card">
+          <h4><span class="badge purple">PROGRESS</span> 04. Hệ Thống Tu Luyện Sâu</h4>
+          <p>Các cơ chế phát triển sức mạnh đường dài vượt cấp: Đột phá Tu Tiên, Khai thông 8 Kinh Mạch, Thân Thể Kim Cang, Chuyển Sinh.</p>
+          <ul style="font-size: 13px; margin-left: 18px; margin-bottom: 12px;">
+            <li><code>TuTien.java</code>, <code>KinhMach.java</code>, <code>LuyenThe.java</code></li>
+            <li><code>NV_TinhTu.java</code>: 10 Nhiệm vụ Tinh tú mỗi ngày</li>
+            <li><code>CongNap.java</code>: Cống nạp Vàng & Vật phẩm</li>
+          </ul>
+          <a href="04_cultivation_systems.html" class="file-ref">👉 Xem chi tiết Hệ Thống Tu Luyện</a>
+        </div>
+
+        <!-- Node 5 -->
+        <div class="feature-card">
+          <h4><span class="badge rose">EVENTS</span> 05. Hoạt Động, PK & Sự Kiện</h4>
+          <p>Chiến trường 2 phe (kèm Bot AI), Chiếm mỏ bang hội, Thách đấu Lôi đài 1vs1, Boss Thế Giới tính Top Dame, Phó bản và Đi buôn.</p>
+          <ul style="font-size: 13px; margin-left: 18px; margin-bottom: 12px;">
+            <li><code>ChienTruong.java</code> & <code>Player_Nhan_Ban.java</code> (Bot AI)</li>
+            <li><code>BossTG.java</code> & <code>ChiemMo.java</code>: Boss & Mỏ khoáng</li>
+            <li><code>Pet_di_buon.java</code>: Cơ chế Vận Tiêu / Cướp Buôn</li>
+          </ul>
+          <a href="05_events_and_activities.html" class="file-ref">👉 Xem chi tiết Hoạt Động & Sự Kiện</a>
+        </div>
+
+        <!-- Node 6 -->
+        <div class="feature-card">
+          <h4><span class="badge blue">ECONOMY</span> 06. Xã Hội, Bang Hội & Kinh Tế</h4>
+          <p>Mô hình Bang hội, Lễ cưới Kết hôn, Gian hàng người chơi (Player Store), Giao dịch an toàn, Minigame Tài Xỉu & Vòng Xoay.</p>
+          <ul style="font-size: 13px; margin-left: 18px; margin-bottom: 12px;">
+            <li><code>Clan.java</code> & <code>Wedding.java</code></li>
+            <li><code>TaiXiu.java</code>, <code>VXMM.java</code>, <code>MoLy.java</code></li>
+            <li><code>QuaTang.java</code> & Giftcode Management</li>
+          </ul>
+          <a href="06_social_and_economy.html" class="file-ref">👉 Xem chi tiết Xã Hội & Kinh Tế</a>
+        </div>
+      </div>
+
+      <!-- Core Principle Callout -->
+      <div class="callout info">
+        <div class="callout-title">💡 Nguyên Tắc Thiết Kế Server HSO</div>
+        <p>
+          Mọi quyết định về chỉ số trang bị, tỉ lệ thành công nâng cấp, kết quả xúc xắc, lượng damage gây ra và phần thưởng rơi từ quái đều được <strong>tính toán và kiểm soát 100% tại Server</strong>. Client hoàn toàn không thể gửi packet giả mạo để can thiệp vào chỉ số, cấp độ hay sử dụng kỹ năng chưa học.
+        </p>
+      </div>
+
+      <!-- Roadmap link -->
+      <h2>🚀 Kế Hoạch Đọc & Nâng Cấp</h2>
+      <p>Để tìm hiểu và nâng cấp server một cách bài bản, bạn nên đọc tài liệu theo lộ trình sau:</p>
+      <ol>
+        <li><strong>Nắm vững Hạ tầng mạng & Luồng Packet</strong> trong <a href="01_core_architecture.html">Chương 01</a>.</li>
+        <li><strong>Hiểu rõ Công thức tính toán Sát thương & Logic Kỹ năng</strong> trong <a href="02_combat_and_stats.html">Chương 02</a>.</li>
+        <li><strong>Nắm chắc Quy trình Sinh đồ, Rương & Cường hóa</strong> trong <a href="03_items_and_equipment.html">Chương 03</a>.</li>
+        <li><strong>Khám phá các Hệ thống Mở rộng & Hoạt động</strong> trong <a href="04_cultivation_systems.html">Chương 04</a> & <a href="05_events_and_activities.html">Chương 05</a>.</li>
+        <li><strong>Đọc Báo cáo Điểm yếu & Lộ trình Nâng cấp</strong> tại <a href="08_upgrade_roadmap.html">Chương 08</a>.</li>
+      </ol>
+
+      <div class="page-nav">
+        <div></div>
+        <a href="01_core_architecture.html" class="page-nav-btn" style="text-align: right;">
+          <span class="sub">Bắt đầu đọc</span>
+          <span class="title">01. Hạ Tầng & Packet Protocol →</span>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

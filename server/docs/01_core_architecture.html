@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01. Hạ Tầng Cốt Lõi, Socket & Packet Protocol - Server HSO</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Sidebar Navigation Tree -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚔️</div>
+      <div class="brand-text">
+        <h1>HSO Core Engine</h1>
+        <span>v2.0 Architectural Docs</span>
+      </div>
+    </div>
+
+    <div class="nav-section-title">Hệ Thống & Báo Cáo</div>
+    <ul class="nav-links">
+      <li><a href="index.html"><span class="nav-num">00</span> Tổng Quan & Cây Hệ Thống</a></li>
+      <li><a href="01_core_architecture.html" class="active"><span class="nav-num">01</span> Hạ Tầng & Packet Protocol</a></li>
+      <li><a href="02_combat_and_stats.html"><span class="nav-num">02</span> Engine Chỉ Số & Chiến Đấu</a></li>
+      <li><a href="03_items_and_equipment.html"><span class="nav-num">03</span> Vật Phẩm, Rương & Rơi Đồ</a></li>
+      <li><a href="04_cultivation_systems.html"><span class="nav-num">04</span> Hệ Thống Tu Luyện Sâu</a></li>
+      <li><a href="05_events_and_activities.html"><span class="nav-num">05</span> Hoạt Động & Sự Kiện</a></li>
+      <li><a href="06_social_and_economy.html"><span class="nav-num">06</span> Xã Hội, Bang Hội & Kinh Tế</a></li>
+      <li><a href="07_npc_and_menu_routing.html"><span class="nav-num">07</span> MenuController & NPC</a></li>
+      <li><a href="08_upgrade_roadmap.html"><span class="nav-num">08</span> Định Hướng Nâng Cấp</a></li>
+      <li><a href="09_default_equipment_catalog.html"><span class="nav-num">09</span> Tra Cứu Đồ Mặc Định DB</a></li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <span style="font-size: 11px; color: var(--text-muted);">© 2026 HSO Dev Team</span>
+      <button id="theme-toggle-btn" class="theme-toggle">🌙 Tối</button>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="main-wrapper">
+    <header class="top-bar">
+      <div class="breadcrumb">
+        <a href="index.html">Tài Liệu Server</a>
+        <span>/</span>
+        <span class="current">01. Hạ Tầng & Packet Protocol</span>
+      </div>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="doc-search-input" placeholder="Tìm packet ID, class, luồng xử lý...">
+      </div>
+    </header>
+
+    <main class="content-container">
+      <div class="doc-header">
+        <span class="doc-tag badge blue">Networking & Database Pipeline</span>
+        <h1 class="doc-title">Chương 01: Hạ Tầng Mạng, Vòng Đời & Packet Protocol</h1>
+        <p class="doc-desc">
+          Phân tích toàn diện luồng kết nối TCP, vòng đời Server, cơ chế xử lý đa luồng, giải mã nhị phân nhị phân (Binary Protocol) và đường ống lưu trữ CSDL MySQL.
+        </p>
+      </div>
+
+      <!-- 1. Vòng Đời & Khởi Động -->
+      <h2>1. Vòng Đời & Khởi Động Server (Server Lifecycle)</h2>
+      <p>Hệ thống khởi chạy từ <span class="file-ref">core/Start.java</span> và điều phối bởi <span class="file-ref">core/ServerManager.java</span>:</p>
+
+      <div class="card-grid">
+        <div class="feature-card">
+          <h4>1. Nạp Cấu Hình & Database</h4>
+          <p>Đọc file <code>hso.conf</code> (Cổng port, MySQL host, user, pass, database name). Khởi tạo kết nối <code>SQL.gI().init()</code>.</p>
+        </div>
+        <div class="feature-card">
+          <h4>2. Nạp Cache Dữ Liệu Tĩnh</h4>
+          <p>Hàm <code>Manager.gI().init()</code> nạp toàn bộ Template: Item 3/4/7, Quái vật, Bản đồ, Kỹ năng, NPC, Thời trang vào RAM (HashMap / List).</p>
+        </div>
+        <div class="feature-card">
+          <h4>3. Khởi Chạy Background Threads</h4>
+          <p>Kích hoạt luồng <code>SaveData</code> (tự động lưu nhân vật), Timer các sự kiện định kỳ (Chiến trường, Boss TG, Đấu giá, Chiếm mỏ).</p>
+        </div>
+        <div class="feature-card">
+          <h4>4. Mở Cổng Socket Lắng Nghe</h4>
+          <p>Mở <code>ServerSocket</code> trên port đã định cấu hình. Mỗi kết nối mới sinh ra 1 đối tượng <code>Session</code> với 2 luồng đọc/ghi riêng biệt.</p>
+        </div>
+      </div>
+
+      <!-- 2. Socket Pipeline & Giao Thức Message -->
+      <h2>2. Đường Ống Mạng & Giao Thức Nhị Phân (Binary Packet Pipeline)</h2>
+      <p>Mô hình truyền thông điệp giữa Client và Server sử dụng chuẩn nhị phân tùy biến (Big-Endian Data Streams):</p>
+
+      <pre><code>// Cấu trúc một khung tin nhắn (Frame) trên đường truyền:
+[Byte: Command ID] + [Int/Short: Data Length (nếu có)] + [Binary Payload: DataInputStream / DataOutputStream]</code></pre>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Thành Phần</th>
+              <th>File Mã Nguồn</th>
+              <th>Nhiệm Vụ & Chi Tiết Kỹ Thuật</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Session</code></td>
+              <td><span class="file-ref">io/Session.java</span></td>
+              <td>Đại diện cho 1 socket client. Quản lý <code>DataInputStream</code> (luồng nhận), <code>DataOutputStream</code> (luồng gửi), hàng đợi tin nhắn gửi ra (Send Queue) và khóa đồng bộ.</td>
+            </tr>
+            <tr>
+              <td><code>Message</code></td>
+              <td><span class="file-ref">io/Message.java</span></td>
+              <td>Bao bọc <code>ByteArrayOutputStream</code> / <code>DataOutputStream</code> (ghi dữ liệu) hoặc <code>ByteArrayInputStream</code> / <code>DataInputStream</code> (đọc dữ liệu). Hỗ trợ đọc/ghi byte, short, int, long, UTF string, boolean.</td>
+            </tr>
+            <tr>
+              <td><code>MessageHandler</code></td>
+              <td><span class="file-ref">client/MessageHandler.java</span></td>
+              <td>Bộ điều hướng gói tin đầu vào (Incoming Packet Router). Phân luồng lệnh switch-case dựa theo Command ID từ client gửi lên.</td>
+            </tr>
+            <tr>
+              <td><code>Service</code></td>
+              <td><span class="file-ref">core/Service.java</span></td>
+              <td>Tập hợp các hàm trợ năng đóng gói Message gửi từ Server về Client (Send Notice, Send Chat, Send Dialog, Send Character Info...).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 3. Bảng Tra Cứu Packet Protocol Toàn Diện -->
+      <h2>3. Bảng Tra Cứu Mã Lệnh Packet Protocol (Comprehensive Packet Map)</h2>
+      <p>Tổng hợp các Command ID cốt lõi thường xuyên trao đổi giữa Client và Server:</p>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>CMD ID</th>
+              <th>Chiều</th>
+              <th>Tên / Mục Đích</th>
+              <th>Cấu Trúc Dữ Liệu (Payload)</th>
+              <th>Hàm Xử Lý Phía Server</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>-1</code></td>
+              <td>Client → Server</td>
+              <td>Đăng nhập (Login)</td>
+              <td>writeUTF(username), writeUTF(password), writeUTF(version)</td>
+              <td><code>MessageHandler.process_login()</code></td>
+            </tr>
+            <tr>
+              <td><code>-2</code></td>
+              <td>Client → Server</td>
+              <td>Tạo nhân vật (Create Char)</td>
+              <td>writeUTF(name), writeByte(clazz), writeByte(head), writeByte(eye), writeByte(hair)</td>
+              <td><code>MessageHandler.create_char()</code></td>
+            </tr>
+            <tr>
+              <td><code>-5</code></td>
+              <td>Server → Client</td>
+              <td>Đăng nhập thành công</td>
+              <td>Danh sách nhân vật, thông tin thế giới</td>
+              <td><code>Service.send_list_char()</code></td>
+            </tr>
+            <tr>
+              <td><code>1</code></td>
+              <td>Client → Server</td>
+              <td>Di chuyển nhân vật (Move)</td>
+              <td>writeShort(x), writeShort(y)</td>
+              <td><code>MapService.player_move()</code></td>
+            </tr>
+            <tr>
+              <td><code>9</code></td>
+              <td>Client ⇄ Server</td>
+              <td>Tấn công / Tung chiêu (Attack)</td>
+              <td>writeByte(index_skill), writeByte(target_count), writeShort(target_id...)</td>
+              <td><code>MapService.fire_mob()</code> / <code>fire_player()</code></td>
+            </tr>
+            <tr>
+              <td><code>16</code></td>
+              <td>Server → Client</td>
+              <td>Cập nhật Hành trang (Inventory Sync)</td>
+              <td>writeByte(type_bag), writeLong(vang), writeInt(ngoc), danh sách Item & Options</td>
+              <td><code>Item.char_inventory()</code></td>
+            </tr>
+            <tr>
+              <td><code>19</code></td>
+              <td>Server → Client</td>
+              <td>Vật phẩm rơi trên Map (Drop Display)</td>
+              <td>writeByte(cat), writeShort(mob_idx), writeShort(icon), writeShort(map_idx), writeUTF(name), writeByte(color)</td>
+              <td><code>LeaveItemMap.leave_item_by_type3()</code></td>
+            </tr>
+            <tr>
+              <td><code>20</code></td>
+              <td>Client ⇄ Server</td>
+              <td>Nhặt vật phẩm (Pick Item)</td>
+              <td>writeShort(map_item_index), writeByte(category)</td>
+              <td><code>Map.pick_item()</code></td>
+            </tr>
+            <tr>
+              <td><code>21</code></td>
+              <td>Client → Server</td>
+              <td>Dùng vật phẩm (Use Item)</td>
+              <td>writeByte(type_bag), writeShort(index_bag)</td>
+              <td><code>UseItem.useitem()</code></td>
+            </tr>
+            <tr>
+              <td><code>32</code></td>
+              <td>Client ⇄ Server</td>
+              <td>Tương tác NPC / Chọn Menu</td>
+              <td>writeShort(npc_id), writeByte(menu_index)</td>
+              <td><code>MenuController.process_menu()</code></td>
+            </tr>
+            <tr>
+              <td><code>40</code></td>
+              <td>Server → Client</td>
+              <td>Thêm hiệu ứng Buff/Debuff</td>
+              <td>writeByte(type), writeShort(target_id), writeByte(eff_id), writeInt(duration), danh sách param</td>
+              <td><code>MapService.add_eff_skill_msg()</code></td>
+            </tr>
+            <tr>
+              <td><code>78</code></td>
+              <td>Server → Client</td>
+              <td>Hiệu ứng Mở rương quà tặng</td>
+              <td>writeUTF(title), writeByte(item_count), danh sách icon, name, quantity, color</td>
+              <td><code>UseItem.case 205/207</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 4. Hệ Thống Đa Luồng & Timer -->
+      <h2>4. Mô Hình Xử Lý Đa Luồng & Timer (Threading Model)</h2>
+      
+      <div class="callout warning">
+        <div class="callout-title">⚠️ Điểm Cần Lưu Ý Khi Nâng Cấp Đa Luồng</div>
+        <p>
+          Server sử dụng cơ chế khóa phân đoạn theo Map: <code>synchronized (map)</code> cho các thao tác chiến đấu, nhặt đồ và di chuyển. Điều này giúp ngăn chặn Race Condition giữa người chơi trong cùng một khu vực nhưng có thể gây giật lag cục bộ nếu có quá nhiều vòng lặp nặng trong khối synchronized.
+        </p>
+      </div>
+
+      <ul>
+        <li><strong>Luồng Socket Listener (1 Thread)</strong>: Chấp nhận kết nối mới và khởi tạo Session.</li>
+        <li><strong>Luồng Đọc Gói Tin (1 Thread / Client)</strong>: Vòng lặp liên tục đọc byte từ socket và chuyển cho MessageHandler.</li>
+        <li><strong>Luồng Gửi Gói Tin (1 Thread / Client)</strong>: Lấy Message từ hàng đợi <code>List&lt;Message&gt;</code> và ghi vào socket OutputStream.</li>
+        <li><strong>Luồng Cập Nhật Map / Mob (Map Update Thread)</strong>: Định kỳ 500ms - 1000ms hồi sinh quái vật, trừ thời gian tồn tại của vật phẩm rơi và giải phóng phó bản hết giờ.</li>
+        <li><strong>Luồng Auto-Save (<span class="file-ref">core/SaveData.java</span>)</strong>: Chạy nền định kỳ 5 phút lưu toàn bộ người chơi đang online vào MySQL để tránh mất dữ liệu khi máy chủ mất điện đột ngột.</li>
+      </ul>
+
+      <!-- 5. Cơ Sở Dữ Liệu MySQL -->
+      <h2>5. Kiến Trúc Lưu Trữ Dữ Liệu (MySQL Storage Architecture)</h2>
+      <p>Dữ liệu nhân vật được lưu trữ theo mô hình lai (Relational + JSON Serialization) trong bảng <code>player</code>:</p>
+
+      <pre><code>-- Cấu trúc bảng player cốt lõi:
+CREATE TABLE `player` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `name` varchar(30) NOT NULL,
+  `clazz` tinyint(4) NOT NULL,           -- 0: Chiến Binh, 1: Sát Thủ, 2: Pháp Sư, 3: Xạ Thủ
+  `level` smallint(6) NOT NULL,
+  `exp` bigint(20) NOT NULL,
+  `vang` bigint(20) NOT NULL,
+  `ngoc` int(11) NOT NULL,
+  `item3` text NOT NULL,                 -- JSON array chứa toàn bộ trang bị mặc và trong rương
+  `item4` text NOT NULL,                 -- JSON array chứa dược phẩm, rương, phù
+  `item7` text NOT NULL,                 -- JSON array chứa ngọc, đá nâng cấp, NLMD
+  `skill` text NOT NULL,                 -- JSON array điểm kỹ năng đã cộng
+  `tutien` varchar(100) DEFAULT '[0,0]', -- Cảnh giới tu tiên và điểm tích lũy
+  `kinhmach` varchar(100) DEFAULT '[0,0]',-- Tầng kinh mạch và điểm khai thông
+  `luyenthe` tinyint(4) DEFAULT 0,       -- Cấp độ luyện thể
+  `nv_tinh_tu` varchar(100) DEFAULT '[0,0,0,0]', -- Tiến độ nhiệm vụ tinh tú
+  PRIMARY KEY (`id`)
+);</code></pre>
+
+      <div class="page-nav">
+        <a href="index.html" class="page-nav-btn">
+          <span class="sub">Quay lại</span>
+          <span class="title">← 00. Tổng Quan & Cây Hệ Thống</span>
+        </a>
+        <a href="02_combat_and_stats.html" class="page-nav-btn" style="text-align: right;">
+          <span class="sub">Tiếp theo</span>
+          <span class="title">02. Engine Chỉ Số & Kỹ Năng →</span>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -60,6 +60,11 @@ public class MapService {
         p.other_player_inside.clear();
         p.other_mob_inside.clear();
         p.other_mob_inside_update.clear();
+        try {
+            update_inside_player(map, null, p);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public static void leave(Map map, Player p) {
@@ -323,7 +328,9 @@ public class MapService {
                 if (!p.other_player_inside.containsKey(p0.id)) {
                     p.other_player_inside.put(p0.id, true);
                 }
-                p0.conn.addmsg(m);
+                if (m != null) {
+                    p0.conn.addmsg(m);
+                }
                 if (p.other_player_inside.get(p0.id)) {
                     m4.writer().writeByte(0);
                     m4.writer().writeShort(0);
@@ -1340,7 +1347,7 @@ m.writer().writeInt ((int) Math.min(p0.hp, Integer.MAX_VALUE));
             }
             m.writer().writeByte(p0.fashion.length);
             for (int i = 0; i < p0.fashion.length; i++) {
-                m.writer().writeByte(p0.fashion[i]);
+                m.writer().writeShort(p0.fashion[i]);
             }
             //
             m.writer().writeShort(p0.id_henshin);
@@ -2445,7 +2452,7 @@ if (mob.template.mob_id == 23 || mob.template.mob_id == 17) {
                 } else {
                     // item drop
                     if (Math.abs(mob.level - p.level) <= 10 && !check_mob_roi_ngoc_kham && p.dropnlmd == 1) {
-                        if (10 > Util.random(0, 300) || mob.color_name != 0) {
+                        if (1 > Util.random(0, 15) || mob.color_name != 0) {
                             LeaveItemMap.leave_item_3(map, mob, p);
                         }
                         if (20 > Util.random(0, 300)) {
@@ -2464,7 +2471,7 @@ if (mob.template.mob_id == 23 || mob.template.mob_id == 17) {
                             LeaveItemMap.leave_item_event(map, mob, p);
                         }
                     }if (Math.abs(mob.level - p.level) <= 10 && !check_mob_roi_ngoc_kham && p.dropnlmd == 0) {
-                        if (10 > Util.random(0, 300) || mob.color_name != 0) {
+                        if (1 > Util.random(0, 15) || mob.color_name != 0) {
                             LeaveItemMap.leave_item_3(map, mob, p);
                         }
                         if (20 > Util.random(0, 300)) {

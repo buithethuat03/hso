@@ -1,0 +1,235 @@
+// Generated from tools/luna/N4NpcHome.java.in by N4NpcHomePatcher gen; do not edit the output.
+/**
+ * Auto Nga 4 - B1/B2 o Lang Soi Trang: toi dung cho Pho chi huy, qua lau thi dung Bua ve lang.
+ *
+ * N4NpcHomePatcher sua HSOAutoTradeSupport:
+ *   - n4StepHome(): hai cap hang so (588,564) -> homeX()/homeY();
+ *   - n4StepHome(), n4StepTalk(): dau ham them "if (guard()) return;".
+ *
+ * Cho dung: toa do thuc the NPC Pho chi huy, CHOT MOT LAN moi luot (khong bam theo neu so
+ * nhay, khong tinh lai giua duong). Da toi gan thi tra ve chinh cho nhan vat dang dung, nen
+ * n4StepHome thay "da toi" va khong giao duong nao nua - nhan vat dung yen. Chua thay NPC thi
+ * cung dung yen cho, khong chay ve toa do cu cua server khac.
+ *
+ * Qua ENTER_TIMEOUT_MS o Lang Soi Trang ma chua vao duoc pho ban thi dung Bua ve lang, dua
+ * Auto Nga 4 ve B1 va doi dich chuyen xong roi lam lai tu dau.
+ *
+ * Moi ham deu bat Throwable: n4Tick dung han ca auto ("Lỗi bất ngờ") khi co loi lot ra.
+ */
+final class HSON4NpcHome {
+    static final int TOWN_MAP = 1;
+    static final int N4_HOME = 1;
+    static final String NAME_EXACT = "phó chỉ huy";
+    static final String NAME = "chỉ huy";
+    static final int NPC_ID = -37;
+    /** Trong khoang nay quanh NPC la da toi, dung yen. */
+    static final int NEAR_PX = 40;
+    static final int MAX_RING = 3;
+    static final int[] ORDER = {0, 1, -1, 1, 1, 1, -1, 0, 1, 0, 0, -1, -1, -1, 1, -1};
+
+    static final long ENTER_TIMEOUT_MS = 15000L;
+    /** Hook khong duoc goi lau hon muc nay = da sang buoc khac (vao pho ban, tat auto): luot moi. */
+    static final long ROUND_GAP_MS = 3000L;
+    static final long SCROLL_SETTLE_MS = 3000L;
+    static final int MAX_SCROLLS = 3;
+    static final String NAME_SCROLL = "bùa về làng";
+    static final int SCROLL_ID = 142;
+
+    static long lastCall;
+    static long roundSince;
+    static long scrollAt;
+    static int scrollUses;
+    static boolean locked;
+    static int npcX;
+    static int npcY;
+    static boolean missReported;
+    static int tx;
+    static int ty;
+
+    // ------------------------------------------------------------ dong ho 15s / Bua ve lang
+
+    /** Goi o dau n4StepHome/n4StepTalk. true = bo qua phan con lai cua buoc nay. */
+    static boolean guard() {
+        try {
+            long now = System.currentTimeMillis();
+            if (now - lastCall > ROUND_GAP_MS) newRound();
+            lastCall = now;
+            if (scrollAt != 0L) {
+                if (now - scrollAt < SCROLL_SETTLE_MS) return true;
+                if (HSOAutoTradeSupport.player() == null || HSOAutoTradeSupport.tileGrid() == null) return true;
+                scrollAt = 0L;
+                roundSince = 0L;
+                locked = false;
+            }
+            if (HSOAutoTradeSupport.mapId() != TOWN_MAP) {
+                roundSince = 0L;                 // B1 dang tu ve lang
+                locked = false;
+                return false;
+            }
+            if (roundSince == 0L) roundSince = now;
+            if (now - roundSince < ENTER_TIMEOUT_MS) return false;
+            useScroll(now);
+            return true;
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    static void newRound() {
+        roundSince = 0L;
+        scrollAt = 0L;
+        scrollUses = 0;
+        locked = false;
+        missReported = false;
+    }
+
+    static void useScroll(long now) {
+        if (++scrollUses > MAX_SCROLLS) {
+            HSOAutoTradeSupport.n4Stop("Đã dùng Bùa về làng " + MAX_SCROLLS
+                    + " lần mà vẫn không vào được phó bản, đã dừng Auto Ngã 4.");
+            return;
+        }
+        @class.PLAYER@ me = HSOAutoTradeSupport.player();
+        if (me != null) HSOAutoTradeSupport.haltWalk(me);
+        // Ve B1 truoc khi dich chuyen: doi map luc dang B2 se bi hieu nham la da vao pho ban.
+        HSOAutoTradeSupport.n4SetState(N4_HOME);
+        locked = false;
+        int id = findScroll();
+        if (id < 0) {
+            roundSince = now;
+            say("Quá 15 giây chưa vào được phó bản nhưng không có Bùa về làng trong hành trang, thử lại.");
+            return;
+        }
+        HSOAutoTradeSupport.sender().@sender.useItem4@((short) id);
+        scrollAt = now;
+        say(new StringBuffer("Quá 15 giây chưa vào được phó bản, dùng Bùa về làng (lần ")
+                .append(scrollUses).append(").").toString());
+    }
+
+    /**
+     * Id vat pham "Bùa về làng" ("Di chuyển nhanh về làng sói trắng"), hoac -1. Theo ten thi
+     * nhan moi tui; du phong id 142 (ModUpLv) chi trong tui tieu hao.
+     */
+    static int findScroll() {
+        @class.VEC@ bag = @class.ITEM@.@item.bag@;
+        if (bag == null) return -1;
+        int byId = -1;
+        for (int i = 0; i < bag.@vec.size@(); i++) {
+            Object o = bag.@vec.get@(i);
+            if (!(o instanceof @class.ITEM@)) continue;
+            @class.ITEM@ it = (@class.ITEM@) o;
+            String name = HSOAutoTradeSupport.itemName(it);
+            if (name != null && name.toLowerCase().indexOf(NAME_SCROLL) >= 0) return it.@item.id@;
+            if (it.@item.category@ == 4 && it.@item.id@ == SCROLL_ID) byId = SCROLL_ID;
+        }
+        return byId;
+    }
+
+    // ------------------------------------------------------------ cho dung canh NPC
+
+    static int homeX() {
+        try {
+            target();
+        } catch (Throwable t) {
+            stay();
+        }
+        return tx;
+    }
+
+    static int homeY() {
+        return ty;
+    }
+
+    static void target() {
+        if (!locked) {
+            @class.ENTITY@ npc = find();
+            if (npc != null) {
+                npcX = npc.@entity.x@;
+                npcY = npc.@entity.y@;
+                locked = true;
+                missReported = false;
+                say(new StringBuffer("Thấy Phó chỉ huy ở (").append(npcX).append(',').append(npcY)
+                        .append("), đi tới đó.").toString());
+            }
+        }
+        if (!locked) {
+            if (!missReported) {
+                missReported = true;
+                say("Chưa thấy NPC Phó chỉ huy trên map, đứng chờ.");
+            }
+            stay();
+            return;
+        }
+        int wx = npcX;
+        int wy = npcY;
+        int tile = @class.TILEMAP@.@tilemap.tileSize@;
+        if (tile > 0 && !HSOAutoTradeSupport.noclipOn && HSOAutoTradeSupport.tileGrid() != null
+                && !HSOAutoTradeSupport.walkableTile(npcX / tile, npcY / tile)) {
+            // O duoi chan NPC khong di duoc thi tim duong toi o sat no.
+            int[] near = nearestWalkable(npcX / tile, npcY / tile, tile);
+            if (near != null) {
+                wx = near[0];
+                wy = near[1];
+            }
+        }
+        if (close(npcX, npcY, NEAR_PX) || close(wx, wy, 16 + (tile > 0 ? tile : 0))) {
+            stay();                              // da toi: dung yen, khong giao duong nao nua
+            return;
+        }
+        tx = wx;
+        ty = wy;
+    }
+
+    static void stay() {
+        @class.PLAYER@ me = HSOAutoTradeSupport.player();
+        if (me == null) return;
+        tx = me.@player.x@;
+        ty = me.@player.y@;
+    }
+
+    static boolean close(int x, int y, int slack) {
+        @class.PLAYER@ me = HSOAutoTradeSupport.player();
+        return me != null && Math.abs(me.@player.x@ - x) <= slack && Math.abs(me.@player.y@ - y) <= slack;
+    }
+
+    static int[] nearestWalkable(int ntx, int nty, int tile) {
+        for (int r = 1; r <= MAX_RING; r++) {
+            for (int k = 0; k < ORDER.length; k += 2) {
+                int x = ntx + ORDER[k] * r;
+                int y = nty + ORDER[k + 1] * r;
+                if (HSOAutoTradeSupport.walkableTile(x, y)) return new int[]{x * tile + tile / 2, y * tile + tile / 2};
+            }
+        }
+        return null;
+    }
+
+    static @class.ENTITY@ find() {
+        @class.VEC@ list = @class.CHARS@.@chars.entities@;
+        if (list == null) return null;
+        @class.ENTITY@ best = null;
+        int bestRank = 0;
+        for (int i = 0; i < list.@vec.size@(); i++) {
+            Object o = list.@vec.get@(i);
+            if (!(o instanceof @class.ENTITY@)) continue;
+            @class.ENTITY@ e = (@class.ENTITY@) o;
+            if (e.@entity.kind@ != 2) continue;
+            String name = e.@entity.name@ == null ? "" : e.@entity.name@.toLowerCase();
+            int rank = name.indexOf(NAME_EXACT) >= 0 ? 3
+                    : e.@entity.npcId@ == NPC_ID ? 2
+                    : name.indexOf(NAME) >= 0 ? 1 : 0;
+            if (rank > bestRank) {
+                best = e;
+                bestRank = rank;
+            }
+        }
+        return best;
+    }
+
+    static void say(String text) {
+        try {
+            HSOAutoTradeSupport.notice(text);
+        } catch (Throwable t) {
+            // notice chi la thong bao; khong de no lam dung auto
+        }
+    }
+}

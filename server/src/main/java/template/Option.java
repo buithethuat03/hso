@@ -11,6 +11,13 @@ public class Option {
 		this.param = param;
 	}
 
+	public int getParam(int tier, byte itemType) {
+		if (itemType == 16 && (this.id >= 1 && this.id <= 4)) {
+			return this.param;
+		}
+		return getParam(tier);
+	}
+
 	public int getParam(int tier) {
 		if (tier == 0) {
 			return param;

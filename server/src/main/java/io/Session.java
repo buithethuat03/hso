@@ -61,7 +61,7 @@ public class Session implements Runnable {
     public String[] list_char;
     public byte zoomlv;
     public byte status = 1;
-    public boolean get_in4;
+    public volatile boolean get_in4;
     public Set<String> moc_nap;
 
     public Session(Socket socket) {
@@ -98,6 +98,7 @@ public class Session implements Runnable {
                     }
                 } catch (InterruptedException e) {
                 } catch (IOException e) {
+                    System.err.println("[sendd error] user=" + this.user + ": " + e.getMessage());
                 } finally {
                     // disconnect();
                 }
@@ -163,7 +164,7 @@ public class Session implements Runnable {
             e.printStackTrace();
         }
         synchronized (Session.client_entrys) {
-            if (this.p != null && Session.players.containsKey(this.user)) {
+            if (this.user != null && Session.players.containsKey(this.user)) {
                 Session.players.remove(this.user);
             }
             Session.client_entrys.remove(this);
@@ -228,6 +229,7 @@ public class Session implements Runnable {
                 }
             }
         } catch (IOException e) {
+            System.err.println("[receiv error] user=" + this.user + ": " + e.getMessage());
         } finally {
             if (!this.socket.isClosed()) {
                 disconnect();
@@ -359,6 +361,14 @@ public class Session implements Runnable {
     public void getclientin4(Message m) throws IOException {
         String user_ = m.reader().readUTF();
         String pass_ = m.reader().readUTF();
+        boolean retryHandshake = this.get_in4 && this.p == null;
+        // get_in4 means the account handshake was accepted; it must not make
+        // a loading/reconnect session permanently ignore a fresh login packet.
+        // Keep it false until this attempt has queued the character list.
+        this.get_in4 = false;
+        System.out.println("[login] handshake start user=" + user_
+                + " requested=" + user_ + " retry=" + retryHandshake
+                + " player=" + (this.p != null));
         moc_nap = new HashSet<>();
         
         
@@ -473,6 +483,7 @@ public class Session implements Runnable {
             this.pass = pass_;
         }
         if (indexCharPar != Manager.gI().indexCharPar) {
+            System.out.println("[login] user=" + user_ + " sending char_part (indexCharPar mismatch: client=" + indexCharPar + " server=" + Manager.gI().indexCharPar + ")");
             Message m13 = new Message(63);
             m13.writer().writeByte(Manager.gI().indexRes);
             addmsg(m13);
@@ -480,6 +491,7 @@ public class Session implements Runnable {
             //
             send_char_part();
         } else {
+            System.out.println("[login] user=" + user_ + " sending listchar_board (indexCharPar match)");
             send_listchar_board();
         }
         //
@@ -489,14 +501,27 @@ public class Session implements Runnable {
         addmsg(md);
         md.cleanup();
         //
+        System.out.println("[login] user=" + user_ + " sending icons zoomlv=" + zoomlv);
         for (int id0 = 10200; id0 < 10242; id0++) {
             Message m22 = new Message(-51);
             m22.writer().writeShort(id0);
-            m22.writer().write(Util.loadfile("data/icon/x" + zoomlv + "/" + id0 + ".png"));
+            byte[] iconData = Util.loadfile("data/icon/x" + zoomlv + "/" + id0 + ".png");
+            if (iconData == null) {
+                System.err.println("[login] WARN: icon null for x" + zoomlv + "/" + id0 + ".png");
+                m22.cleanup();
+                continue;
+            }
+            m22.writer().write(iconData);
             addmsg(m22);
             m22.cleanup();
         }
-        this.get_in4 = true;
+        System.out.println("[login] user=" + user_ + " login flow complete");
+        // For a char-part mismatch send_char_part() finishes asynchronously;
+        // that worker marks get_in4 after the list-character packet is queued.
+        // The match path has already queued the list and can be marked ready.
+        if (indexCharPar == Manager.gI().indexCharPar) {
+            this.get_in4 = true;
+        }
     }
 
     public void send_char_part() {
@@ -535,7 +560,15 @@ public class Session implements Runnable {
                     m.cleanup();
                 }
                 send_listchar_board();
+                // Do not report the handshake as ready before opcode 13 is
+                // queued.  A retry is allowed while this worker is incomplete.
+                this.get_in4 = true;
+                System.out.println("[login] user=" + this.user
+                        + " char_part/listchar queued; handshake ready");
             } catch (IOException e) {
+                this.get_in4 = false;
+                System.err.println("[login] char_part failed user=" + this.user
+                        + ": " + e.getMessage());
                 e.printStackTrace();
             }
         }).start();
@@ -641,9 +674,9 @@ public class Session implements Runnable {
         }
         byte clazz = m.reader().readByte();
         String name = m.reader().readUTF().toLowerCase();
+        byte head = m.reader().readByte();
         byte hair = m.reader().readByte();
         byte eye = m.reader().readByte();
-        byte head = m.reader().readByte();
         //
         Pattern p = Pattern.compile("^[a-zA-Z0-9]{6,10}$");
         if (!p.matcher(name).matches()) {

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>05. Hoạt Động Lớn, PK Chiến Trường & Sự Kiện - Bảng Số Liệu Cụ Thể</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Sidebar Navigation Tree -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚔️</div>
+      <div class="brand-text">
+        <h1>HSO Core Engine</h1>
+        <span>v2.0 Architectural Docs</span>
+      </div>
+    </div>
+
+    <div class="nav-section-title">Hệ Thống & Báo Cáo</div>
+    <ul class="nav-links">
+      <li><a href="index.html"><span class="nav-num">00</span> Tổng Quan & Cây Hệ Thống</a></li>
+      <li><a href="01_core_architecture.html"><span class="nav-num">01</span> Hạ Tầng & Packet Protocol</a></li>
+      <li><a href="02_combat_and_stats.html"><span class="nav-num">02</span> Engine Chỉ Số & Chiến Đấu</a></li>
+      <li><a href="03_items_and_equipment.html"><span class="nav-num">03</span> Vật Phẩm, Rương & Rơi Đồ</a></li>
+      <li><a href="04_cultivation_systems.html"><span class="nav-num">04</span> Hệ Thống Tu Luyện Sâu</a></li>
+      <li><a href="05_events_and_activities.html" class="active"><span class="nav-num">05</span> Hoạt Động & Sự Kiện</a></li>
+      <li><a href="06_social_and_economy.html"><span class="nav-num">06</span> Xã Hội, Bang Hội & Kinh Tế</a></li>
+      <li><a href="07_npc_and_menu_routing.html"><span class="nav-num">07</span> MenuController & NPC</a></li>
+      <li><a href="08_upgrade_roadmap.html"><span class="nav-num">08</span> Định Hướng Nâng Cấp</a></li>
+      <li><a href="09_default_equipment_catalog.html"><span class="nav-num">09</span> Tra Cứu Đồ Mặc Định DB</a></li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <span style="font-size: 11px; color: var(--text-muted);">© 2026 HSO Dev Team</span>
+      <button id="theme-toggle-btn" class="theme-toggle">🌙 Tối</button>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="main-wrapper">
+    <header class="top-bar">
+      <div class="breadcrumb">
+        <a href="index.html">Tài Liệu Server</a>
+        <span>/</span>
+        <span class="current">05. Hoạt Động & Sự Kiện</span>
+      </div>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="doc-search-input" placeholder="Tìm thông số chiến trường, boss, lôi đài...">
+      </div>
+    </header>
+
+    <main class="content-container">
+      <div class="doc-header">
+        <span class="doc-tag badge rose">World Event Data & Combat Rules</span>
+        <h1 class="doc-title">Chương 05: Bảng Thông Số Hoạt Động Lớn, PK Chiến Trường & Sự Kiện</h1>
+        <p class="doc-desc">
+          Số liệu chi tiết từ mã nguồn: Khung giờ hoạt động, lượng máu và kỹ năng Boss Thế Giới, cơ chế tính điểm Chiến Trường, luật đặt cược Lôi Đài và thông số Pet Đi Buôn.
+        </p>
+      </div>
+
+      <!-- 1. Chiến Trường Phe Toàn Diện -->
+      <h2>1. Thông Số Hoạt Động Chiến Trường Phe (<span class="file-ref">event_daily/ChienTruong.java</span>)</h2>
+      
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Hạng Mục</th>
+              <th>Giá Trị Cụ Thể Trong Mã Nguồn</th>
+              <th>Quy Tắc & Cơ Chế Hoạt Động</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Thời Gian Diễn Ra</strong></td>
+              <td>14h00 - 14h30 & 20h00 - 20h30 hàng ngày</td>
+              <td>Mở đăng ký trước 10 phút tại NPC Quản Lý Chiến Trường</td>
+            </tr>
+            <tr>
+              <td><strong>Nhà Chính & Trụ Bảo Vệ</strong></td>
+              <td>Mob ID: <code>89, 90, 91, 92</code> (Máu: 2.000.000 HP)</td>
+              <td>Bảo vệ căn cứ 2 phe Ánh Sáng và Bóng Đêm</td>
+            </tr>
+            <tr>
+              <td><strong>Điểm Cá Nhân (Point Arena)</strong></td>
+              <td>
+                • Hạ gục người chơi địch: <strong>+5 Điểm</strong><br>
+                • Đánh sập Trụ / Nhà chính: <strong>+20 Điểm</strong> (kèm loa thông báo KTGF toàn server)<br>
+                • Hạ gục Bot AI Nhân Bản: <strong>+2 Điểm</strong>
+              </td>
+              <td>Dùng để xếp hạng cá nhân và đổi Rương Chiến Trường</td>
+            </tr>
+            <tr>
+              <td><strong>Bot AI Nhân Bản</strong></td>
+              <td><span class="file-ref">ai/Player_Nhan_Ban.java</span></td>
+              <td>Tự động triệu hồi khi chênh lệch 2 phe &gt; 3 người. AI tự quét mục tiêu trong bán kính 200 pixel và xuất chiêu liên tục.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 2. Boss Thế Giới & Top Damage -->
+      <h2>2. Thông Số Kỹ Thuật Boss Thế Giới (<span class="file-ref">ai/BossTG.java</span>)</h2>
+
+      <div class="card-grid">
+        <div class="feature-card">
+          <h4>Bộ 6 Kỹ Năng Của Boss Thế Giới</h4>
+          <p>Mỗi chiêu thức có thời gian hồi chiêu (Cooldown) và vùng ảnh hưởng riêng:</p>
+          <ul style="font-size: 13px; margin-left: 16px;">
+            <li><strong>Skill 0 (Đòn Thường)</strong>: Delay 1.5s, 1 mục tiêu.</li>
+            <li><strong>Skill 4 (Quét Sét)</strong>: Delay 5.0s, đánh lan 3 mục tiêu.</li>
+            <li><strong>Skill 6 (Bão Lửa)</strong>: Delay 10.0s, đánh lan 5 mục tiêu, tầm xa 250px.</li>
+            <li><strong>Skill 8 (Động Đất)</strong>: Delay 15.0s, đánh lan 8 mục tiêu, gây choáng 3s.</li>
+            <li><strong>Skill 19 (Cuồng Nộ)</strong>: Delay 20.0s, tăng 50% sát thương trong 10s.</li>
+            <li><strong>Skill 20 (Tuyệt Diệt)</strong>: Delay 30.0s, sát thương diện rộng toàn màn hình.</li>
+          </ul>
+        </div>
+
+        <div class="feature-card">
+          <h4>Cơ Chế Tính Top Sát Thương</h4>
+          <p>Lưu trữ bảng <code>HashMap&lt;String, Long&gt; top_dame</code>:</p>
+          <ul style="font-size: 13px; margin-left: 16px;">
+            <li>Ghi nhận sát thương theo thời gian thực của từng hiệp sĩ.</li>
+            <li>Khi Boss chết, phát loa toàn server vinh danh Top 1 Damage.</li>
+            <li>Top 1 - 3 nhận <strong>Rương Vàng + Mảnh Mề Đay Cam (ID 144-146)</strong>.</li>
+            <li>Rơi thêm 3 đợt vật phẩm cố định quanh xác Boss.</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 3. Lôi Đài PK 1vs1 -->
+      <h2>3. Quy Chế & Thuế Sàn Lôi Đài PK 1vs1 (<span class="file-ref">event_daily/LoiDai.java</span>)</h2>
+      <ul>
+        <li><strong>Mức Cược Hợp Lệ</strong>: Tối thiểu <strong>100.000 Vàng</strong>, tối đa <strong>50.000.000 Vàng</strong>.</li>
+        <li><strong>Thời Gian Thi Đấu</strong>: 180 giây (3 phút). Đấu trường biệt lập Map 49.</li>
+        <li><strong>Phí Sàn Thuế Máy Chủ</strong>: <strong>5%</strong> tổng tiền cược.</li>
+        <li><strong>Ví Dụ Cụ Thể</strong>:
+          <pre><code>Người chơi A cược 10.000.000 Vàng vs Người chơi B cược 10.000.000 Vàng.
+Tổng quỹ thưởng = 20.000.000 Vàng.
+Thuế sàn 5% = 1.000.000 Vàng.
+Người chiến thắng nhận thực tế = 19.000.000 Vàng (+9.000.000 tiền lời)!</code></pre>
+        </li>
+      </ul>
+
+      <!-- 4. Tuyến Đi Buôn & Cướp Buôn -->
+      <h2>4. Thông Số Tuyến Đi Buôn & Cướp Buôn (<span class="file-ref">template/Pet_di_buon.java</span>)</h2>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Thông Số Pet Đi Buôn</th>
+              <th>Giá Trị Cụ Thể</th>
+              <th>Ý Nghĩa Trong Gameplay</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>Máu Pet (HP)</code></td>
+              <td><strong>50.000 HP</strong></td>
+              <td>Máu của thú chở hàng. Có thể hồi phục bằng bình dược phẩm.</td>
+            </tr>
+            <tr>
+              <td><code>Sức Chứa Túi Hàng</code></td>
+              <td><strong>12 Ô Trang Bị</strong> (Item IDs: <code>3590, 3591, 3592</code>)</td>
+              <td>Hàng hóa buôn bán thu mua từ Thương Cảng</td>
+            </tr>
+            <tr>
+              <td><code>Tốc Độ Di Chuyển</code></td>
+              <td>2.0 pixel / frame</td>
+              <td>Chạy chậm hơn người chơi bình thường, cần đồng đội hộ tống</td>
+            </tr>
+            <tr>
+              <td><code>Cơ Chế Cướp Buôn</code></td>
+              <td>Khi Pet HP = 0</td>
+              <td><strong>Toàn bộ 12 món hàng rơi vung vãi ra đất</strong>. Bảo hộ nhặt 1.5s cho kẻ kết liễu đòn cuối (Last Hit).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="page-nav">
+        <a href="04_cultivation_systems.html" class="page-nav-btn">
+          <span class="sub">Quay lại</span>
+          <span class="title">← 04. Hệ Thống Tu Luyện Sâu</span>
+        </a>
+        <a href="06_social_and_economy.html" class="page-nav-btn" style="text-align: right;">
+          <span class="sub">Tiếp theo</span>
+          <span class="title">06. Xã Hội, Bang Hội & Kinh Tế →</span>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

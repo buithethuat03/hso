@@ -1,0 +1,264 @@
+/** Local mod instructions. Native game packets and game-server results remain authoritative. */
+public final class HungBySonOfflineLocal {
+    private static final String NOT_READY = "local";
+    private static volatile long requestAt;
+    private static volatile boolean waiting;
+    private static long lastActionAt;
+    private static int selectedId = -1;
+    private static volatile long waitAt;
+    private static volatile String waitReason = "";
+    private static volatile long resultAt;
+    private static volatile boolean npcReady, npcOpening, npcPressed;
+    private static volatile int npcId, npcMenuRow = -1;
+    private static volatile long npcOpenAt, npcMenuAt;
+    private static volatile String lastGameNotice = "";
+    private static volatile int lastReplyType = -1;
+
+    private HungBySonOfflineLocal() { }
+
+    public static boolean handles(String key) {
+        return "ch.chon_do".equals(key) || "ch.chon_bua".equals(key) || "ch.nang".equals(key)
+            || "ch.ma_bua".equals(key) || "ch.bua_theo_cap".equals(key)
+            || HungBySonTradeLocal.handles(key);
+    }
+
+    public static String formula(String key, int variant) {
+        if ("ch.chon_do".equals(key)) return "q3|0|@0|3";
+        if ("ch.chon_bua".equals(key)) return "q3|0|@0|7";
+        if ("ch.nang".equals(key)) return "q3|2|0|0";
+        if ("ch.bua_theo_cap".equals(key)) return "val|" + smartMode(variant);
+        if ("ch.ma_bua".equals(key)) {
+            int id = cloverId(variant);
+            if (id < 0) stop("Cường hóa: không có cỏ " + (variant == 2 ? "4" : "3") + " lá trong túi. Đã dừng Auto.");
+            return "val|" + id;
+        }
+        String result = HungBySonTradeLocal.formula(key, variant);
+        return result == null ? NOT_READY : result;
+    }
+
+    /** User policy: four-leaf clover only at current +8, +9 and +10; none at other levels. */
+    public static int smartMode(int currentLevel) {
+        return currentLevel >= 8 && currentLevel <= 10 ? 2 : 0;
+    }
+
+    public static String guide() {
+        return "Các tính năng MOD hoạt động cục bộ, không cần key hay máy chủ MOD.\n"
+            + "Auto Cường Hóa: trong túi đồ chọn trang bị > Thêm vào DS; mở MOD HungDZ > Auto Cường Hóa, "
+            + "chọn cấp cộng và cỏ may mắn rồi bật. Tắt Auto Phó Bản khi dùng.\n"
+            + "Thông minh: chỉ dùng cỏ 4 lá khi trang bị đang +8, +9 hoặc +10; các mức còn lại không dùng cỏ. "
+            + "Thiếu loại cỏ đã chọn sẽ dừng. Đạt cấp mục tiêu thì chuyển món tiếp theo.\n"
+            + "Auto Đi Buôn V3: chuẩn bị vật phẩm thú đã chọn; lần đầu tự đọc cửa hàng đá quý.\n"
+            + "Auto Farm, Auto Khu 2, Phó Bản, thay set, tự buff và PvP dùng menu/cấu hình sẵn có.\n"
+            + "Các thao tác vẫn cần kết nối server game và đủ vật phẩm/tiền theo luật server game.";
+    }
+
+    /** Called by the existing enhancement state machine, at its native NPC position. */
+    public static boolean executeEnhancement(String key, int variant, int[] args) {
+        try {
+            if (!@~lliillii@.@~liilliliili@) { reset(); return false; }
+            if (!"ch.chon_do".equals(key) && !"ch.chon_bua".equals(key) && !"ch.nang".equals(key)) return false;
+            long now = System.currentTimeMillis();
+            if (waiting) {
+                if (now - requestAt >= 12000L) {
+                    String detail = lastGameNotice.length() > 0 ? " Server: " + lastGameNotice
+                        : lastReplyType >= 0 ? " Đã có phản hồi cường hóa nhưng chưa đọc đủ kết quả." : "";
+                    stop("Cường hóa: chưa nhận đủ kết quả sau 12 giây." + detail + " Đã dừng Auto."); return false;
+                }
+                return pause("đang chờ server game trả kết quả cường hóa");
+            }
+            if (now - lastActionAt < 500L) return pause("đang chờ đủ nhịp 500 ms");
+            cs map = @~liilllii@.@~liiililiiii@;
+            @~lliiil@ player = @~liiliii@.@~llilliill@;
+            if (map == null || player == null) return pause("đang chờ dữ liệu nhân vật/map");
+            if (map.d != 1 || Math.abs(player.aZ - 432) + Math.abs(player.ba - 528) > 45) {
+                @~lliillii@.@~lillliiliii@ = 100;
+                @~lliillii@.@~liliiiilill@ = 0;
+                clearWait();
+                npcReady = false; npcOpening = false; npcPressed = false; npcMenuRow = -1;
+                return false;
+            }
+            if (!ensureNpcSession(player, now)) return false;
+            // Background auto has no native screen update to advance the result animation.
+            if (@~lllili@.@~liiiliiii@ != 0) {
+                if (!nativeEnhancementVisible()) {
+                    if (resultAt == 0L && (@~lllili@.C == 3 || @~lllili@.C == 4)) resultAt = now;
+                    if (resultAt > 0L && now - resultAt >= 500L) {
+                        @~lllili@.@~liiiliiii@ = 0;
+                        @~lllili@.@~lililiill@ = false;
+                    }
+                }
+                if (@~lllili@.@~liiiliiii@ != 0) return pause("đang chờ animation kết quả cường hóa kết thúc");
+            }
+            if ("ch.chon_do".equals(key)) {
+                @~llilli@ item = argumentItem(args, 3);
+                if (item == null) { stop("Cường hóa: trang bị không còn trong túi. Đã dừng Auto."); return false; }
+                if (item.@~llilil@ >= @~lliillii@.@~lillliiliil@) return false;
+                selectedId = item.O;
+                // Do not carry a manually selected clover into an explicit 'Không dùng' attempt.
+                if (@~lliillii@.@~lilill@(item.@~llilil@) == 0 && @~lllili@.@~liliiliil@) {
+                    @~llilli@ clover = @~lllili@.@~lilililil@;
+                    if (clover == null) { stop("Cường hóa: không xác định được cỏ đang chọn. Đã dừng Auto."); return false; }
+                    @~lilillll@.@~liililli@().@~l@((byte)1, (short)clover.O, (byte)7);
+                    lastActionAt = now;
+                    return pause("server game chưa xác nhận bỏ chọn cỏ");
+                }
+            } else {
+                @~llilli@ selected = @~lllili@.@~liillllli@;
+                if (selected == null || selected.O != selectedId) return pause("server game chưa xác nhận chọn trang bị");
+                if ("ch.chon_bua".equals(key)) {
+                    @~llilli@ clover = argumentItem(args, 7);
+                    if (clover == null || clover.@~llililil@ != 11) { stop("Cường hóa: cỏ may mắn không còn trong túi. Đã dừng Auto."); return false; }
+                    @~lllili@.@~lilililil@ = clover;
+                } else {
+                    @~llilli@ item = bagItem(selectedId, 3);
+                    if (item == null || item.@~llilil@ >= @~lliillii@.@~lillliiliil@) return false;
+                    int mode = @~lliillii@.@~lilill@(item.@~llilil@);
+                    if (mode > 0 && !@~lllili@.@~liliiliil@) return pause("server game chưa xác nhận chọn cỏ");
+                    if (mode == 0 && @~lllili@.@~liliiliil@) return pause("server game chưa xác nhận bỏ chọn cỏ");
+                    // Set before the send: a very fast response must not be overwritten by 'waiting=true'.
+                    waiting = true; requestAt = now; resultAt = 0L; lastGameNotice = ""; lastReplyType = -1;
+                }
+            }
+            if ("ch.chon_do".equals(key)) @~lllili@.@~liillllli@ = null; // require a fresh native selection acknowledgement
+            boolean sent = @~lilllill@.@~@(key, variant, args);
+            if (sent) { lastActionAt = now; clearWait(); }
+            if (!sent && "ch.nang".equals(key)) waiting = false;
+            if (!sent) pause("không thực hiện được lệnh cường hóa cục bộ");
+            return sent;
+        } catch (Throwable failure) {
+            stop("Cường hóa: không thực hiện được thao tác cục bộ. Đã dừng Auto.");
+            return false;
+        }
+    }
+
+    /** Hook after the native opcode-67 result fields have been read. */
+    public static void onEnhancementResult() { resultAt = System.currentTimeMillis(); waiting = false; clearWait(); }
+    public static void reset() {
+        waiting = false; requestAt = 0L; lastActionAt = 0L; selectedId = -1;
+        npcReady = false; npcOpening = false; npcPressed = false; npcMenuRow = -1;
+        npcOpenAt = 0L; npcMenuAt = 0L; lastGameNotice = ""; lastReplyType = -1; clearWait();
+    }
+    private static boolean ensureNpcSession(@~lliiil@ player, long now) {
+        if (npcReady) return true;
+        if (nativeEnhancementVisible()) {
+            @~liiiiili@ tabs = (@~liiiiili@)@~liilllii@.@~liiiillllli@;
+            if (((@~lllili@)tabs.@~llilill@()).@~liliiiii@ == 0) { npcReady = true; npcOpening = false; clearWait(); return true; }
+        }
+        if (!npcOpening) {
+            et all = @~liiliii@.@~llillilll@;
+            int closest = Integer.MIN_VALUE, distance = 121;
+            if (all != null) for (int i = 0; i < all.c(); i++) {
+                Object value = all.a(i); if (!(value instanceof @~liiiliii@)) continue;
+                @~liiiliii@ npc = (@~liiiliii@)value; if (npc.cv != 2) continue;
+                int d = Math.abs(npc.aZ - player.aZ) + Math.abs(npc.ba - player.ba);
+                if (d < distance) { closest = npc.cu; distance = d; }
+            }
+            if (closest == Integer.MIN_VALUE) return pause("chưa tìm thấy NPC tại vị trí pháp sư");
+            npcId = closest; npcOpenAt = now; npcMenuRow = -1; npcPressed = false; npcOpening = true;
+            @~lilillll@ sender = @~lilillll@.@~liililli@();
+            sender.@~@((short)player.aZ, (short)player.ba);
+            sender.@~liil@((byte)npcId); sender.@~lilli@((short)npcId);
+        }
+        if (now - npcOpenAt >= 12000L) { stop("Cường hóa: pháp sư chưa mở màn hình cường hóa sau 12 giây. Đã dừng Auto."); return false; }
+        if (!npcPressed && npcMenuRow >= 0 && now - npcMenuAt >= 1500L) {
+            @~liilliil@ box = @~liilllii@.@~liiiliillll@;
+            if (box != null && box.@~liiillli@ && box.C == npcId) {
+                npcPressed = true; box.h = npcMenuRow; box.a(2, 0);
+            }
+        }
+        return pause(npcPressed ? "đang chờ pháp sư mở màn hình cường hóa" : "đang mở menu pháp sư");
+    }
+    /** Observe the native NPC menu and use its own row dispatcher; never assume a menu-row index. */
+    public static void onEnhancementMenu(et items, String title) {
+        if (!npcOpening || items == null || !@~lliillii@.@~liilliliili@) return;
+        @~liilliil@ box = @~liilllii@.@~liiiliillll@;
+        if (box == null || box.C != npcId) return;
+        for (int i = 0; i < items.c(); i++) {
+            Object value = items.a(i); if (!(value instanceof bt)) continue;
+            String label = ((bt)value).@~lliiilli@;
+            if (label == null) continue;
+            String name = @~lliiliil@.@~lllil@(label.toLowerCase());
+            if (name == null || name.indexOf("canh") >= 0 || (" " + name + " ").indexOf(" thu ") >= 0 || name.indexOf("pet") >= 0) continue;
+            if (name.indexOf("cuong hoa") >= 0 || name.indexOf("dap do") >= 0 || (name.indexOf("nang cap") >= 0 && name.indexOf("trang bi") >= 0)) {
+                npcMenuAt = System.currentTimeMillis(); npcPressed = false; npcMenuRow = i; return;
+            }
+        }
+    }
+    public static void onEnhancementReplyType(int type) { if (waiting) lastReplyType = type; }
+    public static void onEnhancementReply(String text, int type) {
+        if (!@~lliillii@.@~liilliliili@) return;
+        if (waiting && text != null) lastGameNotice = text;
+        if (type == 3 && selectedId >= 0) stop("Cường hóa: " + (text == null || text.length() == 0 ? "server game từ chối thao tác" : text));
+    }
+    public static void onGameNotice(String text) { if (waiting && text != null) lastGameNotice = text; }
+
+    private static void clearWait() { waitAt = 0L; waitReason = ""; }
+    private static boolean pause(String reason) {
+        if (!reason.equals(waitReason) || waitAt == 0L) { waitAt = System.currentTimeMillis(); waitReason = reason; }
+        @~lilllill@.@~liilllllili@ = reason;
+        return false;
+    }
+    /** Replaces the old '150 failed secret requests' counter; waiting is not a missing MOD instruction. */
+    public static void waitForEnhancement() {
+        if (!@~lliillii@.@~liilliliili@) return;
+        @~lliillii@.@~liliiiilill@ = 10;
+        if (@~lliillii@.@~lillliiliii@ == 100) return;
+        if (waitAt == 0L) pause("đang chờ thao tác cường hóa sẵn sàng");
+        if (System.currentTimeMillis() - waitAt >= 12000L) {
+            String reason = waitReason;
+            stop("Cường hóa: " + reason + ". Đã dừng sau 12 giây chờ.");
+        }
+    }
+    private static boolean nativeEnhancementVisible() {
+        Object screen = @~liilllii@.@~liiiillllli@;
+        if (!(screen instanceof @~liiiiili@)) return false;
+        @~liiiiili@ tabs = (@~liiiiili@)screen;
+        return tabs.b != null && tabs.a >= 0 && tabs.a < tabs.b.c()
+            && tabs.@~llilill@() instanceof @~lllili@;
+    }
+
+    private static void stop(String message) {
+        reset();
+        if (@~lliillii@.@~liilliliili@) @~lliillii@.@~llilllll@();
+        @~lillllll@.@~lilli@(message);
+    }
+
+    private static @~llilli@ argumentItem(int[] args, int category) {
+        return args == null || args.length != 1 ? null : bagItem(args[0], category);
+    }
+    private static @~llilli@ bagItem(int id, int category) {
+        et bag = @~llilli@.@~liiillili@;
+        if (bag == null) return null;
+        for (int i = 0; i < bag.c(); i++) {
+            Object value = bag.a(i);
+            if (!(value instanceof @~llilli@)) continue;
+            @~llilli@ item = (@~llilli@)value;
+            if (item.O == id && item.@~liiill@ == category) return item;
+        }
+        return null;
+    }
+
+    /** Resolve live template IDs, never assume the private/game server uses fixed clover IDs. */
+    public static int cloverId(int mode) {
+        if (mode != 1 && mode != 2) return -1;
+        et bag = @~llilli@.@~liiillili@;
+        if (bag == null) return -1;
+        for (int i = 0; i < bag.c(); i++) {
+            Object value = bag.a(i);
+            if (!(value instanceof @~llilli@)) continue;
+            @~llilli@ item = (@~llilli@)value;
+            if (item.@~liiill@ != 7 || item.@~llililil@ != 11) continue;
+            String name = item.@~liiiiliii@;
+            if (name == null || name.length() == 0) {
+                String[] names = @~llilli@.@~liiiiilll@;
+                if (names != null && item.O >= 0 && item.O < names.length) name = names[item.O];
+            }
+            if (name == null) continue;
+            name = @~lliiliil@.@~lllil@(name.toLowerCase());
+            if (name == null || name.indexOf("co ") < 0) continue;
+            if (mode == 1 && (name.indexOf("3 la") >= 0 || name.indexOf("ba la") >= 0)) return item.O;
+            if (mode == 2 && (name.indexOf("4 la") >= 0 || name.indexOf("bon la") >= 0 || name.indexOf("tu la") >= 0)) return item.O;
+        }
+        return -1;
+    }
+}

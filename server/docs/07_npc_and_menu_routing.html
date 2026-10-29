@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>07. MenuController & Định Tuyến NPC - Server HSO</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Sidebar Navigation Tree -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚔️</div>
+      <div class="brand-text">
+        <h1>HSO Core Engine</h1>
+        <span>v2.0 Architectural Docs</span>
+      </div>
+    </div>
+
+    <div class="nav-section-title">Hệ Thống & Báo Cáo</div>
+    <ul class="nav-links">
+      <li><a href="index.html"><span class="nav-num">00</span> Tổng Quan & Cây Hệ Thống</a></li>
+      <li><a href="01_core_architecture.html"><span class="nav-num">01</span> Hạ Tầng & Packet Protocol</a></li>
+      <li><a href="02_combat_and_stats.html"><span class="nav-num">02</span> Engine Chỉ Số & Chiến Đấu</a></li>
+      <li><a href="03_items_and_equipment.html"><span class="nav-num">03</span> Vật Phẩm, Rương & Rơi Đồ</a></li>
+      <li><a href="04_cultivation_systems.html"><span class="nav-num">04</span> Hệ Thống Tu Luyện Sâu</a></li>
+      <li><a href="05_events_and_activities.html"><span class="nav-num">05</span> Hoạt Động & Sự Kiện</a></li>
+      <li><a href="06_social_and_economy.html"><span class="nav-num">06</span> Xã Hội, Bang Hội & Kinh Tế</a></li>
+      <li><a href="07_npc_and_menu_routing.html" class="active"><span class="nav-num">07</span> MenuController & NPC</a></li>
+      <li><a href="08_upgrade_roadmap.html"><span class="nav-num">08</span> Định Hướng Nâng Cấp</a></li>
+      <li><a href="09_default_equipment_catalog.html"><span class="nav-num">09</span> Tra Cứu Đồ Mặc Định DB</a></li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <span style="font-size: 11px; color: var(--text-muted);">© 2026 HSO Dev Team</span>
+      <button id="theme-toggle-btn" class="theme-toggle">🌙 Tối</button>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="main-wrapper">
+    <header class="top-bar">
+      <div class="breadcrumb">
+        <a href="index.html">Tài Liệu Server</a>
+        <span>/</span>
+        <span class="current">07. MenuController & Định Tuyến NPC</span>
+      </div>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="doc-search-input" placeholder="Tìm menu, NPC ID, hộp thoại...">
+      </div>
+    </header>
+
+    <main class="content-container">
+      <div class="doc-header">
+        <span class="doc-tag badge purple">NPC Dialogs, Routing & Interaction Engine</span>
+        <h1 class="doc-title">Chương 07: MenuController & Định Tuyến Tương Tác NPC</h1>
+        <p class="doc-desc">
+          Giải mã chi tiết cấu trúc phân nhánh khổng lồ trong MenuController (>4000 dòng code), luồng định tuyến hội thoại NPC, xác nhận hộp thoại Yes/No và cơ chế nhập dữ liệu từ Client.
+        </p>
+      </div>
+
+      <!-- 1. Kiến Trúc MenuController -->
+      <h2>1. Kiến Trúc Điều Hướng Hội Thoại (<span class="file-ref">core/MenuController.java</span>)</h2>
+      <p>
+        <code>MenuController</code> là một trong những file mã nguồn đồ sộ nhất server, chịu trách nhiệm xử lý toàn bộ logic tương tác giữa người chơi và NPC trên toàn thế giới HSO.
+      </p>
+
+      <div class="card-grid">
+        <div class="feature-card">
+          <h4>Giai Đoạn 1: Hiển Thị Menu (Show Menu)</h4>
+          <p>Khi người chơi bấm vào NPC, Server gửi gói tin danh sách các tùy chọn (String array) dựa trên NPC ID, trạng thái nhân vật và nhiệm vụ hiện tại.</p>
+        </div>
+        <div class="feature-card">
+          <h4>Giai Đoạn 2: Xử Lý Lựa Chọn (Handle Select)</h4>
+          <p>Client gửi lại chỉ số lựa chọn (index). Hàm <code>process_menu()</code> dùng switch-case lồng nhau để điều hướng tiếp sang menu con hoặc kích hoạt chức năng.</p>
+        </div>
+      </div>
+
+      <!-- 2. Danh Mục Các NPC Chủ Đạo -->
+      <h2>2. Danh Mục Các NPC Chủ Đạo & Luồng Chức Năng</h2>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Tên NPC</th>
+              <th>Vị Trí Bản Đồ</th>
+              <th>Các Phân Nhánh Chức Năng Chính</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Thợ Rèn Hammer / Doubar</strong></td>
+              <td>Làng & Thành Phố</td>
+              <td>Cường hóa trang bị (+1 đến +15), Đục lỗ khảm ngọc, Tách trang bị lấy khoáng thạch, Ghép đá may mắn, Hợp thành mề đay.</td>
+            </tr>
+            <tr>
+              <td><strong>Trưởng Làng / Lisa</strong></td>
+              <td>Các Khu Làng Tân Thủ</td>
+              <td>Mở Rương Giữ Đồ, Mở Thêm Ô Hành Trang, Đăng ký tài khoản, <strong>Chuyển Sinh</strong>, Nhiệm Vụ Hàng Ngày (NVHN), Đổi Mật Khẩu Rương.</td>
+            </tr>
+            <tr>
+              <td><strong>NPC Thiên Sứ / Tinh Tú</strong></td>
+              <td>Thành Phố Hoàng Gia</td>
+              <td>Nhận & Trả chuỗi 10 Nhiệm Vụ Tinh Tú, Đổi trang bị Tinh Tú Huyền Thoại, Vòng Quay May Mắn Tinh Tú.</td>
+            </tr>
+            <tr>
+              <td><strong>NPC Quản Lí Chiến Trường</strong></td>
+              <td>Khu Vực Biên Giới</td>
+              <td>Đăng ký tham gia Chiến Trường Phe (Ánh Sáng / Bóng Đêm), Tra cứu Bảng Xếp Hạng Chiến Trường, Nhận Rương Thưởng Tuần.</td>
+            </tr>
+            <tr>
+              <td><strong>NPC Cha Xứ (Nhà Thờ)</strong></td>
+              <td>Thánh Đường</td>
+              <td>Tổ chức Hôn Lễ Kết Hôn, Trao Nhẫn Cưới, Quản lý quan hệ Vợ Chồng, Thủ tục Ly Hôn.</td>
+            </tr>
+            <tr>
+              <td><strong>NPC Đấu Giá / Tài Xỉu</strong></td>
+              <td>Khu Chợ Giao Thương</td>
+              <td>Mở bàn cược Tài Xỉu, Vòng Xoay May Mắn (VXMM), Mở Ly trúng thưởng, Quản lý gian hàng bày bán.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 3. Hộp Thoại Xác Nhận Yes/No -->
+      <h2>3. Hộp Thoại Xác Nhận (<span class="file-ref">client/Process_Yes_no_box.java</span>)</h2>
+      <p>Để ngăn chặn người chơi bấm nhầm trong các thao tác quan trọng (tiêu hao vàng/ngọc lớn, xóa bang, hủy đồ, đổi phái), Server sử dụng luồng xác thực Yes/No:</p>
+      <ul>
+        <li>Server gửi gói tin hiển thị hộp thoại xác nhận kèm theo một mã định danh <code>type_box</code>.</li>
+        <li>Khi người chơi chọn <em>Đồng Ý (Yes)</em>, Client gửi lại <code>type_box</code> về <span class="file-ref">Process_Yes_no_box.java</span> để thực thi giao dịch an toàn.</li>
+      </ul>
+
+      <!-- 4. Xử Lý Nhập Liệu Client -->
+      <h2>4. Xử Lý Hộp Nhập Văn Bản (<span class="file-ref">client/TextFromClient.java</span> & <span class="file-ref">TextFromClient_2.java</span>)</h2>
+      <p>Khi server cần người chơi nhập số lượng hoặc văn bản (đặt cược vàng, nhập giftcode, đổi tên, nhập mật khẩu rương):</p>
+      <ul>
+        <li>Server mở hộp thoại <code>TextForm</code> trên client.</li>
+        <li>Dữ liệu gửi lên được bọc trong hàm kiểm tra hợp lệ: <code>Util.isnumber()</code> để chống lỗi crash định dạng khi ép kiểu String sang Long/Int.</li>
+      </ul>
+
+      <div class="page-nav">
+        <a href="06_social_and_economy.html" class="page-nav-btn">
+          <span class="sub">Quay lại</span>
+          <span class="title">← 06. Xã Hội, Bang Hội & Kinh Tế</span>
+        </a>
+        <a href="08_upgrade_roadmap.html" class="page-nav-btn" style="text-align: right;">
+          <span class="sub">Tiếp theo</span>
+          <span class="title">08. Định Hướng Nâng Cấp & Vá Lỗi →</span>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

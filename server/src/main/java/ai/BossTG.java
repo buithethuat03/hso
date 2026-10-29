@@ -140,7 +140,7 @@ public class BossTG implements Runnable {
 		}
 		m.writer().writeByte(this.p.fashion.length);
 		for (int i = 0; i < this.p.fashion.length; i++) {
-			m.writer().writeByte(this.p.fashion[i]);
+			m.writer().writeShort(this.p.fashion[i]);
 		}
 		//
 		m.writer().writeShort(-1);

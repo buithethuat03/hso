@@ -1,0 +1,102 @@
+package luna.generated;
+
+import javax.microedition.rms.RecordEnumeration;
+import javax.microedition.rms.RecordStore;
+import javax.microedition.rms.RecordStoreNotFoundException;
+
+import luna.features.ExpEstimateSupport;
+
+/** One lock and one level table for the entire MIDlet suite, including all X3 slots. */
+public final class ExpEstimateSharedRmsStore {
+    private static final String STORE_NAME = "hbs_exp_levels_v2";
+    private static final String[] LEGACY_NAMES = {
+        "inv_exp_approx_v1", "ainv_exp_approx_v1",
+        "binv_exp_approx_v1", "cinv_exp_approx_v1"
+    };
+    private static boolean legacyImported;
+    private static boolean importAttempted;
+    private static long lastImportAttempt;
+
+    private ExpEstimateSharedRmsStore() { }
+
+    public static synchronized byte[] load() {
+        migrateLegacy();
+        try { return read(STORE_NAME); }
+        catch (Throwable ignored) { return null; }
+    }
+
+    /** Incoming bytes contain only changed levels, never a stale whole-table snapshot. */
+    public static synchronized boolean save(byte[] changedLevels) {
+        if (changedLevels == null || changedLevels.length == 0
+                || changedLevels.length > 16384) return false;
+        migrateLegacy();
+        try {
+            byte[] combined = ExpEstimateSupport.mergeStored(read(STORE_NAME), changedLevels);
+            return combined != null && write(combined);
+        } catch (Throwable ignored) { return false; }
+    }
+
+    private static void migrateLegacy() {
+        if (legacyImported) return;
+        long now = System.currentTimeMillis();
+        if (importAttempted && now >= lastImportAttempt && now - lastImportAttempt < 5000L) return;
+        importAttempted = true;
+        lastImportAttempt = now;
+        try {
+            byte[] current = read(STORE_NAME);
+            byte[] combined = current;
+            for (int i = 0; i < LEGACY_NAMES.length; i++) {
+                byte[] legacy = read(LEGACY_NAMES[i]);
+                if (legacy == null) continue;
+                // Existing v2 results take precedence over incompatible historical results.
+                byte[] merged = ExpEstimateSupport.mergeStored(legacy, combined);
+                if (merged != null) combined = merged;
+            }
+            if (combined != null && !sameBytes(current, combined) && !write(combined)) return;
+            legacyImported = true;
+        } catch (Throwable ignored) { }
+    }
+
+    /** Direct MIDP access avoids legacy namespace code compiled with StringBuilder. */
+    private static byte[] read(String name) throws Exception {
+        RecordStore store = null;
+        try {
+            try { store = RecordStore.openRecordStore(name, false); }
+            catch (RecordStoreNotFoundException absent) { return null; }
+            int id = firstRecordId(store);
+            if (id == 0) return null;
+            int size = store.getRecordSize(id);
+            if (size <= 0 || size > 16384) return null;
+            return store.getRecord(id);
+        } finally {
+            if (store != null) try { store.closeRecordStore(); } catch (Throwable ignored) { }
+        }
+    }
+
+    private static boolean write(byte[] bytes) {
+        RecordStore store = null;
+        try {
+            store = RecordStore.openRecordStore(STORE_NAME, true);
+            int id = firstRecordId(store);
+            if (id == 0) store.addRecord(bytes, 0, bytes.length);
+            else store.setRecord(id, bytes, 0, bytes.length);
+            return true;
+        } catch (Throwable ignored) { return false; }
+        finally {
+            if (store != null) try { store.closeRecordStore(); } catch (Throwable ignored) { }
+        }
+    }
+
+    private static int firstRecordId(RecordStore store) throws Exception {
+        RecordEnumeration records = store.enumerateRecords(null, null, false);
+        try { return records.hasNextElement() ? records.nextRecordId() : 0; }
+        finally { records.destroy(); }
+    }
+
+    private static boolean sameBytes(byte[] first, byte[] second) {
+        if (first == second) return true;
+        if (first == null || second == null || first.length != second.length) return false;
+        for (int i = 0; i < first.length; i++) if (first[i] != second[i]) return false;
+        return true;
+    }
+}

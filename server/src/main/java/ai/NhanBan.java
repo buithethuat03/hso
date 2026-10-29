@@ -138,7 +138,7 @@ public class NhanBan {
 		m.writer().writeByte(-1); // pet
 		m.writer().writeByte(this.fashion.length);
 		for (int i = 0; i < this.fashion.length; i++) {
-			m.writer().writeByte(this.fashion[i]);
+			m.writer().writeShort(this.fashion[i]);
 		}
 		//
 		m.writer().writeShort(-1);

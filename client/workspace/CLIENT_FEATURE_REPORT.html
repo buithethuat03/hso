@@ -1,0 +1,209 @@
+﻿<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HSOLUNA Client — Báo cáo tính năng</title>
+  <style>
+    :root{--bg:#f4f7fb;--panel:#fff;--ink:#172033;--muted:#5e6b82;--line:#d9e1ee;--blue:#2459a6;--blue-soft:#eaf2ff;--green:#16794c;--green-soft:#e7f7ef;--amber:#9a5b00;--amber-soft:#fff4dc;--red:#a03a3a;--red-soft:#fff0f0;--code:#eef2f7}
+    *{box-sizing:border-box}body{margin:0;color:var(--ink);background:var(--bg);font:15px/1.62 system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+    main{max-width:1240px;margin:0 auto;padding:28px 22px 64px}header{background:linear-gradient(135deg,#173b70,#2d6fc4);color:white;border-radius:18px;padding:32px 34px;box-shadow:0 10px 28px #1f417033}
+    h1,h2,h3{line-height:1.25;margin:0 0 12px}h1{font-size:clamp(27px,4vw,42px)}h2{margin-top:34px;font-size:25px;color:#183d75}h3{margin-top:22px;font-size:19px;color:#1e477f}p{margin:8px 0 13px}a{color:var(--blue)}header a{color:#dcecff}.subtitle{max-width:850px;color:#e2edff;font-size:17px}
+    .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:20px}.pill,.status{display:inline-block;border-radius:999px;padding:4px 10px;font-size:12px;font-weight:700}.pill{color:#dcecff;border:1px solid #ffffff59}.status.ok{color:var(--green);background:var(--green-soft)}.status.info{color:var(--blue);background:var(--blue-soft)}.status.warn{color:var(--amber);background:var(--amber-soft)}.status.off{color:var(--red);background:var(--red-soft)}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin:20px 0}.card,section,details{background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:0 3px 12px #22395b0d}.card{padding:17px}.card strong{display:block;font-size:26px;color:var(--blue)}.card span{color:var(--muted);font-size:13px}
+    section{padding:20px 22px;margin-top:18px}details{padding:0 16px;margin:12px 0}details[open]{padding-bottom:11px}summary{cursor:pointer;padding:13px 0;font-weight:750;color:#1d467e}
+    table{width:100%;border-collapse:collapse;margin:12px 0 17px;font-size:14px}th,td{vertical-align:top;text-align:left;border-bottom:1px solid var(--line);padding:9px 10px}th{color:#294e82;background:#f2f6fc;font-weight:750}tr:last-child td{border-bottom:0}
+    code,pre{font-family:Consolas,"SFMono-Regular",monospace}code{background:var(--code);border-radius:4px;padding:1px 4px;font-size:.92em}pre{overflow-x:auto;white-space:pre-wrap;background:#172033;color:#e6efff;border-radius:9px;padding:14px;font-size:13px}
+    ul{margin:7px 0 14px;padding-left:23px}li{margin:4px 0}.callout{border-left:4px solid var(--blue);background:var(--blue-soft);padding:12px 14px;margin:12px 0}.callout.warn{border-left-color:var(--amber);background:var(--amber-soft)}.callout.ok{border-left-color:var(--green);background:var(--green-soft)}.small{color:var(--muted);font-size:13px}.toc{columns:2;column-gap:32px}.toc li{break-inside:avoid}.feature-title{display:flex;gap:9px;align-items:center;flex-wrap:wrap}footer{color:var(--muted);font-size:13px;padding:24px 4px 0}
+    @media(max-width:700px){main{padding:14px 10px 40px}header,section{padding:20px 16px}.toc{columns:1}th,td{padding:7px 6px}}
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>HSOLUNA Client — Báo cáo tính năng</h1>
+    <p class="subtitle">Báo cáo khảo sát client J2ME HSOLUNA sau đợt refactor: tính năng gameplay/mod, kiến trúc semantic, lớp tương thích legacy và kết quả kiểm chứng binary.</p>
+    <div class="meta"><span class="pill">Ngày kiểm tra: 2026-09-19</span><span class="pill">HSOLUNA 4.0.2</span><span class="pill">CLDC-1.1 / MIDP-2.1</span><span class="pill">Phạm vi: client/workspace</span></div>
+  </header>
+
+  <div class="grid">
+    <div class="card"><strong>216</strong><span>class trong JAR refactor</span></div>
+    <div class="card"><strong>728</strong><span>resource giữ nguyên</span></div>
+    <div class="card"><strong>23</strong><span>semantic class mới</span></div>
+    <div class="card"><strong>1</strong><span>hook facade được kiểm chứng</span></div>
+    <div class="card"><strong>OK</strong><span>class-load + resource diff</span></div>
+  </div>
+
+  <section>
+    <h2>Kết luận điều hành</h2>
+    <div class="callout ok"><strong>Không còn blocker phát hành ở pipeline hiện tại.</strong> Build source-to-JAR, test semantic/controller/route, symbol verification, bytecode verification, class loading và resource comparison đều đã chạy đạt.</div>
+    <p>Refactor đã tạo được đường đi lặp lại từ source → bridge/facade → ASM patch → JAR mới. Tuy nhiên, đây chưa phải là việc di chuyển 100% nghiệp vụ ra khỏi legacy: luồng chi tiết của Auto Đi Buôn, Auto Ngã 4, revive và Ghost vẫn nằm trong <code>LunaGeneratedLegacyHooks</code> để giữ ABI và hành vi của bản vàng.</p>
+    <p>Đánh giá khó khăn hiện tại:</p>
+    <table><thead><tr><th>Hạng mục</th><th>Đánh giá</th><th>Ý nghĩa</th></tr></thead><tbody>
+      <tr><td>Build/release bản refactor</td><td><span class="status ok">Không blocker</span></td><td>Đã có script chuẩn, manifest, verifier và rollback JAR.</td></tr>
+      <tr><td>Sửa tính năng semantic đã tách</td><td><span class="status info">Có thể làm</span></td><td>Đi vào <code>src/luna</code>, thêm fixture, chạy build.</td></tr>
+      <tr><td>Thêm hook vào binary obfuscate</td><td><span class="status warn">Vẫn khó</span></td><td>Cần catalog đúng owner + member + descriptor và kiểm tra bytecode.</td></tr>
+      <tr><td>Migrating hết legacy sang semantic</td><td><span class="status warn">Còn nợ kỹ thuật</span></td><td><code>EmptyBridge</code> chưa phải live bridge; generated legacy body vẫn rất lớn.</td></tr>
+    </tbody></table>
+  </section>
+
+  <section>
+    <h2>Phạm vi và nguồn sự thật</h2>
+    <p>Báo cáo phân biệt bản client canonical với các JAR thử nghiệm/historical trong thư mục. “Đang có trong client” được hiểu là tính năng có trong <code>luna_final.jar</code> và/hoặc được giữ trong output source-build hiện hành; patcher thử nghiệm không tự động được coi là feature active.</p>
+    <table><thead><tr><th>Artifact</th><th>Vai trò</th><th>Hash / ghi chú</th></tr></thead><tbody>
+      <tr><td><a href="inputs/luna_final-golden-baseline.jar"><code>luna_final-golden-baseline.jar</code></a></td><td>Binary golden, rollback baseline</td><td><code>06622CD81DC6790871A5863D465D4E352B29A94BB6FD0062C54F7CF9C6C47E0F</code>; 192 class.</td></tr>
+      <tr><td><code>luna-4.0.2-refactor-source.ps1.jar</code></td><td>Output source-build lịch sử</td><td>Không còn giữ trong repo; hash lịch sử <code>930999393F0544B9C01744A995A61B96B64AA21B9C8628839A14ED337FD7B027</code>.</td></tr>
+      <tr><td><a href="src/luna/"><code>src/luna/</code></a></td><td>Semantic source record</td><td>API, core, feature controller, UI state.</td></tr>
+      <tr><td><a href="tools/legacy/luna/legacy-hook.template"><code>tools/legacy/luna/legacy-hook.template</code></a></td><td>Source template for generated binary compatibility bridge</td><td>Generated output nằm trong <code>build/generated/</code>; không sửa artifact.</td></tr>
+      <tr><td><a href="symbols/luna-4.0.2.properties"><code>symbols/luna-4.0.2.properties</code></a></td><td>Versioned symbol catalog</td><td>Lookup bắt buộc gồm owner + member + descriptor.</td></tr>
+    </tbody></table>
+    <p class="small">Tài liệu kiến trúc: <a href="docs/LUNA_ARCHITECTURE.md">LUNA_ARCHITECTURE.md</a>. Quy trình build và version matrix: <a href="CLAUDE.md">client/workspace/CLAUDE.md</a>.</p>
+  </section>
+
+  <section>
+    <h2>Mục lục</h2>
+    <ol class="toc">
+      <li><a href="#architecture">Kiến trúc sau refactor</a></li><li><a href="#autotrade">Auto Đi Buôn</a></li><li><a href="#n4">Auto Ngã 4</a></li><li><a href="#revive">Revive / hồi sinh</a></li><li><a href="#ghost">Ghost / captcha</a></li><li><a href="#petcombat">Auto đánh, pet, ngựa và reconnect</a></li><li><a href="#enhance">Auto cường hóa</a></li><li><a href="#hotbar">Hotbar và skill</a></li><li><a href="#movement">Noclip, pathfinding và loot compatibility</a></li><li><a href="#vanilla">Nền client game được giữ nguyên</a></li><li><a href="#verification">Kiểm chứng và rủi ro còn lại</a></li>
+    </ol>
+  </section>
+
+  <section id="architecture">
+    <h2>1. Kiến trúc sau refactor</h2>
+    <pre>luna_final.jar + symbol catalog
+             │
+             ├─ semantic source: src/luna
+             ├─ deterministic host fixtures
+             ├─ generated ABI facade + legacy bridge
+             └─ ASM patcher
+                    │
+                    ▼
+       luna-4.0.2-refactor-&lt;tag&gt;.jar
+                    │
+       symbol / hook / class / resource / load verifier</pre>
+    <table><thead><tr><th>Module</th><th>Chức năng</th><th>Tính năng tiêu biểu</th></tr></thead><tbody>
+      <tr><td><a href="src/luna/api/"><code>luna.api</code></a></td><td>Hợp đồng ổn định giữa semantic code và binary client.</td><td>Player/entity/menu/shop DTO, action MOVE/MENU_REPLY/REVIVE/CAPTCHA, bridge và clock.</td></tr>
+      <tr><td><a href="src/luna/core/"><code>luna.core</code></a></td><td>Lifecycle, quyền điều khiển di chuyển, path và route.</td><td><code>LunaRuntime</code>, <code>MovementArbiter</code>, straight/native/BFS/portal route, fake clock.</td></tr>
+      <tr><td><a href="src/luna/features/"><code>luna.features</code></a></td><td>Các controller semantic.</td><td>AutoTrade, N4, Revive, Ghost.</td></tr>
+      <tr><td><a href="src/luna/ui/"><code>luna.ui</code></a></td><td>State biểu diễn UI và đọc notice.</td><td>HUD state, nhận diện sold-out/kết nối.</td></tr>
+      <tr><td><code>HSOAutoTradeSupport</code></td><td>Hook facade giữ method name/descriptor mà patcher gọi.</td><td>Menu, tick, HUD, NPC menu, shop, captcha, auto-attack path/target gate.</td></tr>
+      <tr><td><code>LunaGeneratedLegacyHooks</code></td><td>Compatibility body được sinh từ template.</td><td>Giữ hành vi binary đầy đủ trong giai đoạn migration.</td></tr>
+    </tbody></table>
+    <h3>Luật điều phối quan trọng</h3>
+    <ul><li>Mỗi frame, runtime gọi revive → ghost → N4 → Auto Đi Buôn.</li><li><code>MovementArbiter</code> bảo đảm một path writer tại một thời điểm; priority là AutoTrade 10, N4 20, combat 30, revive 40.</li><li>Map/dialog có settle window; không coi pet bị mất chỉ vì một frame thiếu entity.</li><li>Support code phải chạy CLDC 1.1/MIDP 2.1, Java 7 bytecode, UTF-8; không dùng Java 8 API/lambda/stream.</li></ul>
+  </section>
+
+  <section id="autotrade">
+    <h2>2. Auto Đi Buôn</h2>
+    <p><span class="status ok">Đang có trong golden và output refactor</span> — đây là state machine lớn nhất của client.</p>
+    <h3>Chu trình nghiệp vụ</h3>
+    <ol><li>Đi tới map 52 “Cổng địa ngục”, tọa độ đầu <code>(300,420)</code>.</li><li>Dùng vật phẩm “Bò vàng”, chờ server tạo pet và phân biệt bò của mình với bò người khác.</li><li>Nói chuyện Mr Dylan, đi qua menu “Mua bán”, mở shop.</li><li>Mua đá theo ưu tiên <strong>kim cương → ruby → saphia</strong>, tối đa 24 viên/chuyến; nhận diện hết hàng từ notice/dialog và chuyển tier.</li><li>Bấm tăng tốc cho bò nếu tùy chọn đang bật.</li><li>Dắt bò qua tuyến portal tới map 8 “Thung Lũng Kỳ Bí”, tọa độ bán <code>(241,787)</code>.</li><li>Nói Graham, chọn “Giao tiếp” → “Bán đá quý”, hoàn tất chuyến và quay về đầu vòng.</li></ol>
+    <table><thead><tr><th>State</th><th>Ý nghĩa</th></tr></thead><tbody>
+      <tr><td><code>OFF</code></td><td>Tắt, nhả quyền path.</td></tr><tr><td><code>GOTO_START</code></td><td>Đi tới map/điểm Dylan.</td></tr><tr><td><code>SPAWN_PET</code></td><td>Gọi bò, retry có giới hạn.</td></tr><tr><td><code>TALK_DYLAN</code></td><td>Chọn menu NPC theo label, không phụ thuộc menu index cố định.</td></tr><tr><td><code>BUY</code>/<code>WAIT_STOCK</code></td><td>Mua đá theo response, settle, sold-out và stock poll.</td></tr><tr><td><code>BOOST_PET</code></td><td>Mở menu bò và chọn tăng tốc.</td></tr><tr><td><code>HAUL</code></td><td>Dắt bò từng đoạn, chống mất bò, qua map và qua cổng.</td></tr><tr><td><code>TALK_GRAHAM</code></td><td>Bán đá và xác nhận chuyến hoàn tất.</td></tr><tr><td><code>RETURN_HOME</code>/<code>DISMISS_PET</code></td><td>Về điểm đầu hoặc hủy bò để tạo lại chuyến an toàn.</td></tr>
+    </tbody></table>
+    <h3>Luật chống mất bò và đồng bộ server</h3>
+    <ul><li>Nhịp dắt chuẩn là 60 px/giây, thấp hơn ngưỡng server 85 px/nhịp.</li><li>Ngưỡng cảnh báo bò tụt là 80 px; khi tăng tốc dùng ngưỡng rộng 240 px.</li><li>Gần cổng dùng ngưỡng riêng 70 px vì luật qua cổng không nhân theo speed.</li><li>Sau đổi map chờ khoảng 3 giây; không suy luận mất bò trong lúc entity/bảng cổng đang nạp.</li><li>Phát hiện bò alien theo snapshot trước khi gọi, theo tên chủ khi có, retry đón tối đa 3 lần và resummon khi cần.</li><li>Dialog server được đọc tập trung, chờ settle, đóng đúng nhịp; dialog mất kết nối không bị bấm nhầm.</li><li>Mất kết nối thì giữ trạng thái, để client reconnect/login xử lý, rồi tiếp tục thay vì phát lệnh vào khoảng không.</li></ul>
+    <h3>Menu, HUD và tùy chọn</h3>
+    <ul><li>Submenu hiển thị ON/OFF của Auto Đi Buôn.</li><li>Bật/tắt “Tăng tốc” — khi tắt, số tile mỗi nhịp bị giảm một nửa.</li><li>Bật/tắt Noclip; đổi mode sẽ xóa path/plan cũ để không dùng nhầm route được tính theo mode trước.</li><li>HUD hiển thị state, tọa độ, map, khoảng cách tới bò và lý do đang chờ/kẹt.</li></ul>
+    <p class="small">Bằng chứng: <a href="src/luna/features/AutoTradeController.java">AutoTradeController.java</a>, <a href="src/luna/core/PathPlanner.java">PathPlanner.java</a>, <a href="src/luna/core/WorldRoutePlanner.java">WorldRoutePlanner.java</a>, <a href="AUTOTRADE_HAUL.html">AUTOTRADE_HAUL.html</a>, <a href="tools/legacy/luna/legacy-hook.template">legacy hook template</a>.</p>
+  </section>
+
+  <section id="n4">
+    <h2>3. Auto Ngã 4</h2>
+    <p><span class="status ok">Đang có trong golden và output refactor</span> — state machine combat/movement chạy theo bước cố định để không tranh quyền với Auto Đánh.</p>
+    <table><thead><tr><th>State</th><th>Hành vi</th></tr></thead><tbody>
+      <tr><td><code>HOME</code></td><td>Về Làng Sói Trắng (map 1), tới Phó chỉ huy ở <code>(588,564)</code>, để engine đi hết path rồi mới tương tác.</td></tr><tr><td><code>TALK</code></td><td>Chọn menu vào Ngã 4, Horae/ngọc theo label; timeout và retry có giới hạn.</td></tr><tr><td><code>WAIT</code></td><td>Đứng yên đọc notice hướng quái; quá thời gian chờ mới dùng thiên thạch làm fallback.</td></tr><tr><td><code>MOVE</code></td><td>Đi một lần tới vị trí đón cố định, không vừa đi vừa đổi đích.</td></tr><tr><td><code>HOLD</code></td><td>Đứng ở vị trí đón, bật Auto Đánh, theo mục tiêu bị khóa và phối hợp nhặt đồ.</td></tr><tr><td><code>LEAVE</code></td><td>Đợi ra làng, map nạp xong rồi quay về HOME.</td></tr>
+    </tbody></table>
+    <h3>Điểm đón và combat</h3>
+    <ul><li>Phó bản là map 48; thiên thạch trung tâm <code>(684,672)</code>.</li><li>Điểm đón: Bắc <code>(684,552)</code>, Đông <code>(820,672)</code>, Nam <code>(688,768)</code>, Tây <code>(584,656)</code>.</li><li>Bám tới khoảng 30 px để vật phẩm rơi gần chân; sau khi quái chết chờ khoảng 1,5 giây cho loot.</li><li>Đọc notice “cửa phía …”, khóa cửa ngắn hạn để bỏ bản sao cùng frame, xóa notice cũ khi vào lượt mới.</li><li>Trong phó bản có thể bật Noclip tạm thời; ra làng khôi phục đúng lựa chọn Noclip trước đó.</li><li>Auto Ngã 4 tạm dừng Auto Đánh khi cần di chuyển, rồi khôi phục trạng thái auto attack/player-target cũ khi giữ vị trí.</li><li><code>autoAttackPath</code> và <code>autoTargetGate</code> là hai điểm bàn giao để không có hai bên cùng ghi <code>player.path</code>.</li></ul>
+    <p class="small">Bằng chứng: <a href="src/luna/features/N4Controller.java">N4Controller.java</a>, <a href="HSOSKY_COMBAT_ANALYSIS.md">HSOSKY_COMBAT_ANALYSIS.md</a>, <a href="tools/legacy/luna/legacy-hook.template">legacy N4 hook template</a>.</p>
+  </section>
+
+  <section id="revive">
+    <h2>4. Revive / hồi sinh</h2>
+    <p><span class="status ok">Đang có</span> — có cả controller semantic và workflow legacy gắn với menu server.</p>
+    <ul><li><code>ReviveController</code> đọc snapshot player; khi không còn sống thì gửi action REVIVE tối đa một lần mỗi 1 giây.</li><li>Không suy luận chết từ một frame stale; chỉ xử lý khi world ready.</li><li>Workflow item revive legacy nhận diện đúng hai menu: popup xác nhận “OK” rồi menu chọn vật phẩm hồi sinh.</li><li>Retry/menu delay khoảng 0,5 giây và retry request khoảng 3 giây; không bấm nhầm menu “hồi sinh tại chỗ”.</li><li>Sau khi sống lại, helper horse được khôi phục theo RMS/trạng thái trước đó với retry giới hạn.</li><li>Auto Đi Buôn và Auto Ngã 4 được dừng hoặc nhường quyền khi nhân vật chết, tránh hai state machine tiếp tục phát lệnh.</li></ul>
+    <p class="small">Bằng chứng: <a href="src/luna/features/ReviveController.java">ReviveController.java</a>, <a href="fixtures/luna/LunaControllerHostTest.java">LunaControllerHostTest.java</a>, <a href="tools/legacy/luna/legacy-hook.template">legacy revive hook template</a>.</p>
+  </section>
+
+  <section id="ghost">
+    <h2>5. Ghost / captcha</h2>
+    <p><span class="status ok">Đang có</span> — tự nhận diện prompt hình ảnh và hỗ trợ lưu/đi về vị trí.</p>
+    <ul><li><code>GhostController</code> theo dõi captcha visibility, ghi thời điểm prompt và gửi câu trả lời qua action tái sử dụng.</li><li>Legacy hook <code>checkGhost(Image)</code> đọc ảnh captcha, nhận diện chữ số và gửi đáp án theo chuỗi xử lý không chặn game thread.</li><li>Submenu GHOSTMOD: bật/tắt auto diệt ma, bật/tắt tự về vị trí đã lưu, lưu vị trí hiện tại, xóa vị trí lưu.</li><li>Khi chết, state ghi nhận map + tọa độ; khi sống lại có thể route về vị trí lưu với timeout khoảng 15 phút.</li><li>Đổi map, dialog và mất kết nối đều làm sạch/hoãn plan để không đi theo tọa độ của map cũ.</li></ul>
+    <p class="small">Bằng chứng: <a href="src/luna/features/GhostController.java">GhostController.java</a>, <a href="src/luna/api/LunaAction.java">LunaAction.java</a>, <a href="tools/legacy/luna/legacy-hook.template">legacy Ghost hook template</a>.</p>
+  </section>
+
+  <section id="petcombat">
+    <h2>6. Auto đánh, pet, ngựa và reconnect</h2>
+    <p><span class="status ok">Đang có qua lớp support legacy trong golden</span> — class đã được gọi trực tiếp từ game classes và được giữ khi source-build.</p>
+    <h3>Auto đánh và target</h3>
+    <ul><li>Auto đánh quái mặc định; tùy chọn PvP cho phép thêm target người chơi đối địch.</li><li>Lệnh chat: <code>6</code> = quái + người chơi, <code>7</code> = chỉ quái, <code>0/off/tat</code> = tắt, <code>help/hd</code> = trợ giúp.</li><li>Target gate loại target không hợp lệ, loại player bản thân và phối hợp với N4 để không đánh/đi sai mục tiêu.</li><li>Trạng thái auto attack hiển thị trên HUD/info; trạng thái persistent được lưu RMS.</li></ul>
+    <h3>Nuôi pet</h3>
+    <ul><li>Scheduler scan inventory định kỳ và cho pet ăn theo màu/loại trang bị.</li><li>Mode 3: vàng + tím; mode 4: thêm cam nhưng giữ trang bị cam của class Gunner; mode 5: ăn cả vàng/tím/cam.</li><li>Giãn nhịp tương tác pet, giữa các item và chờ response server; snapshot item trước khi gửi để tránh inventory mutate giữa vòng.</li><li>Chat <code>3</code>/<code>4</code>/<code>5</code> đổi feed mode; <code>help</code> hiển thị hướng dẫn.</li></ul>
+    <h3>Ngựa, auto login và reconnect</h3>
+    <ul><li>Auto horse có trạng thái persistent, tự mount lại khi điều kiện phù hợp và không chen vào lúc người chơi đang giữ phím di chuyển.</li><li>Auto login chọn nhân vật 1/2/3 qua menu command; có lệnh tắt auto login; lựa chọn được lưu RMS.</li><li>Nhận biết connecting dialog, dismiss dialog đúng loại, quay lại login screen và trigger login khi mất kết nối; lưu mốc thời gian để chống spam.</li><li>Khởi động support ở <code>TemMidlet.startApp()</code>; canvas update dùng để reengage auto attack/horse và đồng bộ màn hình.</li></ul>
+    <p class="small">Bằng chứng binary: <code>javap -p HSOSKYPetFeedSupport</code> và call graph từ <code>ScanJarSupportCalls inputs/luna_final-golden-baseline.jar</code>; support class được giữ trong <a href="inputs/luna_final-golden-baseline.jar">golden JAR</a>.</p>
+  </section>
+
+  <section id="enhance">
+    <h2>7. Auto cường hóa trang bị</h2>
+    <p><span class="status ok">Đang có qua HSOSKYAutoEnhanceSupport</span> — workflow được gate theo response server, không bấm liên tục mù.</p>
+    <ul><li>Mở/đóng menu và bắt đầu theo target level.</li><li>Trạng thái: active, waiting request, result ready, result settled.</li><li>Chỉ nhận một response cho request đang chờ; sau response chờ inventory settle rồi mới gửi lượt kế.</li><li>Settle delay mặc định 100 ms, có setter nhưng không cho xuống dưới 100 ms.</li><li>Request không có response trong 12 giây được coi là stalled và dừng.</li><li>Khi level hiện tại đạt target thì stop; nếu chưa đạt thì cho phép gửi lượt tiếp theo.</li></ul>
+    <p class="small">Bằng chứng: <a href="tools/legacy/hsosky/HSOSKYAutoEnhanceSupport.java">HSOSKYAutoEnhanceSupport.java</a>, các hook <code>hsoskyAutoHandle</code>, <code>hsoskyAutoOnResponse</code>, <code>hsoskyAutoOnServerResult</code>, <code>hsoskyAutoTickGate</code> trong binary golden.</p>
+  </section>
+
+  <section id="hotbar">
+    <h2>8. Hotbar và skill</h2>
+    <p><span class="status ok">Đang có trong binary golden</span> — dữ liệu hotbar được mở rộng mà vẫn giữ format slot cũ.</p>
+    <table><thead><tr><th>Support</th><th>Chuyển đổi</th><th>Chi tiết</th></tr></thead><tbody>
+      <tr><td><code>HSOSKY10SkillSupport</code></td><td>3 page × 5 slot → 3 page × 10 slot</td><td>Giữ dữ liệu slot cũ, slot mới được đánh dấu empty.</td></tr>
+      <tr><td><code>HSOSKY12SkillSupport</code></td><td>3 page × 5/10 slot → 3 page × 12 slot</td><td>Nhận cả format 5 và 10 slot trước đó, rồi mở rộng lên 12.</td></tr>
+    </tbody></table>
+    <ul><li>Client giữ hệ thống skill/animation/cooldown và vẽ cooldown theo metadata server gửi.</li><li>Kiểm tra client gồm skill đã học, cooldown và MP trước khi gửi request.</li><li>Damage, HP/MP kết quả combat vẫn do server authoritative; client chỉ hiển thị/cache/prediction UI.</li></ul>
+    <p class="small">Bằng chứng: <a href="tools/legacy/hsosky/HSOSKY10SkillSupport.java">HSOSKY10SkillSupport.java</a>, class 12-slot trong binary golden, call graph hotbar trong <code>ScanJarSupportCalls</code>, <a href="HSOSKY_COMBAT_ANALYSIS.md">HSOSKY_COMBAT_ANALYSIS.md</a>.</p>
+  </section>
+
+  <section id="movement">
+    <h2>9. Noclip, pathfinding và loot compatibility</h2>
+    <h3>Noclip và an toàn khi server correction</h3>
+    <ul><li>Runtime biến tile bị chặn thành walkable khi Noclip ON; lựa chọn được giữ qua map/zone.</li><li>Ghi nhận vị trí client gửi và so với vị trí server trả về trong cửa sổ 1,5 giây, tolerance 24 px.</li><li>Nếu server correction đủ 3 lần trong 5 giây thì tự tắt Noclip và xóa loot plan.</li><li>Đổi map reset bộ nhớ correction, kill/drop và plan.</li></ul>
+    <h3>Path planner semantic</h3>
+    <ul><li>Đường thẳng theo Chebyshev, route native engine, BFS grid 4-neighbor/8-neighbor và segment sampling tránh cổng.</li><li>Coordinate packing tương thích format engine; tile hợp lệ trong 0..127.</li><li>World route graph dùng tên map tolerant và BFS deterministic next-hop; tuyến kiểm chứng 52 → 45 → 44 → 43 → 42 → 22 → 24 → 23 → 20 → 34 → 33 → 25 → 18 → 7 → 8.</li><li>Near portal có force step ngắn vào ô cổng; plan cache bị xóa khi đổi map/đích/mode.</li></ul>
+    <h3>Loot / remote pickup: phải đọc đúng trạng thái</h3>
+    <div class="callout warn"><strong>Không ghi “remote teleport loot đang hoạt động”.</strong> <code>HSOSKYRuntimeSupport</code> vẫn giữ ABI/action constants và các buffer theo dõi drop, nhưng trong bản hiện hành <code>pollLootAction(...)</code> trả <code>ACTION_NONE</code>, <code>isLootTeleportActive()</code> trả false và <code>notePickupAttempt()</code> không phát lệnh. Đây là compatibility surface/đường mở rộng, không phải feature active của output refactor.</div>
+    <p>Auto Ngã 4 vẫn có logic áp sát mục tiêu để loot rơi gần chân; điều đó khác với remote loot teleport và được tính là một phần của N4.</p>
+    <p class="small">Bằng chứng: <a href="src/luna/core/PathPlanner.java">PathPlanner.java</a>, <a href="src/luna/core/WorldRoutePlanner.java">WorldRoutePlanner.java</a>, <a href="tools/legacy/luna/HSOSKYRuntimeSupport.java">HSOSKYRuntimeSupport.java</a>, <a href="fixtures/luna/LunaRouteHostTest.java">LunaRouteHostTest.java</a>.</p>
+  </section>
+
+  <section id="vanilla">
+    <h2>10. Nền client game được giữ nguyên</h2>
+    <p>Refactor không thay thế engine game. Các năng lực dưới đây tiếp tục nằm trong 186 game class major 47 và các support class major 51 của golden; ghi lại để tránh nhầm “client” chỉ gồm automation.</p>
+    <table><thead><tr><th>Nhóm</th><th>Tính năng nền</th></tr></thead><tbody>
+      <tr><td>Mạng và phiên</td><td>Handshake, keystream XOR theo từng chiều/kết nối, frame opcode, login, chọn nhân vật, tạo nhân vật, nhận dữ liệu map/world.</td></tr><tr><td>Đăng nhập</td><td>Danh sách server/character, đăng nhập RMS, selector nhân vật, màn hình login và chuyển vào game.</td></tr><tr><td>Thế giới</td><td>Map/tile grid, entity/NPC/mob/pet, tọa độ, path engine, portal, chuyển map, load resource/sprite.</td></tr><tr><td>NPC/shop</td><td>Server menu, dialog/notice, shop inventory, mua/bán item, tương tác NPC, response settle.</td></tr><tr><td>Combat</td><td>Auto attack, target quái/PvP, skill request, animation/effect, range và path engine, cập nhật HP/MP/damage từ server.</td></tr><tr><td>Skill/UI</td><td>Hotbar, nhiều page slot, cooldown timer/visual, skill metadata, menu command, canvas paint, HUD và info dialog.</td></tr><tr><td>Nhân vật</td><td>Di chuyển phím/touch, mount/horse, inventory, pet, HP/MP, revive menu, chat và transition màn hình.</td></tr>
+    </tbody></table>
+    <p class="small">Tài liệu protocol: <a href="PROTOCOL.md">PROTOCOL.md</a>. Phân tích combat: <a href="HSOSKY_COMBAT_ANALYSIS.md">HSOSKY_COMBAT_ANALYSIS.md</a>. Patcher lịch sử không được coi là feature active nếu không có trong golden/call graph hiện hành.</p>
+  </section>
+
+  <section id="verification">
+    <h2>11. Kiểm chứng, invariants và việc còn lại</h2>
+    <h3>Kết quả chạy thực tế</h3>
+    <table><thead><tr><th>Kiểm tra</th><th>Kết quả</th></tr></thead><tbody>
+      <tr><td><code>LunaSemanticHostTest</code></td><td><span class="status ok">OK</span> fake clock, MovementArbiter, straight path, BFS.</td></tr><tr><td><code>LunaControllerHostTest</code></td><td><span class="status ok">OK</span> revive cooldown, toggle boost, N4 preemption, Ghost CAPTCHA.</td></tr><tr><td><code>LunaRouteHostTest</code></td><td><span class="status ok">OK</span> map label, next-hop 52→8, tile encoding.</td></tr><tr><td><code>LunaSymbolCatalogVerifier</code> + <code>VerifyAutoTradeSymbols</code></td><td><span class="status ok">OK</span> exact lookup theo owner/member/descriptor.</td></tr><tr><td><code>LunaJarVerifier</code></td><td><span class="status ok">OK</span> 216 class load, 728 resources unchanged, hook count 1, max major 51.</td></tr><tr><td><code>TestAutoTradeLoad</code></td><td><span class="status ok">OK</span> no VerifyError; support + generated hook load được.</td></tr><tr><td><code>TestAutoTradeRoute</code></td><td><span class="status ok">OK</span> constants, gem order, timing, Noclip path, N4 state/range và connection notice.</td></tr>
+    </tbody></table>
+    <h3>Invariants phải giữ khi sửa tiếp</h3>
+    <ul><li>Không ghi đè <code>luna_final.jar</code> hoặc output JAR đã tồn tại; luôn đặt tên mới.</li><li>Không sửa tay generated bridge/facade, build output, support class artifact hoặc symbol map được sinh tự động.</li><li>Không cho AutoTrade/N4 ghi path nếu chưa có ownership của <code>MovementArbiter</code>.</li><li>Không kết luận pet mất trong map/dialog settle window.</li><li>Không đoán tên obfuscate; verifier phải dừng nếu symbol không khớp exact descriptor.</li><li>Giữ resource allow-list và chạy lại class version, hook count, resource diff, <code>-Xverify:all</code>.</li></ul>
+    <h3>Migration debt còn lại</h3>
+    <div class="callout warn"><ul><li><code>LunaSemanticHooks</code> hiện dùng <code>EmptyBridge</code> mặc định với <code>isWorldReady() = false</code>; semantic controller được host-test nhưng chưa tự đọc live world nếu chưa cài version-specific bridge.</li><li><code>AutoTradeController</code> và <code>N4Controller</code> hiện là semantic state/ownership façade; workflow chi tiết vẫn ở generated legacy bridge.</li><li>Support class legacy trong golden có ABI rộng hơn các source template đơn giản trong working tree; phải dùng call graph/JAR làm căn cứ khi chỉnh AutoLogin/Pet/Horse/Hotbar/AutoEnhance.</li><li>Chưa có kiểm thử end-to-end gameplay dài trong microemulator; hiện là deterministic host + binary load/route/structure. Đây là giới hạn kiểm chứng, không phải lỗi build.</li></ul></div>
+    <p><strong>Đề xuất:</strong> cài bridge live cho một DTO/action trước, chuyển từng state nhỏ ra semantic controller, thêm fixture tương ứng, rồi mới giảm dần generated legacy body. Không nên xóa bridge hiện tại chỉ vì source-build đã pass.</p>
+  </section>
+
+  <section>
+    <h2>Tài liệu và điểm vào nhanh</h2>
+    <table><thead><tr><th>Nhu cầu</th><th>Đọc / chạy</th></tr></thead><tbody>
+      <tr><td>Build release</td><td><code>cd client/workspace</code> rồi chạy <a href="tools/luna/build-source.ps1"><code>tools/luna/build-source.ps1</code></a>.</td></tr><tr><td>Sửa Auto Đi Buôn</td><td><a href="src/luna/features/AutoTradeController.java">AutoTradeController</a>, <a href="src/luna/core/PathPlanner.java">PathPlanner</a>, <a href="AUTOTRADE_HAUL.html">haul report</a>.</td></tr><tr><td>Sửa Auto Ngã 4/combat conflict</td><td><a href="src/luna/features/N4Controller.java">N4Controller</a>, <a href="src/luna/core/MovementArbiter.java">MovementArbiter</a>, generated hook boundary.</td></tr><tr><td>Sửa symbol/ASM</td><td><a href="symbols/luna-4.0.2.properties">symbol catalog</a>, <a href="tools/luna/LunaSymbolCatalogVerifier.java">catalog verifier</a>, <a href="tools/luna/LunaJarVerifier.java">JAR verifier</a>.</td></tr><tr><td>Xem trace ownership</td><td><a href="fixtures/luna/runtime-trace.txt">runtime-trace.txt</a>.</td></tr>
+    </tbody></table>
+  </section>
+
+  <footer>Báo cáo được tạo từ source, generated bridge, manifest và các lệnh kiểm tra trong workspace. Không dùng server version làm căn cứ cho client; client và server là hai pipeline độc lập.</footer>
+</main>
+</body>
+</html>

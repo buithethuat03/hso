@@ -1,0 +1,109 @@
+/*
+ * Three-state native HUD information switch for Hung_By_Son.
+ * OFF keeps the original hidden state, ON keeps the original native detail rows and adds the
+ * inventory count, and COMPACT hides those rows while retaining only the inventory count.
+ * The setting is stored in its own MIDP RecordStore. Without a new record, the old native
+ * information flag seeds the mode so an existing ON/OFF choice is retained.
+ *
+ * Markers @~suffix@ expand to 100-character obfuscated names. This is a single CLDC 1.1 class.
+ */
+import javax.microedition.rms.RecordStore;
+import luna.generated.HungAutoAttackAccess;
+
+public final class HungInventoryInfo {
+    public static final int OFF = 0, ON = 1, COMPACT = 2;
+    public static final String RMS_NAME = "hbs_inventory_info_v1";
+    public static final int HUD_X = 6, HUD_Y = 110;
+
+    private static int current = ON;
+    private static boolean loaded;
+    private static int lastCount = -1, lastCapacity = -1;
+    private static String lastLine;
+
+    private HungInventoryInfo() { }
+
+    private static void load() {
+        if (loaded) return;
+        loaded = true;
+        current = @~lliiliii@.@~lilliiilill@ ? ON : OFF;
+        RecordStore store = null;
+        try {
+            store = RecordStore.openRecordStore(RMS_NAME, true);
+            if (store.getNumRecords() > 0) {
+                byte[] value = store.getRecord(1);
+                if (value != null && value.length == 1 && value[0] >= OFF && value[0] <= COMPACT)
+                    current = value[0];
+            }
+        } catch (Throwable ignored) {
+        } finally {
+            if (store != null) try { store.closeRecordStore(); } catch (Throwable ignored) { }
+        }
+        applyNativeFlag();
+    }
+
+    private static void save() {
+        RecordStore store = null;
+        try {
+            store = RecordStore.openRecordStore(RMS_NAME, true);
+            byte[] value = new byte[] { (byte)current };
+            if (store.getNumRecords() == 0) store.addRecord(value, 0, value.length);
+            else store.setRecord(1, value, 0, value.length);
+        } catch (Throwable ignored) {
+        } finally {
+            if (store != null) try { store.closeRecordStore(); } catch (Throwable ignored) { }
+        }
+    }
+
+    private static void applyNativeFlag() {
+        @~lliiliii@.@~lilliiilill@ = current == ON;
+    }
+
+    public static int mode() {
+        load();
+        return current;
+    }
+
+    public static String menuLabel() {
+        int value = mode();
+        String state = value == OFF ? "TẮT" : value == ON ? "BẬT" : "GIẢN LƯỢC";
+        return new StringBuffer("Hiện thông tin [").append(state).append(']').toString();
+    }
+
+    public static void cycle() {
+        load();
+        current = (current + 1) % 3;
+        applyNativeFlag();
+        save();
+    }
+
+    /** Return null until the native world, player, inventory vector, and capacity are ready. */
+    public static String inventoryLine() {
+        try {
+            if (mode() == OFF || !HungAutoAttackAccess.farmWorldReady()) return null;
+            if (@~liiliii@.@~llilliill@ == null) return null;
+            et bag = @~llilli@.@~liiillili@;
+            short capacity = @~lliiil@.@~lliliili@;
+            if (bag == null || capacity <= 0) return null;
+            int count = bag.c();
+            if (count < 0) return null;
+            if (count != lastCount || capacity != lastCapacity || lastLine == null) {
+                lastCount = count;
+                lastCapacity = capacity;
+                lastLine = new StringBuffer("Hành trang: ").append(count).append('/').append(capacity).toString();
+            }
+            return lastLine;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    /** Draw the compact yellow row at the left below the SET1/2/3 HUD group. */
+    public static void draw(@~llilll@ graphics) {
+        try {
+            String text = inventoryLine();
+            if (graphics == null || text == null) return;
+            @~lilillil@.@~liililillii@.@~@(graphics, text, HUD_X, HUD_Y, 0, true);
+        } catch (Throwable ignored) {
+        }
+    }
+}

@@ -1,0 +1,7 @@
+# Minimal ownership trace used when reviewing path conflicts.
+0 AutoTrade acquire owner=10 map=1 x=100 y=100 detail=start
+16 AutoTrade submit owner=10 map=1 x=101 y=101 detail=path-1
+32 N4 acquire owner=20 map=1 x=101 y=101 detail=preempt
+48 AutoTrade submit owner=10 map=1 x=102 y=102 detail=rejected
+64 N4 submit owner=20 map=1 x=104 y=104 detail=path-2
+80 N4 release owner=0 map=1 x=104 y=104 detail=done

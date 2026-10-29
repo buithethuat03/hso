@@ -122,11 +122,9 @@ public class Map implements Runnable {
 					this.ld.update_atk();
 				}
 				time2 = System.currentTimeMillis();
-				time3 = (1_000L - (time2 - time1));
+				long target_delay = (this.players.size() > 0) ? 100L : 1_000L;
+				time3 = (target_delay - (time2 - time1));
 				if (time3 > 0) {
-					if (time3 < 20) {
-						System.err.println("map_id " + this.map_id + " - zone " + (this.zone_id + 1) + " overload...");
-					}
 					Thread.sleep(time3);
 				}
 			} catch (InterruptedException e) {

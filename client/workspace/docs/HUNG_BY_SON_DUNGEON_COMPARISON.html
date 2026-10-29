@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hung_By_Son — So sánh hai Auto Phó Bản</title>
+<style>
+:root{color-scheme:light;--ink:#18283b;--muted:#52647a;--line:#dce4ed;--blue:#1759a5;--green:#06745e}*{box-sizing:border-box}body{margin:0;background:#f1f5f9;color:var(--ink);font:16px/1.7 system-ui,"Segoe UI",sans-serif}main{max-width:1120px;margin:auto;padding:40px 24px 60px}header{padding:32px;background:#142c47;color:white;border-radius:18px}h1{font-size:32px;line-height:1.25;margin:8px 0 18px}h2{font-size:23px;margin:34px 0 14px}h3{font-size:18px;margin:0 0 10px}p{margin:10px 0}.eyebrow{font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:#b9d7f7}.lead{font-size:19px}.meta{font-size:13px;color:#c9daec;overflow-wrap:anywhere}.card,section{background:white;border:1px solid var(--line);border-radius:14px;padding:24px;margin-top:20px}section h2{margin-top:0}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.grid .card{margin:0;border-top:4px solid var(--blue)}.grid .card:last-child{border-top-color:var(--green)}.tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--blue)}.tag.new{color:var(--green)}.callout{background:#fff6df;border-left:4px solid #c58a12;border-radius:8px;padding:15px 18px;margin:18px 0}.good{background:#eaf6f1;border-color:#168269}.muted{color:var(--muted)}.scroll{overflow:auto}table{border-collapse:collapse;width:100%;font-size:15px;min-width:650px}th,td{padding:13px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}thead{background:#eaf0f7}th:first-child{width:21%}td{width:39.5%}tbody tr:last-child td{border:0}code{background:#eaf0f7;padding:2px 5px;border-radius:4px;font-size:.88em;overflow-wrap:anywhere}.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:16px 0}.step{padding:9px 13px;border:1px solid #cbd8e7;border-radius:8px;background:#f5f8fc}.arrow{color:#6e829b}li{margin:7px 0}a{color:var(--blue)}details{margin-top:14px}summary{cursor:pointer;font-weight:700}.small{font-size:14px}.hash{word-break:break-all}footer{font-size:13px;color:var(--muted);margin-top:24px}@media(max-width:720px){main{padding:18px 12px}.grid{grid-template-columns:1fr}header,section,.card{padding:20px}h1{font-size:27px}}@media print{body{background:white}main{padding:0;max-width:none}header{background:white;color:var(--ink);border:1px solid var(--line)}.meta,.eyebrow{color:var(--muted)}section,.card{break-inside:avoid}details{display:block}a{color:inherit}}
+</style>
+</head>
+<body><main>
+<header>
+<div class="eyebrow">Phân tích logic client • 25/10/2026</div>
+<h1>Hai mục Auto Phó Bản<br>khác nhau ở đâu?</h1>
+<p class="lead">Bản so sánh lịch sử trước khi sửa. Các cập nhật bên dưới mô tả việc bỏ A, đổi B và sửa Auto Mê cung chạy độc quyền.</p>
+<p class="meta">JAR gốc của phần so sánh lịch sử: client/jar/Hung_By_Son.jar<br>SHA-256 lúc phân tích: <span class="hash">EA213F3915D6000262A1C8CB8D7EF05DCCCCCAEE4A87DA7696735F5B1CDFFF6B</span><br>Phương pháp: đọc bytecode JAR thực tế, đối chiếu source và fixture trong dự án. Chưa chạy phiên game thật.</p>
+</header>
+
+<section style="border-top:5px solid var(--green)"><h2>Auto Mê cung chạy độc quyền — 25/10/2026</h2>
+<p>Bật <strong>Auto Mê cung</strong> sẽ tắt Auto đánh, Auto Farm, Tấn công đặc biệt, Tấn công quái thường, Auto Đi Buôn, Auto Cường Hóa, Lửa Thiêng, Phủ Sương và các công tắc Ngã Tư. Các lệnh bật lại những chế độ này bị chặn trong lúc mê cung chạy.</p>
+<p><strong>Sửa xung đột đánh giữ cửa:</strong> Farm vẫn cập nhật khi OFF; trước đây nó thấy auto native của mê cung thì xóa mục tiêu và hủy đòn đang chờ. Bản sửa giữ quyền riêng cho đòn mê cung, để animation/request native hoàn tất rồi mới chọn chiêu tiếp theo.</p>
+<p>Tắt mê cung, đổi map/khu/nhân vật, chết hoặc mất kết nối sẽ nhả đòn và đường đi của mê cung. Các auto đã tắt không tự bật lại. Cài đặt HP/MP, hồi sinh và đăng nhập giữ nguyên. Chưa thử sát thương trên server thật.</p>
+<p class="small"><a href="HUNG_BY_SON_MODUPLV_PORT.md">Hành vi và phạm vi kiểm thử</a> · <a href="RELEASES.md">Hash và bản sao lưu hiện hành</a></p></section>
+
+<section style="border-top:5px solid var(--green)"><h2>Cập nhật phó bản trước bản sửa mê cung — 25/10/2026</h2>
+<p><strong>Đã bỏ menu A và vô hiệu hóa logic A.</strong> B giữ nguyên cách vào/chi phí; trong map 48 đọc thông báo cửa quái mới rồi đứng chốt, không đuổi quái.</p>
+<div class="scroll"><table><thead><tr><th>Hướng</th><th>Ô trên minimap</th><th>Giữa ô, đơn vị tọa độ nội bộ</th></tr></thead><tbody>
+<tr><td>Tây hoặc Bắc</td><td>(20,20)</td><td>(492,492)</td></tr>
+<tr><td>Đông</td><td>(33,20)</td><td>(804,492)</td></tr>
+<tr><td>Nam</td><td>(19,33)</td><td>(468,804)</td></tr>
+<tr><td>Từ 2 hướng khác nhau trong cùng thông báo</td><td>(27,26)</td><td>(660,636)</td></tr>
+</tbody></table></div>
+<p>Chưa có thông báo hướng thì đứng chờ; tới ô đã chọn mới tung đặc biệt. Nhặt thêm đúng tên <strong>Rương vàng</strong> chỉ trong map 48, giữ lọc tím+ cho đồ khác. Ví dụ “Bắc, Tây” dùng ô (27,26).</p>
+<p class="small hash">SHA-256 mới: 387334F942B5534DD3B6ECDD2C3BBDEB638E4060B650C94CC784BDFEB1B08300. Bản cũ được sao lưu tại client/jar/backup/Hung_By_Son-before-hung-dungeon-stationary-20261025-b.jar. X3 chưa đổi.</p>
+<p class="small">Đã kiểm host, menu/packet native, đứng đánh đặc biệt và startup giả lập; chưa thử server thật. <a href="HUNG_BY_SON_MODUPLV_PORT.md">Chi tiết hành vi hiện tại</a> · <a href="../build/hung-dungeon-stationary-20261025-b/published.json">Biên nhận thay JAR</a></p>
+</section>
+
+<h2>Phần dưới: so sánh trước thay đổi (JAR EA213F39…)</h2>
+
+<h2>1. Kết luận dễ hiểu</h2>
+<div class="grid">
+<article class="card"><div class="tag">A · Bộ cũ của Hung_By_Son</div><h3>Menu → Auto Phó Bản</h3><p>Phù hợp nhu cầu <strong>hẹn giờ, đi N lượt rồi dừng, sau đó tiếp tục Farm</strong>. Tập trung vào Làng Sói Trắng, tìm NPC thực tế và đánh theo mục tiêu gần tâm cố định của sân.</p><p class="muted">Menu có: Trạng thái, Số lượt, Hẹn giờ đi.</p></article>
+<article class="card"><div class="tag new">B · Bộ bổ sung từ ModUpLv</div><h3>Menu → Phó bản / Mê cung</h3><p>Phù hợp nhu cầu <strong>chọn free/Horae/ngọc, tự vào lại và đánh bằng Auto đánh + Tấn công đặc biệt</strong>. “Hoàn thành phó bản” là công tắc thực thi, không phải lệnh xác nhận đã thắng.</p><p class="muted">Chọn cách vào tại “Phó bản Ngã Tư Tử Thần”; bật chạy tại “Hoàn thành phó bản” ở menu cha.</p></article>
+</div>
+<div class="callout"><strong>Không nên bật cả hai cùng lúc.</strong> Không có cơ chế loại trừ trực tiếp giữa hai bộ. Cả hai có thể xử lý NPC, mục tiêu và đường đi trong cùng phiên; đây là nguy cơ xung đột suy ra từ mã, chưa phải lỗi đã tái hiện trên server thật.</div>
+
+<section><h2>2. Bảng so sánh nhanh</h2><div class="scroll"><table>
+<thead><tr><th>Điểm so sánh</th><th>A · Auto Phó Bản</th><th>B · Phó bản / Mê cung</th></tr></thead><tbody>
+<tr><td>Bật chạy</td><td>Bật “Trạng thái”. Có thể chờ giờ hẹn.</td><td>Bật “Hoàn thành phó bản”. Muốn tự vào từ ngoài phải bật ít nhất một cách vào.</td></tr>
+<tr><td>Số lượt</td><td>Liên tục hoặc 1–10 lượt; bấm để chuyển lần lượt.</td><td>Không có bộ đếm giới hạn lượt do người dùng đặt.</td></tr>
+<tr><td>Hẹn giờ</td><td>Không hẹn hoặc 00:00–23:30, bước 30 phút. Với lượt hữu hạn, xong thì đợi giờ hẹn ngày sau.</td><td>Không có hẹn giờ cho Ngã Tư.</td></tr>
+<tr><td>Nhận biết sân</td><td>Tên map sau chuẩn hóa có chứa “nga tu”.</td><td>Cố định map ID 48.</td></tr>
+<tr><td>Vào từ làng</td><td>Chủ yếu map 1; tìm Phó chỉ huy bằng tên hoặc ID −37, đi đến vị trí NPC.</td><td>Các nhánh tọa độ riêng cho map 1, 33, 34, 67, 69, 93.</td></tr>
+<tr><td>Chọn phí</td><td>Không có lựa chọn free/ngọc riêng trong menu này; dùng thao tác menu NPC.</td><td>Có free/Horae, ngọc, hoặc cả hai; trả lời theo câu chữ hộp thoại.</td></tr>
+<tr><td>Chọn quái để di chuyển</td><td>Giữ mục tiêu hiện tại nếu còn sống; khi cần chọn lại, lấy quái gần tâm cố định (672,600) nhất, bỏ Thiên thạch.</td><td>Mỗi nhịp chọn lại quái gần vị trí Thiên thạch tìm được; cách nhân vật hơn 150 thì đi tới.</td></tr>
+<tr><td>Đánh</td><td>Ghi trạng thái tự đánh native và nới tầm xử lý lên 600.</td><td>Tự bật Auto đánh chỉ quái, Tấn công đặc biệt và đánh quái thường; dùng vòng đánh ModUpLv hiện có.</td></tr>
+<tr><td>Không còn quái</td><td>Sau 20 nhịp không có mục tiêu, có thể quay về tâm (672,600).</td><td>Không có nhánh quay về tâm tương ứng trong <code>dungeonFight</code>.</td></tr>
+<tr><td>Tính “xong lượt”</td><td>Đã từng ở map Ngã Tư rồi trở về map 1. Không kiểm tra thắng/thua.</td><td>Không tự đếm “xong lượt”; còn bật thì tiếp tục chu trình theo map và phản hồi server.</td></tr>
+<tr><td>Nhịp chạy</td><td>Bộ đếm theo số lần gọi <code>update</code>: chờ 100 nhịp sau khi về làng, các chờ NPC 15/20/40 nhịp.</td><td>Chu kỳ phó bản 840 ms theo đồng hồ thực, khi thế giới đã sẵn sàng.</td></tr>
+</tbody></table></div><p class="small muted">“600”, “150”, “50” là ngưỡng khoảng cách trong logic client. “100 nhịp” của bộ A không được quy đổi thành 100 giây hay một số giây cố định.</p></section>
+
+<section><h2>Đọc tọa độ trên bản đồ nhỏ</h2>
+<p>Tọa độ góc bản đồ nhỏ là vị trí thật của nhân vật theo <strong>ô bản đồ</strong>. Client lấy tọa độ thế giới của nhân vật chia nguyên cho kích thước ô 24 rồi hiển thị dưới dạng <code>x:y</code>. Các tọa độ auto trong báo cáo lại dùng đơn vị thế giới, nên hai số không trùng trực tiếp.</p>
+<p><code>x hiển thị = floor(X thế giới / 24)</code><br><code>y hiển thị = floor(Y thế giới / 24)</code></p>
+<p>Ví dụ tâm (672,600) trong logic auto tương ứng <strong>28:25</strong> trên bản đồ nhỏ. Nếu hiển thị 18:38 thì X thế giới nằm trong 432–455, Y trong 912–935; không thể lấy lại vị trí chính xác bên trong ô từ hai số hiển thị.</p>
+<p class="small muted">Đã kiểm tra hàm vẽ tọa độ trong <a href="../build/hung-dungeon-review-20261025/minimap-javap.txt">bytecode bản đồ nhỏ</a> và kích thước ô <code>cs.l = 24</code> trong <a href="../build/hung-dungeon-review-20261025/map-cs-javap.txt">bytecode map</a> của JAR hiện tại.</p>
+</section>
+
+<section><h2>3. Bộ A chạy thế nào?</h2>
+<div class="flow" aria-label="Luồng bộ A"><span class="step">Bật / đợi giờ</span><span class="arrow">→</span><span class="step">Về map 1</span><span class="arrow">→</span><span class="step">Tìm Phó chỉ huy</span><span class="arrow">→</span><span class="step">Vào và đánh</span><span class="arrow">→</span><span class="step">Về map 1 → tính lượt</span></div>
+<ol>
+<li><strong>Khi bắt đầu:</strong> xóa trạng thái lượt đang chạy, ghi nhớ hai cờ Farm cũ rồi tắt chúng. Khi chạy còn liên tục giữ Farm và Auto Cường Hóa ở trạng thái tắt.</li>
+<li><strong>Nếu chưa ở map 1 hoặc Ngã Tư:</strong> bật cơ chế về làng của client với map đích 1.</li>
+<li><strong>Ở map 1:</strong> tìm NPC tên chứa “pho chi huy” hoặc ID −37. Nếu có NPC thì dùng tọa độ của NPC; không có thì dùng vị trí dự phòng (552,504). Đến trong khoảng 80 mới tiến hành tương tác.</li>
+<li><strong>Với menu NPC:</strong> nếu dòng đầu chứa “nga tu” thì chọn dòng đầu; tìm và kích hoạt “giao tiep” khi cần. Với một số hộp thoại có “pho chi huy”, “nga tu” hoặc “nhiem vu”, gọi helper đóng hộp thoại để tiếp tục. Không có bộ lọc phí 5 ngọc như bộ B.</li>
+<li><strong>Trong sân:</strong> giữ mục tiêu loại quái, HP &gt; 0 và còn trong danh sách thế giới. Chỉ chọn lại khi mục tiêu không hợp lệ; ưu tiên quái gần tâm theo <code>|x−672| + |y−600|</code>, loại tên chứa “thien thach”. Mục tiêu xa hơn 600 thì có thể lập đường đuổi theo.</li>
+<li><strong>Khi quay về map 1:</strong> đặt khoảng nghỉ 100 nhịp. Nếu chọn số lượt hữu hạn thì tăng bộ đếm; đạt đủ sẽ khôi phục cờ Farm đã ghi nhớ. Không hẹn giờ thì tắt hẳn; có hẹn giờ thì giữ chế độ chờ ngày sau.</li>
+</ol>
+<div class="callout"><strong>Điểm cần hiểu đúng:</strong> chết, thất bại hoặc bị đưa ra sân rồi trở về map 1 vẫn có thể được tính là một lượt. Mã không đòi thông báo “chiến thắng”. Chế độ “Liên tục” bỏ qua nhánh đạt đủ số lượt; giờ hẹn khi đó chủ yếu quyết định lúc bắt đầu.</div>
+<p class="small muted">Hẹn giờ dùng <code>Calendar.getInstance()</code>, dựa vào đồng hồ/múi giờ môi trường chạy client. Mốc chống chạy lại cùng ngày lưu bằng ngày thứ bao nhiêu trong năm.</p>
+</section>
+
+<section><h2>4. Bộ B chạy thế nào?</h2>
+<div class="flow" aria-label="Luồng bộ B"><span class="step">Chọn cách vào</span><span class="arrow">+</span><span class="step">Hoàn thành phó bản: BẬT</span><span class="arrow">→</span><span class="step">NPC + trả lời phí</span><span class="arrow">→</span><span class="step">Map 48: Auto đánh</span><span class="arrow">→</span><span class="step">Ra ngoài: thử vào lại</span></div>
+<p><strong>Hai phần tách biệt:</strong> ba công tắc cách vào chỉ điều khiển <em>vào phó bản</em>; “Hoàn thành phó bản” điều khiển cả chu kỳ. Nếu đang ở map 48, chỉ bật “Hoàn thành phó bản” vẫn chạy phần đánh, dù cả ba cách vào đang tắt.</p>
+<p class="small muted">Các cờ free/ngọc/cả hai và “Hoàn thành phó bản” chỉ nằm trong bộ nhớ của module, không được module lưu vào RMS; mặc định tắt khi khởi tạo mới. Đóng hẳn client rồi mở lại cần bật lại.</p>
+<details><summary>Tọa độ và thao tác theo map</summary><div class="scroll"><table><thead><tr><th>Map</th><th>Đích di chuyển</th><th>Thao tác</th></tr></thead><tbody>
+<tr><td>1</td><td>(615,528)</td><td>Gửi yêu cầu NPC (−37,0,0).</td></tr>
+<tr><td>33</td><td>(0,608)</td><td>Chỉ di chuyển.</td></tr>
+<tr><td>34</td><td>(584,456)</td><td>Gửi yêu cầu NPC (−37,0,0).</td></tr>
+<tr><td>67</td><td>(0,312)</td><td>Chỉ di chuyển.</td></tr>
+<tr><td>69</td><td>(396,306)</td><td>Gửi yêu cầu NPC (−37,0,0).</td></tr>
+<tr><td>93</td><td>(554,528)</td><td>Gửi yêu cầu NPC (−37,0,0).</td></tr>
+</tbody></table></div><p>Ngưỡng tiếp cận là 50. Lệnh NPC được gọi sau <code>approach</code> trong cùng nhịp, kể cả khi còn đang đi; không có điều kiện “đã tới nơi mới gửi” ở các nhánh này.</p></details>
+<p><strong>Ngoài các map trên và map 48:</strong> báo chờ 5 giây rồi dùng Bùa về làng ID 142. Nếu map vẫn không phù hợp, chu kỳ này có thể lặp lại; không có giới hạn số lần thử ở nhánh này.</p>
+<p><strong>Trong map 48:</strong> gọi <code>engageMonsters()</code> để bật Auto đánh chỉ quái + đặc biệt + quái thường. Đọc vị trí đối tượng có tên đúng “Thiên thạch”, rồi tìm đối tượng quái gần nó nhất và chưa ở trạng thái chết <code>cG == 4</code>; cách nhân vật trên 150 thì đi đến. Nhánh di chuyển này không kiểm HP &gt; 0 riêng và không loại tên Thiên thạch riêng như bộ A.</p>
+<p><strong>Vòng đánh hiện tại:</strong> khi Tấn công đặc biệt và quái thường bật, bản JAR này dùng vòng ModUpLv có nhịp kiểm tra 28 ms, danh sách tối đa 20 quái gần nhân vật trên toàn map; mặc định khóa tung chiêu 575 ms theo cấu hình hiện tại. <strong>840 ms là nhịp điều khiển phó bản, không phải khoảng cách giữa hai đòn.</strong> Quái để lập đường gần Thiên thạch và danh sách quái thực sự nhận đòn là hai phép chọn riêng.</p>
+<div class="callout"><strong>Tắt “Hoàn thành phó bản” chưa có nghĩa đã tắt đánh.</strong> Thao tác này chỉ đảo cờ và xóa mốc chờ về làng. Nó không gọi tắt Auto đánh, không khôi phục Farm và không hoàn tác các cờ đánh đã bật. Khi muốn dừng hoàn toàn, kiểm tra thêm Auto đánh.</div>
+</section>
+
+<section><h2>5. Free/Horae và ngọc: bộ B xử lý ra sao?</h2>
+<ul>
+<li><strong>Free/Horae:</strong> tự trả lời câu kết thúc bằng “Ngã Tư Tử Thần một mình?”. Gặp câu kết thúc bằng “Phí: 5 ngọc” thì tắt free và tắt “Hoàn thành phó bản”; nếu chỉ bật free thì không gửi trả lời chấp nhận phí.</li>
+<li><strong>Ngọc:</strong> tự trả lời câu kết thúc bằng “Phí: 5 ngọc”. Riêng công tắc ngọc không trả lời câu “một mình?” qua nhánh free.</li>
+<li><strong>Cả hai:</strong> tự trả lời cả câu “một mình?” và “Phí: 5 ngọc”. Khi hết free/vé mà server hỏi phí, có thể tiếp tục bằng ngọc.</li>
+<li><strong>Lỗi điều kiện:</strong> các tiền tố thông báo hết điều kiện vào, cấp chưa đủ và giới hạn 10 lượt/ngày sẽ tắt chế độ tương ứng cùng công tắc thực thi theo từng nhánh trong mã. Mốc 10 lượt ở đây là phản hồi server được nhận diện, không phải bộ đếm lượt thắng của client.</li>
+</ul>
+<div class="callout"><strong>Ba cách vào bật/tắt độc lập, không tự loại trừ.</strong> Nên chỉ bật một lựa chọn. Nếu bật free cùng “cả hai”, mã có thể gửi trả lời phí từ nhánh “cả hai” trước khi nhánh free tắt thực thi. Với câu “một mình?”, free + “cả hai” cũng có thể gửi trùng trả lời. Vì vậy không thể hiểu “free đang bật” là bảo đảm không dùng ngọc khi các lựa chọn khác cũng bật.</div>
+<p class="small muted">So khớp thông báo dựa vào <code>startsWith</code>/<code>endsWith</code> với câu chữ có dấu. Server đổi cách viết, thêm hậu tố hoặc thay giá phí có thể khiến nhánh tự xử lý không khớp.</p>
+</section>
+
+<section><h2>6. Những trường hợp dễ gây nhầm</h2>
+<ul>
+<li><strong>Chọn free mà không chạy:</strong> kiểm tra “Hoàn thành phó bản”; chọn phương thức vào chưa đủ để bật chu kỳ.</li>
+<li><strong>Chỉ muốn tự đánh sau khi vào tay:</strong> ở map 48, bật “Hoàn thành phó bản” là đủ cho phần đánh; không cần bật cách vào.</li>
+<li><strong>Muốn đúng 3 lượt rồi về Farm:</strong> bộ A có cấu hình 3 lượt và ghi nhớ cờ Farm. “3 lượt” là 3 lần trở về map 1 sau khi đã vào sân, không đảm bảo 3 lần thắng.</li>
+<li><strong>Muốn đi free, hết thì dừng:</strong> dùng bộ B, chỉ bật free/Horae và công tắc thực thi; tắt ngọc và “cả hai”.</li>
+<li><strong>Tự đánh vẫn bật sau khi ra sân:</strong> bộ B không có cleanup tắt Auto đánh khi đổi map ra ngoài hoặc khi tắt “Hoàn thành phó bản”.</li>
+<li><strong>Thiếu Thiên thạch trong dữ liệu:</strong> bộ B có thể còn tọa độ mốc (−1,−1) và chọn quái theo mốc đó; bộ A dùng tâm cố định nên không cần tìm đối tượng này.</li>
+</ul>
+<p class="muted">Các nhánh quan sát được không có cơ chế đọc hướng từng đợt quái để chọn cửa. Logic Auto Ngã 4 của <code>luna_final.jar</code> là phần khác của dự án, không được dùng làm căn cứ cho báo cáo JAR này.</p>
+</section>
+
+<section><h2>7. Bằng chứng và phạm vi kiểm chứng</h2>
+<p>Đã đối chiếu SHA-256 JAR với release record, đọc trực tiếp bytecode module phó bản cũ và <code>HungBySonModUpLv</code> trong JAR hiện tại. Module cũ còn trùng byte với bản port ngày 24/10; class ModUpLv đã đổi do các lần cập nhật đánh đặc biệt nên các hàm phó bản được kiểm tra lại từ JAR hiện tại.</p>
+<p>Đây là kết luận về <strong>nhánh xử lý phía client</strong>. Chưa kiểm chứng server chấp nhận mỗi yêu cầu vào, cách trừ vé/ngọc, kết quả thắng/thua hoặc biểu hiện khi chạy đồng thời hai bộ. JAR gốc được giữ nguyên.</p>
+<details><summary>Nguồn để tra cứu lại</summary><ul class="small">
+<li><a href="../build/hung-dungeon-review-20261025/native-javap.txt">Bytecode module A nguyên bản</a>: menu, <code>onAction</code>, <code>update</code>, tìm NPC và chọn quái. Tên dài được rút gọn bằng ký hiệu ~.</li>
+<li><a href="../build/hung-dungeon-review-20261025/native-decoded.txt">Bản đọc gọn module A</a>: thay biểu thức giải mã chuỗi bằng chuỗi tương đương trên bản sao phân tích; offset chỉ thuộc bản sao này.</li>
+<li><a href="../build/hung-dungeon-review-20261025/moduplv-javap.txt">Bytecode ModUpLv trong JAR thực tế</a>: <code>onAction</code>, <code>onDialog</code>, <code>update</code>, <code>dungeonEntry</code>, <code>dungeonFight</code>.</li>
+<li><a href="../tools/luna/HungBySonModUpLv.java.in">Source ModUpLv</a>: menu/công tắc từ dòng 303; hộp thoại từ dòng 371; update từ dòng 430; vào/đánh từ dòng 487.</li>
+<li><a href="../src/luna/features/AutoAttackController.java">AutoAttackController</a>: <code>engageMonsters</code> và xử lý bật Auto đánh.</li>
+<li><a href="HUNG_BY_SON_MODUPLV_PORT.md">Tài liệu port</a> và <a href="RELEASES.md">release record</a>; <a href="../fixtures/hung-by-son/HungBySonModUpLvBinaryTest.java">fixture menu/packet phó bản</a> dùng tham khảo phạm vi kiểm thử cũ, không coi là lần chạy kiểm thử mới của báo cáo này.</li>
+</ul></details>
+</section>
+<footer>Báo cáo cục bộ • Tự chứa CSS, đọc được khi không có mạng • Có thể dùng Ctrl+P để in hoặc lưu PDF.</footer>
+</main></body></html>

@@ -505,8 +505,17 @@ public class MessageHandler {
                 break;
             }
             case 1: {
-                if (!conn.get_in4) {
+                // A reconnect can reuse the same socket after the first
+                // handshake has completed.  Until a character is actually
+                // selected, do not silently discard the fresh credentials
+                // packet just because get_in4 was set by the first attempt.
+                if (!conn.get_in4 || conn.p == null) {
+                    System.out.println("[login] opcode=1 accepted user=" + conn.user
+                            + " get_in4=" + conn.get_in4 + " player=" + (conn.p != null));
                     conn.getclientin4(m);
+                } else {
+                    System.out.println("[login] opcode=1 ignored user=" + conn.user
+                            + " get_in4=true player=true");
                 }
                 break;
             }
@@ -545,19 +554,13 @@ public class MessageHandler {
                     if (!owns) {
                         return;
                     }
-                    if (!Session.players.containsKey(conn.user)) {
-                        Session.players.put(conn.user, conn);
-                    } else {
-//                        for (int i = Session.client_entrys.size() - 1; i >= 0; i--) {
-//                            if (Session.client_entrys.get(i).user != null && Session.client_entrys.get(i).user.equals(conn.user)) {
-//                                Session.client_entrys.get(i).close();
-//                            }
-//                        }
-                        Session.players.get(conn.user).close();
-                        Session.players.remove(conn.user);
-                        conn.close();
-                        return;
+                    if (Session.players.containsKey(conn.user)) {
+                        Session oldSession = Session.players.remove(conn.user);
+                        if (oldSession != null && oldSession != conn) {
+                            try { oldSession.close(); } catch (Exception ignored) {}
+                        }
                     }
+                    Session.players.put(conn.user, conn);
 
                     p0.set_in4();
                     conn.p = p0;
@@ -568,8 +571,10 @@ public class MessageHandler {
     }
 
     private static void dataloginmap(Session conn) throws IOException {
+        Service.send_item_template(conn);
         Service.send_quest(conn);
         Service.send_auto_atk(conn);
+        Service.send_msg_data(conn, 26, Manager.gI().msg_26);
         Service.send_char_main_in4(conn.p);
         Service.send_msg_data(conn, 1, Manager.gI().msg_1);
         Service.send_skill(conn.p);

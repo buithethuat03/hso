@@ -1,0 +1,296 @@
+/*
+ * Local replacements for the server "secrets" of the Hung_By_Son "Auto Di Buon V3" module.
+ *
+ * V3 (menu + state machine) is kept as-is. It asks the licence server for a packet formula per
+ * action ("buon.mua_gem", "buon_tay.thu_len", "buon_tay.thu_xuong", "buon.hoi_sinh", "buon.ban_gem")
+ * and runs it with ~lilllill's executor ("ep|op|b..;s..;i.." raw packet, "qn|npc|menu|row", "&&").
+ * The offline build has no server, so HungBySonTradeLocalPatcher makes the formula getter ask
+ * formula() first. Actions are modelled on HSO Luna (tools/legacy/luna/legacy-hook.template):
+ * summon/dismiss = use the animal item (op 32) after a position sync (op 4); buy = op 24 with the
+ * shop type and gem ids read from the NPC shop; revive = the same choice as HBS Auto Hoi Sinh.
+ * Selling keeps V3's own "Ban da quy" menu fallback.
+ *
+ * Markers @~suffix@ expand to the 100-character obfuscated HBS name (see HungBySonTradeGen).
+ * Source level: CLDC 1.1 APIs only; compiled with --release 7 and stored as class version 48.
+ */
+import java.util.Hashtable;
+
+public final class HungBySonTradeLocal implements IModModule {
+    private static final String BUY = "buon.mua_gem";
+    private static final String UP = "buon_tay.thu_len";
+    private static final String DOWN = "buon_tay.thu_xuong";
+    private static final String REVIVE = "buon.hoi_sinh";
+    private static final String SELL = "buon.ban_gem";
+    /** Not a formula: the executor rejects it (fewer than 2 fields), which V3 treats as "not done yet". */
+    private static final String NOT_READY = "local";
+
+    private static final int NPC_RANGE_PX = 120;
+    private static final long MENU_DELAY_MS = 1500L;   // Luna: sooner gives "Thao tac qua nhanh"
+    private static final long OPEN_RETRY_MS = 8000L;
+    private static final long OPEN_WINDOW_MS = 12000L;
+    private static final long BUY_INTERVAL_MS = 2000L;
+    private static final long NOTICE_MS = 10000L;
+    private static final int CONSUMABLE = 4;
+
+    private static final String[][] GEM_KEYS = {{"kim cuong"}, {"ruby", "rubi"}, {"saphia", "sapphire", "saphir"}};
+    private static final String[][] ANIMAL_KEYS = {{"lua"}, {"lac da"}, {"bo"}};
+    private static final String[] ANIMAL_LABELS = {"Lừa", "Lạc Đà", "Bò"};
+
+    /** Per map id: int[] {shopType, kimCuongId, rubyId, saphiaId}. */
+    private static final Hashtable SHOPS = new Hashtable();
+
+    private static boolean opening;
+    private static long openAt;
+    private static int openMap = Integer.MIN_VALUE;
+    private static int openNpc;
+    private static int menuRow = -1;
+    private static int menuNpc;
+    private static long menuAt;
+    private static Object shopToClose;
+    private static long lastBuyAt;
+    private static long lastNoticeAt;
+
+    static {
+        @~lillllll@.@~@(new HungBySonTradeLocal());
+    }
+
+    private HungBySonTradeLocal() {
+    }
+
+    // ------------------------------------------------------------------ hooks
+
+    /** Hook: start of the formula getter. Non-null means "use this formula"; V3 then runs it. */
+    public static String formula(String key, int variant) {
+        try {
+            if (BUY.equals(key)) return buyFormula(variant);
+            if (UP.equals(key) || DOWN.equals(key)) return animalFormula(variant);
+            if (REVIVE.equals(key)) return @~lliiilii@.@~lliliiil@() ? "qn|-51|0|0" : "ep|31|b0";
+            if (SELL.equals(key)) return NOT_READY; // lets V3 use its "Ban da quy" menu fallback
+        } catch (Throwable ignored) {
+            return NOT_READY;
+        }
+        return null;
+    }
+
+    /** Hook: start of the "key verified" check. The local actions need no licence key. */
+    public static boolean handles(String key) {
+        return BUY.equals(key) || UP.equals(key) || DOWN.equals(key) || REVIVE.equals(key) || SELL.equals(key);
+    }
+
+    /** Hook: start of the menu-open dispatcher. Remembers the "Mua ban" row of the NPC being opened. */
+    public static void onMenu(et items, String title) {
+        try {
+            if (!opening || items == null || System.currentTimeMillis() - openAt > OPEN_WINDOW_MS) return;
+            @~liilliil@ box = @~liilllii@.@~liiiliillll@;
+            if (box == null) return;
+            for (int i = 0; i < items.c(); i++) {
+                Object o = items.a(i);
+                if (!(o instanceof bt)) continue;
+                String label = ((bt) o).@~lliiilli@;
+                if (label == null) continue;
+                String n = norm(label);
+                if (n.indexOf("mua b") >= 0 || n.indexOf("cua hang") >= 0) {
+                    menuRow = i;
+                    menuNpc = box.C;
+                    menuAt = System.currentTimeMillis();
+                    return;
+                }
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Hook: end of the shop screen constructor (items, kind, title, type, flag). */
+    public static void onShop(Object shop, et items, int type) {
+        try {
+            if (!opening || items == null || isBag(items)) return;
+            int[] ids = {type, -1, -1, -1};
+            boolean any = false;
+            for (int i = 0; i < items.c(); i++) {
+                Object o = items.a(i);
+                if (!(o instanceof @~llilli@)) continue;
+                @~llilli@ it = (@~llilli@) o;
+                String n = norm(itemName(it));
+                for (int g = 0; g < GEM_KEYS.length; g++) {
+                    if (ids[g + 1] < 0 && containsAny(n, GEM_KEYS[g])) {
+                        ids[g + 1] = it.O;
+                        any = true;
+                    }
+                }
+            }
+            if (!any) return;
+            SHOPS.put(new Integer(openMap), ids);
+            opening = false;
+            menuRow = -1;
+            shopToClose = shop;
+            notice("Buôn: đã đọc cửa hàng đá quý (loại " + type + ").");
+        } catch (Throwable ignored) {
+        }
+    }
+
+    // ------------------------------------------------------------------ IModModule
+
+    public void addMenu(et menu) {
+    }
+
+    public boolean onAction(int action, int param) {
+        return false;
+    }
+
+    public void update() {
+        try {
+            if (shopToClose != null) {
+                if (@~liilllii@.@~liiiillllli@ == shopToClose && @~liilllii@.@~liiiliiiiil@ != null) {
+                    @~liilllii@.@~liiiliiiiil@.@~lil@();
+                }
+                shopToClose = null;
+            }
+            if (!opening) return;
+            long now = System.currentTimeMillis();
+            if (now - openAt > OPEN_WINDOW_MS) {
+                opening = false;
+                menuRow = -1;
+                return;
+            }
+            if (menuRow < 0 || now - menuAt < MENU_DELAY_MS) return;
+            @~liilliil@ box = @~liilllii@.@~liiiliillll@;
+            int row = menuRow;
+            menuRow = -1;
+            if (box != null && box.@~liiillli@ && box.C == menuNpc) {
+                box.h = row;
+                box.a(2, 0);
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    // ------------------------------------------------------------------ actions
+
+    private static String buyFormula(int variant) {
+        if (variant < 0 || variant >= GEM_KEYS.length) return NOT_READY;
+        int map = mapId();
+        int[] shop = (int[]) SHOPS.get(new Integer(map));
+        if (shop == null) {
+            openShop(map);
+            return NOT_READY;
+        }
+        int id = shop[variant + 1];
+        long now = System.currentTimeMillis();
+        if (id < 0 || now - lastBuyAt < BUY_INTERVAL_MS) return NOT_READY;
+        lastBuyAt = now;
+        return "ep|24|b" + shop[0] + ";s" + id + ";s1";
+    }
+
+    /** Luna TALK_DYLAN: request the menu of the nearest NPC (op 23) plus its info (op 5), as V3 does for selling. */
+    private static void openShop(int map) {
+        long now = System.currentTimeMillis();
+        if (opening && map == openMap && now - openAt < OPEN_RETRY_MS) return;
+        int npc = nearestNpc();
+        if (npc == Integer.MIN_VALUE) return;
+        opening = true;
+        openAt = now;
+        openMap = map;
+        openNpc = npc;
+        menuRow = -1;
+        @~lilillll@ s = @~lilillll@.@~liililli@();
+        s.@~liil@((byte) npc);
+        s.@~lilli@((short) npc);
+    }
+
+    private static String animalFormula(int variant) {
+        if (variant < 0 || variant >= ANIMAL_KEYS.length) return NOT_READY;
+        @~lliiil@ p = @~liiliii@.@~llilliill@;
+        if (p == null) return NOT_READY;
+        int id = animalItemId(variant);
+        if (id < 0) {
+            long now = System.currentTimeMillis();
+            if (now - lastNoticeAt > NOTICE_MS) {
+                lastNoticeAt = now;
+                notice("Buôn: không có vật phẩm " + ANIMAL_LABELS[variant] + " trong hành trang!");
+            }
+            return NOT_READY;
+        }
+        // Luna standStill(): tell the server where we are, then use the animal item.
+        return "ep|4|s" + p.aZ + ";s" + p.ba + "&&ep|32|s" + id;
+    }
+
+    /**
+     * Consumable bag item whose name starts with the animal ("bo vang", "lac da ...", "lua ...").
+     * Prefix only: "lụa" (silk) also normalises to "lua", so "To lua" must not match.
+     */
+    private static int animalItemId(int variant) {
+        et bag = @~llilli@.@~liiillili@;
+        if (bag == null) return -1;
+        for (int i = 0; i < bag.c(); i++) {
+            Object o = bag.a(i);
+            if (!(o instanceof @~llilli@)) continue;
+            @~llilli@ it = (@~llilli@) o;
+            if (it.@~liiill@ != CONSUMABLE) continue;
+            String n = norm(itemName(it)).trim() + " ";
+            for (int k = 0; k < ANIMAL_KEYS[variant].length; k++) {
+                if (n.startsWith(ANIMAL_KEYS[variant][k] + " ")) return it.O;
+            }
+        }
+        return -1;
+    }
+
+    // ------------------------------------------------------------------ helpers
+
+    private static int nearestNpc() {
+        @~lliiil@ p = @~liiliii@.@~llilliill@;
+        et all = @~liiliii@.@~llillilll@;
+        if (p == null || all == null) return Integer.MIN_VALUE;
+        int best = Integer.MIN_VALUE;
+        int bestDist = Integer.MAX_VALUE;
+        for (int i = 0; i < all.c(); i++) {
+            Object o = all.a(i);
+            if (!(o instanceof @~liiiliii@)) continue;
+            @~liiiliii@ e = (@~liiiliii@) o;
+            if (e.cv != 2) continue;
+            int dx = Math.abs(e.aZ - p.aZ);
+            int dy = Math.abs(e.ba - p.ba);
+            if (dx > NPC_RANGE_PX || dy > NPC_RANGE_PX) continue;
+            if (dx + dy < bestDist) {
+                bestDist = dx + dy;
+                best = e.cu;
+            }
+        }
+        return best;
+    }
+
+    private static int mapId() {
+        cs m = @~liilllii@.@~liiililiiii@;
+        return m == null ? -1 : m.d;
+    }
+
+    private static boolean isBag(et v) {
+        return v == @~llilli@.@~liiillili@ || v == @~llilli@.@~liiillill@ || v == @~llilli@.@~liiilllii@
+                || v == @~llilli@.@~liiilllil@ || v == @~llilli@.@~liiilllli@ || v == @~llilli@.@~liiilllll@
+                || v == @~llilli@.@~liiliiiii@;
+    }
+
+    private static String itemName(@~llilli@ it) {
+        String n = it.@~liiiiliii@;
+        if (n != null && n.length() > 0) return n;
+        String[] names = @~llilli@.@~liiiiilll@;
+        if (names != null && it.O >= 0 && it.O < names.length && names[it.O] != null) return names[it.O];
+        return "";
+    }
+
+    private static String norm(String s) {
+        if (s == null) return "";
+        String n = @~lliiliil@.@~lllil@(s.toLowerCase());
+        return n == null ? "" : n;
+    }
+
+    private static boolean containsAny(String s, String[] keys) {
+        for (int i = 0; i < keys.length; i++) {
+            if (s.indexOf(keys[i]) >= 0) return true;
+        }
+        return false;
+    }
+
+    private static void notice(String text) {
+        @~lillllll@.@~lilli@(text);
+    }
+}

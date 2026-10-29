@@ -1,0 +1,371 @@
+/*
+ * Đập đồ from ModUpLv in Hung_By_Son (docs/HUNG_BY_SON_ENHANCE.md). Replaces Hung's own Auto Cường
+ * Hóa, which only enhanced at the Làng Sói Trắng wizard: ModUpLv sends the opcode-67 requests
+ * straight away wherever the character stands, without an NPC session (ModUpLv C071/C110/C026).
+ *  - Item menu (bag tab): "Đập đồ" takes the place of "Thêm vào DS" (command 110) and queues the
+ *    equipment.
+ *  - MOD menu: the "Auto Cường Hóa >" row becomes "Đập đồ >": Auto đập đồ lên +N, cấp +/-,
+ *    bảo hiểm (insurance item) per target level, khoảng nghỉ +/-, danh sách đồ cần đập.
+ *  - One step per pause (pause × 28ms, ModUpLv's frame): select the equipment (0, id, category),
+ *    select the insurance of the next level (0, id, category), enhance with gold (2, 0, 0).
+ * Differences from ModUpLv, all protective: one queued item at a time (ModUpLv advanced the shared
+ * step once per queued item in the same frame), a missing insurance item stops instead of
+ * enhancing without it, "Không dùng" removes a clover the server still holds as selected, a
+ * server rejection (reply type 3) stops, pause stays >= 1 (ModUpLv divided by 0), and Auto Mê
+ * cung keeps its exclusive ownership.
+ *
+ * Markers @~suffix@ expand to the 100-character obfuscated HBS names. CLDC 1.1 APIs only;
+ * compiled with --release 7 against the input JAR and stored as class version 48.
+ */
+import luna.generated.HungAutoAttackAccess;
+
+public final class HungBySonEnhance implements IModModule {
+    static final long FRAME_MS = 28L, RELEASE_MS = 500L;
+    static final long MIN_GOLD = 6000L;
+    static final int MAX_LEVEL = 15, ITEM_COMMAND = 110, EQUIPMENT = 3;
+    static final int MENU = -32, BACK_MAIN = -34, TOGGLE = -10, UP = -11, DOWN = -12, INSURANCE = -13,
+            INSURANCE_LEVEL = -14, INSURANCE_PICK = -15, PAUSE_UP = -16, PAUSE_DOWN = -17, LIST = -18, CLEAR = -19;
+    static final String[] INSURANCE_NAMES = {"Không dùng", "Đá may mắn", "Cỏ ba lá", "Cỏ bốn lá", "Đá ba màu"};
+    static final String[] INSURANCE_PLAIN = {"khong dung", "da may man", "co ba la", "co bon la", "da ba mau"};
+
+    static boolean enabled;
+    static int target;
+    static int pause = 30;
+    static final int[] insurance = new int[20];
+    static final et queue = new et("Dap do");
+    static int step;
+    static int pickLevel = 1;
+    static long nextAt, animationAt;
+
+    static long testNow;
+    static String popupText;
+    static int sends;
+
+    private static final HungBySonEnhance INSTANCE = new HungBySonEnhance();
+
+    private HungBySonEnhance() {
+    }
+
+    /** Called from the module loader just before the ModUpLv port, which keeps the last menu row. */
+    public static void register() {
+        @~lillllll@.@~@(INSTANCE);
+    }
+
+    static long now() {
+        return testNow != 0L ? testNow : System.currentTimeMillis();
+    }
+
+    // ------------------------------------------------------------------ item menu (ModUpLv C026)
+
+    /** Replaces Hung's "Thêm vào DS" row; the S1/S2/S3 rows follow as before. */
+    public static et itemMenu(et menu, Object screen) {
+        try {
+            if (menu != null && screen instanceof @~liililii@ && ((@~liililii@)screen).@~llllilliii@ == 0)
+                menu.@~l@(new bt("Đập đồ", ITEM_COMMAND, (@~liiiiil@)screen));
+            if (menu != null && screen != null) menu = @~lillllil@.@~@(menu, screen);
+        } catch (Exception ignored) {
+        }
+        return menu;
+    }
+
+    /** Item command 110 with the selected bag item. */
+    public static void add(@~llilli@ item) {
+        if (item == null) return;
+        if (item.@~liiill@ != EQUIPMENT) { popup(cat("Không thể đập vật phẩm này: ", name(item))); return; }
+        if (queued(item.O) >= 0) { popup(cat(name(item), " đã có trong danh sách.")); return; }
+        queue.@~l@(item);
+        popup(cat("Đã thêm ", name(item)));
+    }
+
+    static int queued(int id) {
+        for (int i = 0; i < queue.c(); i++) if (((@~llilli@)queue.a(i)).O == id) return i;
+        return -1;
+    }
+
+    // ------------------------------------------------------------------ menus (ModUpLv C110)
+
+    static String state(boolean on) {
+        return on ? "[BẬT]" : "[TẮT]";
+    }
+
+    static bt row(String label, int action) {
+        return new bt(label, action, @~liilllii@.@~liiiliiiiil@);
+    }
+
+    static bt row(String label, int action, int extra) {
+        return new bt(label, action, extra, @~liilllii@.@~liiiliiiiil@);
+    }
+
+    static void show(et menu, String title) {
+        @~liilllii@.@~liiiliillll@.@~@(menu, 2, title, false, (et)null);
+    }
+
+    static String pauseLabel() {
+        return cat(cat("Khoảng nghỉ: ", String.valueOf(pause)), cat(" (", cat(String.valueOf(pause * FRAME_MS), "ms)")));
+    }
+
+    public static void showMenu() {
+        et menu = new et("ĐẬP ĐỒ");
+        menu.@~l@(row(cat(cat("Auto đập đồ lên +", String.valueOf(target)), cat(": ", state(enabled))), TOGGLE));
+        menu.@~l@(row("Tăng cấp đập [+]", UP));
+        menu.@~l@(row("Giảm cấp đập [-]", DOWN));
+        menu.@~l@(row("Chọn bảo hiểm cho cấp đập >", INSURANCE));
+        menu.@~l@(row(cat(pauseLabel(), " [+]"), PAUSE_UP));
+        menu.@~l@(row(cat(pauseLabel(), " [-]"), PAUSE_DOWN));
+        menu.@~l@(row(cat(cat("Xem danh sách đồ cần đập (", String.valueOf(queue.c())), ") >"), LIST));
+        menu.@~l@(row("<< Quay lại", BACK_MAIN));
+        show(menu, "ĐẬP ĐỒ");
+    }
+
+    static void showInsurance() {
+        et menu = new et("CHỌN BẢO HIỂM");
+        for (int level = 1; level <= MAX_LEVEL; level++)
+            menu.@~l@(row(cat(cat("Cấp +", String.valueOf(level)), cat(" (", cat(INSURANCE_NAMES[insurance[level]], ")"))),
+                    INSURANCE_LEVEL, level));
+        menu.@~l@(row("<< Quay lại menu đập đồ", MENU));
+        show(menu, "CHỌN BẢO HIỂM");
+    }
+
+    static void showInsuranceLevel() {
+        String title = cat("BẢO HIỂM CẤP +", String.valueOf(pickLevel));
+        et menu = new et(title);
+        for (int i = 0; i < INSURANCE_NAMES.length; i++) menu.@~l@(row(INSURANCE_NAMES[i], INSURANCE_PICK, i));
+        menu.@~l@(row("<< Quay lại chọn bảo hiểm", INSURANCE));
+        show(menu, title);
+    }
+
+    static void showList() {
+        et menu = new et("DANH SÁCH ĐỒ ĐẬP");
+        for (int i = 0; i < queue.c(); i++) {
+            @~llilli@ item = live((@~llilli@)queue.a(i));
+            menu.@~l@(row(cat(name(item), cat(" +", String.valueOf(item.@~llilil@))), LIST));
+        }
+        if (queue.c() > 0) menu.@~l@(row("Xóa hết danh sách", CLEAR));
+        menu.@~l@(row("<< Quay lại menu đập đồ", MENU));
+        show(menu, "DANH SÁCH ĐỒ ĐẬP");
+    }
+
+    public void addMenu(et menu) {
+    }
+
+    public boolean onAction(int action, int extra) {
+        try {
+            if (action == TOGGLE) {
+                if (!enabled && HungBySonModUpLv.maze) { notice("Hãy tắt Auto Mê cung trước khi bật auto khác"); return true; }
+                if (target <= 0) popup("Không thể đập đồ lên +0, hãy tăng cấp muốn đập!");
+                else setEnabled(!enabled, enabled ? "Đã tắt Auto đập đồ" : "Đã bật Auto đập đồ");
+                showMenu();
+                return true;
+            }
+            if (action == UP) {
+                if (target < MAX_LEVEL) { target++; notice(cat("Cấp đập tăng: ", String.valueOf(target))); }
+                else notice("Đã đạt cấp đập cao nhất!");
+                showMenu();
+                return true;
+            }
+            if (action == DOWN) {
+                if (target > 1) { target--; notice(cat("Cấp đập giảm: ", String.valueOf(target))); }
+                else notice("Đã đạt cấp đập thấp nhất!");
+                showMenu();
+                return true;
+            }
+            if (action == PAUSE_UP) { pause++; notice(cat("Khoảng nghỉ tăng: ", String.valueOf(pause))); showMenu(); return true; }
+            if (action == PAUSE_DOWN) {
+                if (pause > 1) { pause--; notice(cat("Khoảng nghỉ giảm: ", String.valueOf(pause))); }
+                else notice("Khoảng nghỉ đã thấp nhất!");
+                showMenu();
+                return true;
+            }
+            if (action == INSURANCE) { showInsurance(); return true; }
+            if (action == INSURANCE_LEVEL) {
+                if (extra >= 1 && extra <= MAX_LEVEL) { pickLevel = extra; showInsuranceLevel(); } else showInsurance();
+                return true;
+            }
+            if (action == INSURANCE_PICK) {
+                if (extra >= 0 && extra < INSURANCE_NAMES.length) {
+                    insurance[pickLevel] = extra;
+                    notice(cat(cat("Đập cấp +", String.valueOf(pickLevel)), cat(": ", INSURANCE_NAMES[extra])));
+                }
+                showInsurance();
+                return true;
+            }
+            if (action == LIST) { showList(); return true; }
+            if (action == CLEAR) {
+                queue.@~lliliil@();
+                step = 0;
+                notice("Đã xóa hết danh sách đồ đập");
+                showList();
+                return true;
+            }
+        } catch (Throwable ignored) {
+        }
+        return false;
+    }
+
+    static void setEnabled(boolean on, String text) {
+        enabled = on;
+        step = 0;
+        nextAt = 0L;
+        if (text != null) notice(text);
+    }
+
+    /** Auto stops for a reason the player must read: a popup, not overhead text. */
+    static void stop(String text) {
+        setEnabled(false, null);
+        popup(text);
+    }
+
+    // ------------------------------------------------------------------ auto (ModUpLv C071.C064/C110)
+
+    public void update() {
+        try {
+            long now = now();
+            if (!enabled) { animationAt = 0L; return; }
+            if (HungBySonModUpLv.maze) { stop("Auto Mê cung đang chạy: đã tắt Auto đập đồ"); return; }
+            if (!HungAutoAttackAccess.farmWorldReady()) return;
+            releaseAnimation(now);
+            if (now < nextAt) return;
+            nextAt = now + pause * FRAME_MS;
+            tick();
+        } catch (Throwable ignored) {
+        }
+    }
+
+    static void tick() {
+        @~lliiil@ player = @~liiliii@.@~llilliill@;
+        if (player == null || queue.c() == 0) return;
+        if (player.bD < MIN_GOLD) { stop("Sắp hết vàng rồi không đập nữa đâu!"); return; }
+        @~llilli@ item = bagItem(((@~llilli@)queue.a(0)).O, EQUIPMENT);
+        if (item == null) {
+            drop("Item không còn trong hành trang, bỏ qua!");
+            return;
+        }
+        int level = item.@~llilil@;
+        if (level >= target) {
+            drop(cat(cat("Item ", name(item)), " đã đạt cấp độ mục tiêu, bỏ qua đập!"));
+            return;
+        }
+        if (step == 0) {
+            send(0, item.O, item.@~liiill@);
+            step = 1;
+        } else if (step == 1) {
+            int choice = level + 1 < insurance.length ? insurance[level + 1] : 0;
+            if (choice == 0) {
+                // A clover the server still holds would be spent on a level set to "Không dùng".
+                @~llilli@ held = @~lllili@.@~lilililil@;
+                if (@~lllili@.@~liliiliil@ && held != null) send(1, held.O, held.@~liiill@);
+            } else {
+                @~llilli@ ensure = insuranceItem(choice);
+                if (ensure == null) {
+                    stop(cat(cat("Hết ", INSURANCE_NAMES[choice]), " trong hành trang! Đã tắt Auto đập đồ"));
+                    return;
+                }
+                send(0, ensure.O, ensure.@~liiill@);
+            }
+            step = 2;
+        } else {
+            send(2, 0, 0);
+            step = 0;
+        }
+    }
+
+    static void drop(String text) {
+        queue.@~lilli@(0);
+        step = 0;
+        // One native dialog at a time: the second popup would replace the first.
+        popup(queue.c() == 0 ? cat(text, " Danh sách đồ cần đập đã hết.") : text);
+    }
+
+    static void send(int a, int b, int c) {
+        sends++;
+        @~lilillll@.@~liililli@().@~l@((byte)a, (short)b, (byte)c);
+    }
+
+    /** Native opcode-67 reply; type 3 is the server refusing the request. */
+    public static void onReply(String text, int type) {
+        if (!enabled || type != 3) return;
+        stop(cat("Đập đồ: ", text == null || text.length() == 0 ? "server game từ chối thao tác" : text));
+    }
+
+    /**
+     * The native reply handler ignores selection replies while the enhancement-result animation
+     * flag is set, and only the visible enhancement tab advances it. Away from the wizard the flag
+     * is cleared 500ms after it rises, as Hung's background auto did.
+     */
+    static void releaseAnimation(long now) {
+        if (@~lllili@.@~liiiliiii@ == 0 || nativeEnhancementVisible()) { animationAt = 0L; return; }
+        if (animationAt == 0L) { animationAt = now; return; }
+        if (now - animationAt < RELEASE_MS) return;
+        @~lllili@.@~liiiliiii@ = 0;
+        @~lllili@.@~lililiill@ = false;
+        animationAt = 0L;
+    }
+
+    static boolean nativeEnhancementVisible() {
+        Object screen = @~liilllii@.@~liiiillllli@;
+        if (!(screen instanceof @~liiiiili@)) return false;
+        @~liiiiili@ tabs = (@~liiiiili@)screen;
+        return tabs.b != null && tabs.a >= 0 && tabs.a < tabs.b.c() && tabs.@~llilill@() instanceof @~lllili@;
+    }
+
+    // ------------------------------------------------------------------ bag
+
+    static @~llilli@ bagItem(int id, int category) {
+        et bag = @~llilli@.@~liiillili@;
+        for (int i = 0; bag != null && i < bag.c(); i++) {
+            Object value = bag.a(i);
+            if (!(value instanceof @~llilli@)) continue;
+            @~llilli@ item = (@~llilli@)value;
+            if (item.O == id && item.@~liiill@ == category) return item;
+        }
+        return null;
+    }
+
+    static @~llilli@ live(@~llilli@ queued) {
+        @~llilli@ item = bagItem(queued.O, EQUIPMENT);
+        return item == null ? queued : item;
+    }
+
+    /** ModUpLv matches the bag item named like the choice; tone marks may arrive precomposed or not. */
+    static @~llilli@ insuranceItem(int choice) {
+        et bag = @~llilli@.@~liiillili@;
+        for (int i = 0; bag != null && i < bag.c(); i++) {
+            Object value = bag.a(i);
+            if (!(value instanceof @~llilli@)) continue;
+            @~llilli@ item = (@~llilli@)value;
+            String plain = plain(name(item));
+            if (plain != null && plain.equals(INSURANCE_PLAIN[choice])) return item;
+        }
+        return null;
+    }
+
+    static String name(@~llilli@ item) {
+        String name = item.@~liiiiliii@;
+        if (name == null || name.length() == 0) {
+            String[] names = @~llilli@.@~liiiiilll@;
+            if (names != null && item.O >= 0 && item.O < names.length) name = names[item.O];
+        }
+        return name == null ? "" : name;
+    }
+
+    static String plain(String text) {
+        if (text == null) return null;
+        String folded = HungBySonModUpLv.plain(text);
+        return folded == null ? null : folded.trim();
+    }
+
+    static String cat(String a, String b) {
+        return new StringBuffer(a).append(b).toString();
+    }
+
+    /** ModUpLv C091.C110: the native dialog with an Ok button (C133 type 3). */
+    static void popup(String text) {
+        popupText = text;
+        @~liilllii@.a(text);
+    }
+
+    /** ModUpLv C091.C178: overhead text for menu confirmations (C133 type 0). */
+    static void notice(String text) {
+        @~lillllll@.@~lilli@(text);
+    }
+}

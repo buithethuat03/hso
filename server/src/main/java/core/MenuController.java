@@ -3880,8 +3880,13 @@ public class MenuController {
                         "Khi các bạn tiến hành nạp game thì sẽ được cộng vào tổng nạp, có thể nhận luân hồi"
                         + "\nCó các mốc và quà: 100k, 200k, 500k, 1m, 1m5, 2m, 3m."
                         + "\n + Khi nạp đủ các bạn sẽ được nhận quà"
-                        + "\n + hãy lên web: http://hsolau.fun/qntm.php để xem chi tiết quà tặng"
-                        + "\n + các mốc cố dòng mề thì hãy nhắn ad để được thêm dòng mề, nhận xong mốc 3tr thì nhắn ad để ad reset mốc nạp cho bạn nhé");
+                        + "\n + Hãy lên web để xem chi tiết quà tặng"
+                        + "\n + Các mốc có dòng mề thì hãy nhắn Admin để được thêm dòng mề, nhận xong mốc 3tr thì nhắn Admin để reset mốc nạp nhé.");
+                break;
+            }
+            case 2: {
+                int tongnap = conn.p.get_tongnap();
+                Service.send_notice_box(conn, "Tổng nạp tài khoản của bạn hiện tại là: " + Util.number_format(tongnap) + " VNĐ");
                 break;
             }
         }

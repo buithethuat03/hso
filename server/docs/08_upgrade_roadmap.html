@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>08. Định Hướng Nâng Cấp, Vá Lỗi & Tối Ưu Hóa - Server HSO</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Sidebar Navigation Tree -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">⚔️</div>
+      <div class="brand-text">
+        <h1>HSO Core Engine</h1>
+        <span>v2.0 Architectural Docs</span>
+      </div>
+    </div>
+
+    <div class="nav-section-title">Hệ Thống & Báo Cáo</div>
+    <ul class="nav-links">
+      <li><a href="index.html"><span class="nav-num">00</span> Tổng Quan & Cây Hệ Thống</a></li>
+      <li><a href="01_core_architecture.html"><span class="nav-num">01</span> Hạ Tầng & Packet Protocol</a></li>
+      <li><a href="02_combat_and_stats.html"><span class="nav-num">02</span> Engine Chỉ Số & Chiến Đấu</a></li>
+      <li><a href="03_items_and_equipment.html"><span class="nav-num">03</span> Vật Phẩm, Rương & Rơi Đồ</a></li>
+      <li><a href="04_cultivation_systems.html"><span class="nav-num">04</span> Hệ Thống Tu Luyện Sâu</a></li>
+      <li><a href="05_events_and_activities.html"><span class="nav-num">05</span> Hoạt Động & Sự Kiện</a></li>
+      <li><a href="06_social_and_economy.html"><span class="nav-num">06</span> Xã Hội, Bang Hội & Kinh Tế</a></li>
+      <li><a href="07_npc_and_menu_routing.html"><span class="nav-num">07</span> MenuController & NPC</a></li>
+      <li><a href="08_upgrade_roadmap.html" class="active"><span class="nav-num">08</span> Định Hướng Nâng Cấp</a></li>
+      <li><a href="09_default_equipment_catalog.html"><span class="nav-num">09</span> Tra Cứu Đồ Mặc Định DB</a></li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <span style="font-size: 11px; color: var(--text-muted);">© 2026 HSO Dev Team</span>
+      <button id="theme-toggle-btn" class="theme-toggle">🌙 Tối</button>
+    </div>
+  </aside>
+
+  <!-- Main Content Wrapper -->
+  <div class="main-wrapper">
+    <header class="top-bar">
+      <div class="breadcrumb">
+        <a href="index.html">Tài Liệu Server</a>
+        <span>/</span>
+        <span class="current">08. Định Hướng Nâng Cấp & Vá Lỗi</span>
+      </div>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" id="doc-search-input" placeholder="Tìm kiến trúc nâng cấp, vá lỗi dupe, tối ưu...">
+      </div>
+    </header>
+
+    <main class="content-container">
+      <div class="doc-header">
+        <span class="doc-tag badge rose">Refactoring, Security & Performance Roadmap</span>
+        <h1 class="doc-title">Chương 08: Báo Cáo Điểm Nghẽn, Bảo Mật & Lộ Trình Nâng Cấp</h1>
+        <p class="doc-desc">
+          Tổng hợp phân tích chuyên sâu về các điểm nghẽn hiệu năng (Bottlenecks), các nguy cơ bảo mật/dupe vật phẩm tiềm ẩn và bản thiết kế lộ trình nâng cấp hiện đại hóa toàn diện Server HSO.
+        </p>
+      </div>
+
+      <!-- 1. Phân Tích Điểm Nghẽn Hiệu Năng -->
+      <h2>1. Phân Tích Điểm Nghẽn Hiệu Năng (Performance Bottlenecks)</h2>
+
+      <div class="card-grid">
+        <div class="feature-card">
+          <h4>1. Điểm Nghẽn Đồng Bộ Khóa (Lock Contention)</h4>
+          <p>Hiện tại server dùng <code>synchronized (map)</code> bao trùm nhiều khối code tính toán sát thương và duyệt mảng người chơi dài. Khi 1 map có 100+ người cùng đánh quái, luồng xử lý sẽ bị xếp hàng chờ, gây hiện tượng trễ phím (Input Lag).</p>
+          <span class="badge amber">Khuyến nghị: Tách riêng tính toán damage ra khỏi synchronized block.</span>
+        </div>
+
+        <div class="feature-card">
+          <h4>2. Quản Lý Kết Nối Database (Database Pipeline)</h4>
+          <p>Hệ thống dùng kết nối JDBC cơ bản và nhiều lệnh ghép chuỗi SQL trực tiếp. Chưa có Connection Pool chuẩn doanh nghiệp (như HikariCP).</p>
+          <span class="badge amber">Khuyến nghị: Tích hợp HikariCP + PreparedStatement 100%.</span>
+        </div>
+
+        <div class="feature-card">
+          <h4>3. Áp Lực Bộ Nhớ & Garbage Collection (GC Pressure)</h4>
+          <p>Trong các hàm combat và nhặt đồ, các đối tượng <code>ArrayList&lt;Option&gt;</code> và <code>Message</code> được tạo mới liên tục hàng nghìn lần mỗi giây.</p>
+          <span class="badge blue">Khuyến nghị: Áp dụng Message Object Pooling / Netty ByteBuf.</span>
+        </div>
+
+        <div class="feature-card">
+          <h4>4. Tái Cấu Trúc MenuController (>4000 Lines)</h4>
+          <p>File <code>MenuController.java</code> quá lớn và xử lý theo mô hình switch-case nguyên khối, rất khó bảo trì và dễ sinh lỗi chéo khi thêm NPC mới.</p>
+          <span class="badge purple">Khuyến nghị: Chuyển sang mô hình Command Pattern / Dialog Tree Node.</span>
+        </div>
+      </div>
+
+      <!-- 2. Kiểm Soát Bảo Mật & Chống Dupe -->
+      <h2>2. Phòng Chống Dupe & Tấn Công Gói Tin (Exploit Prevention)</h2>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Nguy Cơ Tiềm Ẩn</th>
+              <th>Vị Trí Rủi Ro</th>
+              <th>Giải Pháp Kỹ Thuật Đã & Cần Triển Khai</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Spam Packet Skill / Hack Cooldown</strong></td>
+              <td><code>MapService.java</code></td>
+              <td>Đã có cơ chế đếm số lần vượt Cooldown: <code>if (++conn.p.enough_time_disconnect &gt; 5) conn.close();</code> ➔ Cần duy trì và giám sát thêm timestamp client.</td>
+            </tr>
+            <tr>
+              <td><strong>Index Ngoài Biên (Out Of Bounds)</strong></td>
+              <td>Gói tin mảng do Client gửi</td>
+              <td>Áp dụng hàm chặn an toàn <code>Util.validIndex(idx, len)</code> trên tất cả các handler đọc chỉ số túi đồ, kỹ năng, rương giữ đồ.</td>
+            </tr>
+            <tr>
+              <td><strong>Dupe Vàng / Item Khi Giao Dịch</strong></td>
+              <td><code>Trade</code> / <code>Player_store</code></td>
+              <td>Sử dụng cơ chế khóa 2 bước (Two-Phase Lock) và ghi log giao dịch chi tiết vào bảng <code>log_trade</code> để truy vết.</td>
+            </tr>
+            <tr>
+              <td><strong>SQL Injection</strong></td>
+              <td>Nhập text từ Client</td>
+              <td>Chuyển đổi toàn bộ các câu lệnh <code>Statement.executeQuery</code> sang <code>PreparedStatement</code> với tham số hóa (Parameterized queries).</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 3. Lộ Trình Nâng Cấp Tương Lai -->
+      <h2>3. Lộ Trình Nâng Cấp Đề Xuất (Future Architecture Roadmap)</h2>
+
+      <div class="callout success">
+        <div class="callout-title">🚀 4 Giai Đoạn Nâng Cấp Toàn Diện Server HSO</div>
+        <ol style="margin-left: 20px; margin-top: 10px;">
+          <li><strong>Giai Đoạn 1: Tối Ưu Hóa Hạ Tầng & CSDL</strong>:
+            <ul>
+              <li>Nâng cấp MySQL Connection Pool với <code>HikariCP</code> (Pool size 20-30 connections).</li>
+              <li>Chuyển toàn bộ chuỗi SQL sang <code>PreparedStatement</code>.</li>
+            </ul>
+          </li>
+          <li><strong>Giai Đoạn 2: Tái Cấu Trúc Menu & Tính Năng</strong>:
+            <ul>
+              <li>Tách <code>MenuController.java</code> thành các class Handler nhỏ theo từng NPC: <code>BlacksmithMenuHandler</code>, <code>ElderMenuHandler</code>, <code>ArenaMenuHandler</code>...</li>
+              <li>Hỗ trợ Hot-Reload cấu hình sự kiện và tỉ lệ rơi đồ bằng file JSON/YAML mà không cần tắt Server.</li>
+            </ul>
+          </li>
+          <li><strong>Giai Đoạn 3: Nâng Cấp Mạng Sang Netty Engine</strong>:
+            <ul>
+              <li>Thay thế Socket blocking I/O truyền thống bằng <code>Netty 4.x (Non-blocking I/O)</code>, giúp server chịu tải từ 5.000 đến 10.000 người chơi đồng thời trên 1 máy chủ VPS thông thường.</li>
+            </ul>
+          </li>
+          <li><strong>Giai Đoạn 4: Mở Rộng Tính Năng Đỉnh Cao</strong>:
+            <ul>
+              <li>Chiến Trường Liên Server (Cross-Server Arena): Sử dụng Redis Pub/Sub để đồng bộ trạng thái chiến đấu giữa nhiều cụm server.</li>
+              <li>Hệ thống Đấu Giá Toàn Server (Global Auction House) với bảng thông báo thời gian thực.</li>
+            </ul>
+          </li>
+        </ol>
+      </div>
+
+      <div class="page-nav">
+        <a href="07_npc_and_menu_routing.html" class="page-nav-btn">
+          <span class="sub">Quay lại</span>
+          <span class="title">← 07. MenuController & NPC</span>
+        </a>
+        <a href="index.html" class="page-nav-btn" style="text-align: right;">
+          <span class="sub">Về trang chủ</span>
+          <span class="title">00. Tổng Quan & Cây Hệ Thống ↺</span>
+        </a>
+      </div>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

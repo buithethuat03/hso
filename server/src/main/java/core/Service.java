@@ -69,23 +69,19 @@ public class Service {
             m.writer().writeByte(temp.getIspercent());
         }
         //
-        if (conn.zoomlv > 1) {
-            m.writer().writeShort(ItemTemplate7.item.size());
-            for (ItemTemplate7 temp : ItemTemplate7.item) {
-                m.writer().writeShort(temp.getId());
-                m.writer().writeShort(temp.getIcon());
-                m.writer().writeLong(temp.getPrice());
-                m.writer().writeUTF(temp.getName());
-                m.writer().writeUTF(temp.getContent());
-                m.writer().writeByte(temp.getType());
-                m.writer().writeByte(temp.getPricetype());
-                m.writer().writeByte(temp.getSell());
-                m.writer().writeShort(temp.getValue());
-                m.writer().writeByte(temp.getTrade());
-                m.writer().writeByte(temp.getColor());
-            }
-        } else {
-            m.writer().writeShort(0);
+        m.writer().writeShort(ItemTemplate7.item.size());
+        for (ItemTemplate7 temp : ItemTemplate7.item) {
+            m.writer().writeShort(temp.getId());
+            m.writer().writeShort(temp.getIcon());
+            m.writer().writeLong(temp.getPrice());
+            m.writer().writeUTF(temp.getName());
+            m.writer().writeUTF(temp.getContent());
+            m.writer().writeByte(temp.getType());
+            m.writer().writeByte(temp.getPricetype());
+            m.writer().writeByte(temp.getSell());
+            m.writer().writeShort(temp.getValue());
+            m.writer().writeByte(temp.getTrade());
+            m.writer().writeByte(temp.getColor());
         }
         m.writer().write(Manager.gI().msg_25_new);
         conn.addmsg(m);
@@ -182,7 +178,7 @@ public class Service {
         m.writer().writeLong(0);
         m.writer().writeByte(p.fashion.length);
         for (int i = 0; i < p.fashion.length; i++) {
-            m.writer().writeByte(p.fashion[i]);
+            m.writer().writeShort(p.fashion[i]);
         }
         m.writer().writeByte(3); // nap tien?
         m.writer().writeShort(get_id_mat_na(p)); // id mat na
@@ -288,6 +284,10 @@ public class Service {
             }
             case 3: { // xa thu
                 m.writer().write(Util.loadfile("data/msg/msg_29_xathu"));
+                break;
+            }
+            default: {
+                m.writer().write(Util.loadfile("data/msg/msg_29_chienbinh"));
                 break;
             }
         }
@@ -431,7 +431,7 @@ public class Service {
         }
         m.writer().writeByte(p.fashion.length);
         for (int i = 0; i < p.fashion.length; i++) {
-            m.writer().writeByte(p.fashion[i]);
+            m.writer().writeShort(p.fashion[i]);
         }
         p.conn.addmsg(m);
         m.cleanup();

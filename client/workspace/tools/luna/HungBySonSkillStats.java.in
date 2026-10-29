@@ -1,0 +1,505 @@
+/*
+ * Skill cast statistics of Tấn công đặc biệt and the extra tabs of the EXP (i) dialog
+ * (docs/HUNG_BY_SON_MODUPLV_PORT.md):
+ *  - sent(): every attack request (opcodes 9 and 6) while Special is ON counts as one cast and
+ *    opens the file log (luna.features.SkillCastLog) on the first one; release builds drop the
+ *    lines between //@file-log-begin and //@file-log-end and enable the //@no-file-log lines;
+ *  - buff(): the server's buff answer (opcode 40) cast by the local player is a hit of that buff;
+ *  - combat(): the server's combat answer of the local player is matched to the newest
+ *    unanswered cast of its skill: hit when a target takes damage, miss when every damage is 0
+ *    ("né") or no answer arrives within 700ms ("không trả lời") (luna.features.SkillCastStats);
+ *  - the EXP dialog gets a tab bar "Chi tiết EXP | Chi tiết tung chiêu | Khoảng chờ":
+ *    tab 2 draws ID / Tên chiêu / Tung / Hụt / Trúng plus né, không trả lời and hits per minute;
+ *    tab 3 the gap estimate X per previous (or own) skill, a 100ms breakdown of one skill, the
+ *    buttons for the lock mode (Tắt / Khóa 500..700ms), "Tung lại" (retry an unanswered skill)
+ *    and "Xóa số đo", and the log path. All over blank lines of the native dialog.
+ *
+ * Markers @~suffix@ expand to the 100-character obfuscated HBS names. CLDC 1.1 APIs only;
+ * compiled with --release 7 against the input JAR and stored as class version 48.
+ */
+import java.io.DataInputStream;
+import luna.features.AutoAttackRuntime;
+import luna.features.ExpEstimateSupport;
+//@file-log-begin
+import luna.features.SkillCastLog;
+//@file-log-end
+import luna.features.SkillCastStats;
+import luna.generated.ExpEstimateBridge;
+import luna.generated.ExpInfoModalGuard;
+
+public final class HungBySonSkillStats {
+    static final int ROW = 15, TOP = 12, TAB_TOP = 5, TAB_H = 16, MARGIN = 8, MAX_WIDTH = 240, TABS = 4;
+    static final String[] FULL = {"Chi tiết EXP", "Chi tiết tung chiêu", "Khoảng chờ", "Vàng / phút"}, SHORT = {"EXP", "Tung chiêu", "Khoảng chờ", "Vàng / phút"};
+    static final int GOLD_TAB = 3;
+    static final int HEADER = 10, MODE = 20, CLEAR = 21, RETRY = 22, ROW_BASE = 100, DETAIL_MS = 100;
+    static final long REFRESH_MS = 250L;
+
+    static int tab;
+    static int pressed = -1;
+    static int shownVersion = -1, shownRows = -1;
+    static long builtAt;
+    static String economyText;
+    static long economyAt;
+    static boolean[] named = new boolean[SkillCastStats.MAX_SKILLS];
+    // Tab "Chi tiết tung chiêu".
+    static int[] ids = new int[0];
+    static String[] names = new String[0], cast = new String[0], miss = new String[0], rate = new String[0];
+    static String totalCast = "", totalMiss = "", totalRate = "", summary = "";
+    // Tab "Khoảng chờ": by previous hit (or by the send itself), and one skill in 100ms groups.
+    static boolean byNext;
+    static int detail = -1;
+    static int[] gapIds = new int[0];
+    static String[] gapNames = new String[0], gapSamples = new String[0], gapX = new String[0], gapBelow = new String[0], gapAbove = new String[0];
+    static String[] binLabel = new String[0], binSends = new String[0], binRate = new String[0];
+    static long testNow;
+
+    private HungBySonSkillStats() {
+    }
+
+    static long now() {
+        return testNow != 0L ? testNow : System.currentTimeMillis();
+    }
+
+    // ------------------------------------------------------------------ packets
+
+    /** Serializer prefix of the opcode-9 and opcode-6 attack requests. */
+    public static void sent(int skill) {
+        try {
+            if (!AutoAttackRuntime.specialEnabled()) return;
+//@file-log-begin
+            SkillCastLog.start();
+//@file-log-end
+            if (skill >= 0 && skill < named.length && !named[skill]) {
+                named[skill] = true;
+                SkillCastStats.note(new StringBuffer("# skill ").append(skill).append(" = ").append(skillName(skill)).toString());
+            }
+            SkillCastStats.sent(skill, now());
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** Combat answer prefix: attacker, skill, targets (id, damage, hp, effects); the stream is reset. */
+    public static void combat(DataInputStream in) {
+        if (in == null || !in.markSupported()) return;
+        in.mark(65536);
+        try {
+            @~lliiil@ player = @~liiliii@.@~llilliill@;
+            int attacker = in.readShort();
+            int skill = in.readByte();
+            int count = in.readByte();
+            if (player == null || attacker != player.cu || count <= 0) return;
+            int damaged = 0;
+            for (int i = 0; i < count; i++) {
+                in.readShort();
+                if (in.readInt() > 0) damaged++;
+                in.readInt();
+                int effects = in.readByte();
+                for (int k = 0; k < effects; k++) { in.readByte(); in.readInt(); }
+            }
+            SkillCastStats.answered(skill, count, damaged, now());
+        } catch (Throwable ignored) {
+        } finally {
+            try { in.reset(); } catch (Throwable ignored) { }
+        }
+    }
+
+    /** Buff answer prefix (opcode 40): flag, caster type, caster id, skill, ...; the stream is reset. */
+    public static void buff(DataInputStream in) {
+        if (in == null || !in.markSupported()) return;
+        in.mark(65536);
+        try {
+            @~lliiil@ player = @~liiliii@.@~llilliill@;
+            in.readByte();
+            int casterType = in.readByte();
+            int caster = in.readShort();
+            int skill = in.readByte();
+            // Types 4 and 6 are monster casters in the native handler; anything else is a player.
+            if (player == null || casterType == 4 || casterType == 6 || caster != player.cu) return;
+            SkillCastStats.answered(skill, 1, 1, now());
+        } catch (Throwable ignored) {
+        } finally {
+            try { in.reset(); } catch (Throwable ignored) { }
+        }
+    }
+
+    // ------------------------------------------------------------------ EXP dialog tabs
+
+    /** ExpInfoBridge.open(): the EXP text under the tab bar; every opening starts on the EXP tab. */
+    public static String expText(String info) {
+        tab = 0;
+        pressed = -1;
+        detail = -1;
+        economyText = info;
+        economyAt = now();
+        return new StringBuffer("\n").append(info == null ? "" : info).toString();
+    }
+
+    static @~llil@ dialog() {
+        if (!ExpInfoModalGuard.owned() || !(ExpInfoModalGuard.dialog instanceof @~llil@)) return null;
+        @~llil@ d = (@~llil@)ExpInfoModalGuard.dialog;
+        return d.p == 0 ? d : null;
+    }
+
+    static int lineTop(@~llil@ d, int line) {
+        return d.o + TOP + line * ROW;
+    }
+
+    /** Four tabs; gap-table actions keep their existing indices. */
+    static int target(@~llil@ d, int x, int y) {
+        int scale = @~llilll@.b < 1 ? 1 : @~llilll@.b;
+        x /= scale;
+        y /= scale;
+        int left = d.n + MARGIN, width = (d.l - 2 * MARGIN) / TABS, top = d.o + TAB_TOP;
+        if (y >= top && y < top + TAB_H && x >= left && x < left + TABS * width) return (x - left) / width;
+        if (tab != 2 || x < left || x >= d.n + d.l - MARGIN || y < lineTop(d, 0) - 2) return -1;
+        int line = (y - lineTop(d, 0) + 2) / ROW;
+        if (line == shownRows - 2) {
+            int third = (x - left) * 3 / (d.l - 2 * MARGIN);
+            return third <= 0 ? MODE : third == 1 ? RETRY : CLEAR;
+        }
+        if (line == 1) return HEADER;
+        if (line >= 2 && line < shownRows - 2) return detail >= 0 ? HEADER : ROW_BASE + line - 2;
+        return -1;
+    }
+
+    /** ExpInfoModalGuard.press prefix (raw pointer coordinates). */
+    public static void press(int x, int y) {
+        try {
+            @~llil@ d = dialog();
+            pressed = d == null ? -1 : target(d, x, y);
+        } catch (Throwable ignored) {
+            pressed = -1;
+        }
+    }
+
+    /** ExpInfoModalGuard.release prefix: a press and release on the same spot acts. */
+    public static void release(int x, int y) {
+        try {
+            @~llil@ d = dialog();
+            int at = d == null ? -1 : target(d, x, y);
+            if (at >= 0 && at == pressed) act(d, at);
+        } catch (Throwable ignored) {
+        }
+        pressed = -1;
+    }
+
+    static void act(@~llil@ d, int at) {
+        if (at < TABS) {
+            if (at != tab) show(d, at);
+            return;
+        }
+        if (at == HEADER) {
+            if (detail >= 0) detail = -1; else byNext = !byNext;
+        } else if (at == MODE) {
+            SkillCastStats.cyclePace();
+        } else if (at == RETRY) {
+            SkillCastStats.setRetry(!SkillCastStats.retryEnabled());
+        } else if (at == CLEAR) {
+            SkillCastStats.clearGaps();
+            detail = -1;
+        } else if (at >= ROW_BASE) {
+            int row = at - ROW_BASE;
+            if (row >= gapIds.length) return;
+            detail = gapIds[row];
+        }
+        build(now());
+        layout(d, ExpInfoModalGuard.button());
+    }
+
+    static void show(@~llil@ d, int next) {
+        bt button = ExpInfoModalGuard.button();
+        tab = next;
+        if (next == 0 || next == GOLD_TAB) {
+            ExpEstimateBridge.line();
+            String info = next == 0
+                    ? ExpEstimateSupport.info(@~liiliii@.@~llilliill@.bA, System.currentTimeMillis())
+                    : ExpEstimateBridge.goldInfo();
+            economyText = info;
+            economyAt = now();
+            pressed = -1;
+            detail = -1;
+            d.@~@(new StringBuffer("\n").append(info).toString(), button, true);
+            widen(d);
+            tab = next;
+            return;
+        }
+        detail = -1;
+        build(now());
+        layout(d, button);
+    }
+
+    /** Blank native lines reserve every row the tab paints itself. */
+    static void layout(@~llil@ d, bt button) {
+        int rows = rows();
+        StringBuffer text = new StringBuffer();
+        if (tab == 1 && ids.length == 0) text.append("\n\nChưa có lượt tung chiêu nào.\nBật Tấn công đặc biệt để bắt đầu đếm.");
+        else for (int i = 0; i < rows; i++) text.append('\n');
+        d.@~@(text.toString(), button, true);
+        widen(d);
+        shownRows = rows;
+    }
+
+    /** All tabs share one width so the tab bar never jumps; the native layout stays centered. */
+    static void widen(@~llil@ d) {
+        int width = @~liilllii@.@~lllillll@ - 8;
+        if (width > MAX_WIDTH) width = MAX_WIDTH;
+        if (width > d.l) {
+            d.l = width;
+            d.n = @~liilllii@.@~liiilliilii@ - width / 2;
+        }
+    }
+
+    /** Native lines of the current tab (line 0 is the tab bar). */
+    static int rows() {
+        int fit = (@~liilllii@.@~liiiiiil@ - (@~liilllii@.@~lililllli@ << 1) - 5 - @~llil@.d - TOP) / ROW;
+        int room = Math.max(1, fit - 4);
+        if (tab == 1) return ids.length == 0 ? 3 : Math.min(ids.length, room) + 4;
+        if (detail >= 0) return Math.min(binLabel.length, room) + 4;
+        if (gapIds.length == 0) return 5;
+        return Math.min(gapIds.length, room) + 4;
+    }
+
+    /** Canvas loop: refresh the open table; new rows grow the dialog. */
+    public static void uiTick() {
+        try {
+            @~llil@ d = dialog();
+            if (d == null) { if (!ExpInfoModalGuard.owned()) tab = 0; return; }
+            widen(d);
+            long now = now();
+            if (tab == 0 || tab == GOLD_TAB) {
+                if (now >= economyAt && now - economyAt < 1000L) return;
+                economyAt = now;
+                String info = tab == 0
+                        ? ExpEstimateSupport.info(@~liiliii@.@~llilliill@.bA, System.currentTimeMillis())
+                        : ExpEstimateBridge.goldInfo();
+                if (info != null && !info.equals(economyText)) {
+                    economyText = info;
+                    d.@~@(new StringBuffer("\n").append(info).toString(), ExpInfoModalGuard.button(), true);
+                    widen(d);
+                }
+                return;
+            }
+            if (now >= builtAt && now - builtAt < REFRESH_MS) return;
+            SkillCastStats.expire(now);
+            if (SkillCastStats.version() == shownVersion) { builtAt = now; return; }
+            build(now);
+            if (rows() != shownRows) layout(d, ExpInfoModalGuard.button());
+        } catch (Throwable ignored) {
+        }
+    }
+
+    static void build(long now) {
+        SkillCastStats.expire(now);
+        shownVersion = SkillCastStats.version();
+        builtAt = now;
+        int[] skills = SkillCastStats.skills();
+        int n = skills.length;
+        String[] name = new String[n], c = new String[n], m = new String[n], r = new String[n];
+        int casts = 0, hits = 0, misses = 0, dodges = 0, silent = 0;
+        for (int i = 0; i < n; i++) {
+            int s = skills[i], sc = SkillCastStats.casts(s), sh = SkillCastStats.hits(s), sm = SkillCastStats.misses(s);
+            casts += sc; hits += sh; misses += sm;
+            dodges += SkillCastStats.dodges(s); silent += SkillCastStats.silent(s);
+            name[i] = skillName(s);
+            c[i] = String.valueOf(sc);
+            m[i] = String.valueOf(sm);
+            r[i] = SkillCastStats.rate(sh, sm);
+        }
+        ids = skills; names = name; cast = c; miss = m; rate = r;
+        totalCast = String.valueOf(casts);
+        totalMiss = String.valueOf(misses);
+        totalRate = SkillCastStats.rate(hits, misses);
+        summary = new StringBuffer("Né ").append(dodges).append(", không trả lời ").append(silent)
+                .append(", ").append(SkillCastStats.hitsPerMinute()).append(" trúng/phút").toString();
+        buildGaps();
+    }
+
+    static void buildGaps() {
+        int[] skills = SkillCastStats.gapSkills(byNext);
+        int n = skills.length;
+        String[] name = new String[n], samples = new String[n], x = new String[n], below = new String[n], above = new String[n];
+        for (int i = 0; i < n; i++) {
+            int[] f = SkillCastStats.fit(byNext, skills[i]);
+            name[i] = skillName(skills[i]);
+            samples[i] = String.valueOf(f[0]);
+            // No send below X yet: X is only an upper bound.
+            x[i] = f[3] == 0 ? new StringBuffer("<=").append(f[1]).toString() : String.valueOf(f[1]);
+            below[i] = SkillCastStats.rate(f[2], f[3] - f[2]);
+            above[i] = SkillCastStats.rate(f[4], f[5] - f[4]);
+        }
+        gapIds = skills; gapNames = name; gapSamples = samples; gapX = x; gapBelow = below; gapAbove = above;
+        if (detail < 0) { binLabel = binSends = binRate = new String[0]; return; }
+        int[] bins = SkillCastStats.gapBins(byNext, detail, DETAIL_MS);
+        int groups = bins.length / 2, used = 0;
+        for (int g = 0; g < groups; g++) if (bins[g * 2] > 0) used++;
+        String[] label = new String[used], sends = new String[used], hit = new String[used];
+        for (int g = 0, k = 0; g < groups; g++) {
+            if (bins[g * 2] == 0) continue;
+            label[k] = g == groups - 1 ? new StringBuffer().append(g * DETAIL_MS).append("ms+").toString() : new StringBuffer().append(g * DETAIL_MS).append('-').append((g + 1) * DETAIL_MS).append("ms").toString();
+            sends[k] = String.valueOf(bins[g * 2]);
+            hit[k++] = SkillCastStats.rate(bins[g * 2 + 1], bins[g * 2] - bins[g * 2 + 1]);
+        }
+        binLabel = label; binSends = sends; binRate = hit;
+    }
+
+    static String skillName(int skill) {
+        try {
+            @~liiiiill@ template = @~liillil@.@~liili@(skill);
+            if (template != null && template.@~lllilllil@ != null && template.@~lllilllil@.length() > 0) return template.@~lllilllil@;
+        } catch (Throwable ignored) {
+        }
+        return new StringBuffer("Chiêu ").append(skill).toString();
+    }
+
+    // ------------------------------------------------------------------ paint
+
+    /** After the native dialog paint: the tab bar, and the table of the active tab. */
+    public static void paint(@~llilll@ g) {
+        try {
+            @~llil@ d = dialog();
+            if (g == null || d == null) return;
+            @~liilllii@.a(g);
+            tabs(g, d);
+            if (tab == 1 && ids.length > 0) table(g, d);
+            else if (tab == 2) gaps(g, d);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    static void tabs(@~llilll@ g, @~llil@ d) {
+        int left = d.n + MARGIN, width = (d.l - 2 * MARGIN) / TABS, top = d.o + TAB_TOP;
+        @~lilillil@ font = @~lilillil@.@~liililliiil@;
+        String[] label = FULL;
+        for (int i = 0; i < TABS; i++) if (font.@~llli@(FULL[i]) > width - 6) label = SHORT;
+        for (int i = 0; i < TABS; i++) {
+            int x = left + i * width;
+            boolean active = i == tab;
+            box(g, x, top, width, active);
+            (active ? @~lilillil@.@~liililliili@ : @~lilillil@.@~liilillliil@).@~@(g, fit(font, label[i], width - 4), x + width / 2, top + 3, 2, true);
+        }
+    }
+
+    static void box(@~llilll@ g, int x, int y, int w, boolean active) {
+        g.@~lili@(active ? 0x8C5A1E : 0x2E2214);
+        g.@~lii@(x, y, w, TAB_H);
+        g.@~lili@(active ? 0xF0C060 : 0x6E5A3C);
+        g.@~ll@(x, y, w, TAB_H);
+    }
+
+    static void table(@~llilll@ g, @~llil@ d) {
+        @~lilillil@ white = @~lilillil@.@~liililliiil@, head = @~lilillil@.@~liililliili@;
+        int left = d.n + MARGIN + 2, right = d.n + d.l - MARGIN - 2;
+        int rateX = right, missX = right - 44, castX = missX - 34, nameX = left + 20;
+        int nameMax = castX - 30 - nameX;
+        int y = lineTop(d, 1);
+        head.@~@(g, "ID", left, y, 0, true);
+        head.@~@(g, "Tên chiêu", nameX, y, 0, true);
+        head.@~@(g, "Tung", castX, y, 1, true);
+        head.@~@(g, "Hụt", missX, y, 1, true);
+        head.@~@(g, "Trúng", rateX, y, 1, true);
+        int rows = Math.min(ids.length, shownRows - 4);
+        for (int i = 0; i < rows; i++) {
+            y += ROW;
+            white.@~@(g, String.valueOf(ids[i]), left, y, 0, true);
+            white.@~@(g, fit(white, names[i], nameMax), nameX, y, 0, true);
+            white.@~@(g, cast[i], castX, y, 1, true);
+            @~lilillil@.@~liilillilii@.@~@(g, miss[i], missX, y, 1, true);
+            @~lilillil@.@~liilillilli@.@~@(g, rate[i], rateX, y, 1, true);
+        }
+        y += ROW;
+        rule(g, left, right, y);
+        head.@~@(g, "Tổng", nameX, y, 0, true);
+        head.@~@(g, totalCast, castX, y, 1, true);
+        head.@~@(g, totalMiss, missX, y, 1, true);
+        head.@~@(g, totalRate, rateX, y, 1, true);
+        y += ROW;
+        @~lilillil@.@~liilillliil@.@~@(g, fit(white, summary, right - left), left, y, 0, true);
+    }
+
+    static void rule(@~llilll@ g, int left, int right, int y) {
+        g.@~lili@(0x6E5A3C);
+        g.@~lii@(left, y - 2, right - left, 1);
+    }
+
+    static void gaps(@~llilll@ g, @~llil@ d) {
+        @~lilillil@ white = @~lilillil@.@~liililliiil@, head = @~lilillil@.@~liililliili@, gray = @~lilillil@.@~liilillliil@;
+        int left = d.n + MARGIN + 2, right = d.n + d.l - MARGIN - 2;
+        int y = lineTop(d, 1);
+        if (detail >= 0) {
+            int sendsX = right - 44, nameMax = sendsX - 34 - left;
+            String title = new StringBuffer("< ").append(byNext ? "" : "Sau ").append(skillName(detail)).toString();
+            head.@~@(g, fit(head, title, nameMax), left, y, 0, true);
+            head.@~@(g, "Mẫu", sendsX, y, 1, true);
+            head.@~@(g, "Trúng", right, y, 1, true);
+            int rows = Math.min(binLabel.length, shownRows - 4);
+            for (int i = 0; i < rows; i++) {
+                y += ROW;
+                white.@~@(g, binLabel[i], left + 4, y, 0, true);
+                white.@~@(g, binSends[i], sendsX, y, 1, true);
+                @~lilillil@.@~liilillilli@.@~@(g, binRate[i], right, y, 1, true);
+            }
+        } else if (gapIds.length == 0) {
+            white.@~@(g, "Chưa có số đo khoảng chờ.", left, y, 0, true);
+            gray.@~@(g, fit(gray, "Bật Tấn công đặc biệt để đo.", right - left), left, y + ROW, 0, true);
+        } else {
+            int aboveX = right, belowX = right - 36, xX = belowX - 36, samplesX = xX - 42, nameX = left + 18;
+            int nameMax = samplesX - 26 - nameX;
+            head.@~@(g, "ID", left, y, 0, true);
+            head.@~@(g, fit(head, byNext ? "Chiêu (sau) >" : "Chiêu trước >", nameMax), nameX, y, 0, true);
+            head.@~@(g, "Mẫu", samplesX, y, 1, true);
+            head.@~@(g, "X ms", xX, y, 1, true);
+            head.@~@(g, "<X", belowX, y, 1, true);
+            head.@~@(g, ">=X", aboveX, y, 1, true);
+            int rows = Math.min(gapIds.length, shownRows - 4);
+            for (int i = 0; i < rows; i++) {
+                y += ROW;
+                white.@~@(g, String.valueOf(gapIds[i]), left, y, 0, true);
+                white.@~@(g, fit(white, gapNames[i], nameMax), nameX, y, 0, true);
+                white.@~@(g, gapSamples[i], samplesX, y, 1, true);
+                head.@~@(g, gapX[i], xX, y, 1, true);
+                @~lilillil@.@~liilillilii@.@~@(g, gapBelow[i], belowX, y, 1, true);
+                @~lilillil@.@~liilillilli@.@~@(g, gapAbove[i], aboveX, y, 1, true);
+            }
+        }
+        int buttons = lineTop(d, shownRows - 2) - 3, third = (right - left) / 3;
+        boolean lock = SkillCastStats.lockMode(), retry = SkillCastStats.retryEnabled();
+        box(g, left, buttons, third - 2, lock);
+        box(g, left + third + 1, buttons, third - 2, retry);
+        box(g, left + 2 * third + 2, buttons, third - 2, false);
+        (lock ? head : white).@~@(g, fit(head, SkillCastStats.paceLabel(SkillCastStats.paceMode()), third - 6), left + third / 2, buttons + 3, 2, true);
+        (retry ? head : white).@~@(g, fit(head, retry ? "Tung lại: Bật" : "Tung lại: Tắt", third - 6), left + third + third / 2, buttons + 3, 2, true);
+        white.@~@(g, fit(white, "Xóa số đo", third - 6), left + 2 * third + 2 + third / 2, buttons + 3, 2, true);
+        gray.@~@(g, footer(gray, right - left), left, lineTop(d, shownRows - 1), 0, true);
+    }
+
+    /**
+     * Last line of "Khoảng chờ": né / không trả lời / trúng/phút. File-log builds keep it and show
+     * "Log lỗi: …" instead only when the log could not be written (Hung_test_attack, 2026-10-29).
+     */
+    static String footer(@~lilillil@ font, int width) {
+//@file-log-begin
+        String error = SkillCastLog.error();
+        if (error != null) return tail(font, new StringBuffer("Log lỗi: ").append(error).toString(), width);
+//@file-log-end
+        return fit(font, summary, width);
+    }
+
+    static String fit(@~lilillil@ font, String text, int width) {
+        if (text == null || font.@~llli@(text) <= width) return text;
+        for (int k = text.length() - 1; k > 0; k--) {
+            String cut = new StringBuffer(text.substring(0, k)).append("..").toString();
+            if (font.@~llli@(cut) <= width) return cut;
+        }
+        return "..";
+    }
+
+    /** Keeps the end of a long text (a file path): "..hso_logs/skill-gap-….csv". */
+    static String tail(@~lilillil@ font, String text, int width) {
+        if (text == null || font.@~llli@(text) <= width) return text;
+        for (int k = 1; k < text.length(); k++) {
+            String cut = new StringBuffer("..").append(text.substring(k)).toString();
+            if (font.@~llli@(cut) <= width) return cut;
+        }
+        return "..";
+    }
+}
